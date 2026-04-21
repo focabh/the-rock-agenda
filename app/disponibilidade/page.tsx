@@ -5,8 +5,16 @@ import { getAvailabilityByMonth, upsertAvailability, deleteAvailability } from '
 import type { MusicianAvailability, AvailabilityStatus, MusicianId } from '@/lib/types'
 import { MUSICIANS } from '@/lib/types'
 import { MONTH_NAMES, getDaysInMonth } from '@/lib/utils'
+import { useAuth } from '@/components/AuthProvider'
 
 export default function DisponibilidadePage() {
+  const { isAdmin, isProducer, musicianId } = useAuth()
+  const canManageAll = isAdmin || isProducer
+  // Regular musicians only see/edit their own row
+  const visibleMusicians = canManageAll
+    ? MUSICIANS
+    : MUSICIANS.filter((m) => m.id === musicianId)
+
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear() >= 2026 ? Math.min(today.getFullYear(), 2027) : 2026)
   const [month, setMonth] = useState(
@@ -40,16 +48,16 @@ export default function DisponibilidadePage() {
     return `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   })
 
-  async function toggleStatus(musicianId: MusicianId, date: string) {
-    const existing = getEntry(musicianId, date)
+  async function toggleStatus(mId: MusicianId, date: string) {
+    const existing = getEntry(mId, date)
     setSaving(true)
     try {
       if (!existing || existing.status === 'available') {
-        await upsertAvailability({ musician_id: musicianId, date, status: 'unavailable' })
+        await upsertAvailability({ musician_id: mId, date, status: 'unavailable' })
       } else if (existing.status === 'unavailable') {
-        await upsertAvailability({ musician_id: musicianId, date, status: 'other_band' })
+        await upsertAvailability({ musician_id: mId, date, status: 'other_band' })
       } else {
-        await deleteAvailability(musicianId, date)
+        await deleteAvailability(mId, date)
       }
       await load()
     } finally {
@@ -118,7 +126,7 @@ export default function DisponibilidadePage() {
                 </tr>
               </thead>
               <tbody>
-                {MUSICIANS.map((m, mi) => (
+                {visibleMusicians.map((m) => (
                   <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 12px' }}>
                       <p style={{ fontWeight: 600 }}>{m.name}</p>
@@ -133,7 +141,7 @@ export default function DisponibilidadePage() {
                         <td key={d} style={{ padding: '2px', textAlign: 'center' }}>
                           <button
                             onClick={() => toggleStatus(m.id as MusicianId, d)}
-                            disabled={saving}
+                            disabled={saving || (!canManageAll && m.id !== musicianId)}
                             title={entry?.status === 'unavailable' ? `${m.name} — indisponível${entry.reason ? ': ' + entry.reason : ''}${entry.sub_name ? ' | Sub: ' + entry.sub_name : ''}` : entry?.status === 'other_band' ? `${m.name} — outro compromisso` : `${m.name} — disponível`}
                             style={{
                               width: 28,
@@ -143,7 +151,8 @@ export default function DisponibilidadePage() {
                               background: s.bg,
                               color: s.color,
                               fontSize: entry?.status === 'other_band' ? 10 : 14,
-                              cursor: 'pointer',
+                              cursor: (!canManageAll && m.id !== musicianId) ? 'default' : 'pointer',
+                              opacity: (!canManageAll && m.id !== musicianId) ? 0.5 : 1,
                               transition: 'background 0.1s',
                               display: 'flex',
                               alignItems: 'center',

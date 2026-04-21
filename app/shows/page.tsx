@@ -3,11 +3,14 @@ import { useState, useEffect, useCallback } from 'react'
 import Shell from '@/components/Shell'
 import ShowForm from '@/components/ShowForm'
 import { getShows, deleteShow } from '@/lib/db'
+import { useAuth } from '@/components/AuthProvider'
 import type { Show } from '@/lib/types'
 import { formatDate, formatCurrency, formatDuration } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
 export default function ShowsPage() {
+  const { isAdmin, isProducer } = useAuth()
+  const canManage = isAdmin || isProducer
   const isMobile = useIsMobile()
   const [shows, setShows] = useState<Show[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,6 +46,15 @@ export default function ShowsPage() {
     await deleteShow(show.id)
     load()
   }
+
+  if (!canManage) return (
+    <Shell>
+      <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+        <p style={{ fontSize: 32, marginBottom: 8 }}>🔒</p>
+        <p>Acesso restrito a administradores e produtores.</p>
+      </div>
+    </Shell>
+  )
 
   const statusColors: Record<string, string> = {
     confirmed: 'var(--green)',

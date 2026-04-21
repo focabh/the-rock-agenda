@@ -5,9 +5,20 @@ import { getShows, updateShow } from '@/lib/db'
 import type { Show } from '@/lib/types'
 import { formatCurrency, formatDate, MONTH_NAMES } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useAuth } from '@/components/AuthProvider'
 
 export default function FinanceiroPage() {
+  const { isAdmin, isProducer } = useAuth()
   const isMobile = useIsMobile()
+
+  if (!isAdmin && !isProducer) return (
+    <Shell>
+      <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+        <p style={{ fontSize: 32, marginBottom: 8 }}>🔒</p>
+        <p>Acesso restrito a administradores e produtores.</p>
+      </div>
+    </Shell>
+  )
   const [shows, setShows] = useState<Show[]>([])
   const [loading, setLoading] = useState(true)
   const [filterYear, setFilterYear] = useState<number>(
