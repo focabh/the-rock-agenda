@@ -17,7 +17,8 @@ export default function PerfilPage() {
   })
   const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' })
   const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false })
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarMsg, setAvatarMsg] = useState('')
   const [saving, setSaving] = useState(false)
   const [savingPw, setSavingPw] = useState(false)
   const [msg, setMsg] = useState('')
@@ -43,6 +44,23 @@ export default function PerfilPage() {
     if (errors[key]) setErrors((e) => { const n = {...e}; delete n[key]; return n })
   }
 
+  async function handleAvatarChange(file: File) {
+    if (!profile) return
+    setUploadingAvatar(true)
+    setAvatarMsg('')
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `${profile.id}/avatar.${ext}`
+    const { error: uploadErr } = await supabase.storage
+      .from('avatars')
+      .upload(path, file, { upsert: true })
+    if (uploadErr) { setAvatarMsg('Erro ao enviar foto'); setUploadingAvatar(false); return }
+    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+    const { error } = await supabase.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', profile.id)
+    if (error) setAvatarMsg('Erro ao salvar foto')
+    else { setAvatarMsg('✓ Foto atualizada!'); await refreshProfile() }
+    setUploadingAvatar(false)
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     const errs: Record<string, string> = {}
@@ -55,33 +73,17 @@ export default function PerfilPage() {
 
     setSaving(true)
     setMsg('')
-
-    let avatar_url: string | undefined
-    if (avatarFile) {
-      const ext = avatarFile.name.split('.').pop() ?? 'jpg'
-      const path = `${profile!.id}/avatar.${ext}`
-      const { error: uploadErr } = await supabase.storage
-        .from('avatars')
-        .upload(path, avatarFile, { upsert: true })
-      if (uploadErr) { setMsg('Erro ao enviar foto: ' + uploadErr.message); setSaving(false); return }
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-      avatar_url = urlData.publicUrl
-    }
-
-    const updates: Record<string, unknown> = {
+    const { error } = await supabase.from('profiles').update({
       full_name: form.full_name.trim(),
       nickname: form.nickname.trim(),
       birth_date: form.birth_date,
       phone: form.phone.replace(/\D/g, ''),
       cep: form.cep ? form.cep.replace(/\D/g, '') : null,
       pix_key: form.pix_key.trim(),
-    }
-    if (avatar_url) updates.avatar_url = avatar_url
-
-    const { error } = await supabase.from('profiles').update(updates).eq('id', profile!.id)
+    }).eq('id', profile!.id)
 
     if (error) setMsg('Erro ao salvar: ' + error.message)
-    else { setMsg('✓ Perfil atualizado com sucesso!'); setAvatarFile(null); await refreshProfile() }
+    else { setMsg('✓ Perfil atualizado com sucesso!'); await refreshProfile() }
     setSaving(false)
   }
 
@@ -130,13 +132,15 @@ export default function PerfilPage() {
         )}
 
         {/* Avatar */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 20, gap: 6 }}>
           <AvatarUpload
-            value={avatarFile}
+            value={null}
             previewUrl={profile?.avatar_url}
-            onChange={(file) => setAvatarFile(file)}
+            onChange={handleAvatarChange}
             size={100}
           />
+          {uploadingAvatar && <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Enviando foto...</p>}
+          {avatarMsg && <p style={{ fontSize: 12, color: avatarMsg.startsWith('✓') ? 'var(--green)' : 'var(--red)' }}>{avatarMsg}</p>}
         </div>
 
         {/* Profile form */}
