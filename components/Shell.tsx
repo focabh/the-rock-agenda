@@ -3,28 +3,31 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import { useState } from 'react'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const NAV = [
-  { href: '/', label: 'Calendário' },
-  { href: '/shows', label: 'Shows' },
-  { href: '/disponibilidade', label: 'Disponibilidade' },
-  { href: '/financeiro', label: 'Financeiro' },
+  { href: '/', label: 'Calendário', icon: '📅' },
+  { href: '/shows', label: 'Shows', icon: '🎸' },
+  { href: '/disponibilidade', label: 'Disponível', icon: '👥' },
+  { href: '/financeiro', label: 'Financeiro', icon: '💰' },
 ]
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname()
+  const isMobile = useIsMobile()
   const [logoError, setLogoError] = useState(false)
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Top header */}
       <header style={{
         background: 'var(--navy)',
         borderBottom: '1px solid var(--border)',
-        padding: '0 24px',
+        padding: isMobile ? '0 16px' : '0 24px',
         display: 'flex',
         alignItems: 'center',
-        gap: 28,
-        height: 64,
+        gap: isMobile ? 0 : 28,
+        height: 60,
         position: 'sticky',
         top: 0,
         zIndex: 100,
@@ -36,8 +39,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             <Image
               src="/logo.png"
               alt="The Rock"
-              width={100}
-              height={50}
+              width={isMobile ? 80 : 100}
+              height={isMobile ? 40 : 50}
               style={{ objectFit: 'contain', objectPosition: 'left center' }}
               onError={() => setLogoError(true)}
               priority
@@ -47,11 +50,60 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           )}
         </Link>
 
-        {/* Divider */}
-        <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
+        {/* Desktop nav */}
+        {!isMobile && (
+          <>
+            <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
+            <nav style={{ display: 'flex', gap: 4, flex: 1 }}>
+              {NAV.map((item) => {
+                const active = path === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    style={{
+                      padding: '7px 16px',
+                      borderRadius: 6,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      color: active ? '#fff' : 'var(--text-muted)',
+                      background: active ? 'var(--accent)' : 'transparent',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+          </>
+        )}
+      </header>
 
-        {/* Nav */}
-        <nav style={{ display: 'flex', gap: 4, flex: 1 }}>
+      {/* Main content */}
+      <main style={{
+        flex: 1,
+        padding: isMobile ? '16px 12px' : 24,
+        paddingBottom: isMobile ? 80 : 24,
+      }}>
+        {children}
+      </main>
+
+      {/* Mobile bottom nav */}
+      {isMobile && (
+        <nav style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 64,
+          background: 'var(--navy)',
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          zIndex: 100,
+          boxShadow: '0 -1px 0 rgba(204,26,26,0.2)',
+        }}>
           {NAV.map((item) => {
             const active = path === item.href
             return (
@@ -59,24 +111,28 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 style={{
-                  padding: '7px 16px',
-                  borderRadius: 6,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  letterSpacing: '0.02em',
-                  color: active ? '#fff' : 'var(--text-muted)',
-                  background: active ? 'var(--accent)' : 'transparent',
-                  transition: 'all 0.15s',
-                  position: 'relative',
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 3,
+                  fontSize: 10,
+                  fontWeight: active ? 700 : 500,
+                  color: active ? 'var(--accent)' : 'var(--text-muted)',
+                  textDecoration: 'none',
+                  paddingBottom: 4,
+                  borderTop: active ? '2px solid var(--accent)' : '2px solid transparent',
+                  transition: 'color 0.15s',
                 }}
               >
-                {item.label}
+                <span style={{ fontSize: 20 }}>{item.icon}</span>
+                <span>{item.label}</span>
               </Link>
             )
           })}
         </nav>
-      </header>
-      <main style={{ flex: 1, padding: 24 }}>{children}</main>
+      )}
     </div>
   )
 }
@@ -85,7 +141,7 @@ function TextLogo() {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
       <span style={{
-        fontSize: 26,
+        fontSize: 24,
         fontFamily: "'Barlow Condensed', sans-serif",
         fontWeight: 800,
         color: '#ffffff',
@@ -95,15 +151,7 @@ function TextLogo() {
       }}>
         THE ROCK
       </span>
-      <span style={{
-        fontSize: 10,
-        color: 'var(--accent)',
-        fontWeight: 700,
-        letterSpacing: '0.12em',
-        textTransform: 'uppercase',
-      }}>
-        ⚡
-      </span>
+      <span style={{ fontSize: 10, color: 'var(--accent)' }}>⚡</span>
     </div>
   )
 }

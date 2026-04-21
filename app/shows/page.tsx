@@ -5,8 +5,10 @@ import ShowForm from '@/components/ShowForm'
 import { getShows, deleteShow } from '@/lib/db'
 import type { Show } from '@/lib/types'
 import { formatDate, formatCurrency, formatDuration } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 export default function ShowsPage() {
+  const isMobile = useIsMobile()
   const [shows, setShows] = useState<Show[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Show | null>(null)
@@ -128,71 +130,83 @@ export default function ShowsPage() {
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
                 borderRadius: 10,
-                padding: '14px 18px',
+                padding: isMobile ? '12px 14px' : '14px 18px',
                 display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                transition: 'border-color 0.15s',
+                flexDirection: isMobile ? 'column' : 'row',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                gap: isMobile ? 10 : 16,
               }}>
-                {/* Date */}
-                <div style={{ minWidth: 70, textAlign: 'center' }}>
-                  <p style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, color: 'var(--accent)' }}>
-                    {show.date.slice(8)}
-                  </p>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][Number(show.date.slice(5, 7)) - 1]}
-                    {' '}{show.date.slice(0, 4)}
-                  </p>
-                </div>
-
-                <div style={{ width: 1, height: 40, background: 'var(--border)' }} />
-
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <p style={{ fontWeight: 700, fontSize: 15 }}>{show.client_name}</p>
-                    <span style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: statusColors[show.status],
-                      background: `${statusColors[show.status]}20`,
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                    }}>{statusLabels[show.status]}</span>
+                {/* Date + Info row on mobile */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+                  <div style={{ minWidth: 52, textAlign: 'center' }}>
+                    <p style={{ fontSize: isMobile ? 20 : 22, fontWeight: 800, lineHeight: 1, color: 'var(--accent)' }}>
+                      {show.date.slice(8)}
+                    </p>
+                    <p style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                      {['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][Number(show.date.slice(5, 7)) - 1]}
+                      {' '}{show.date.slice(0, 4)}
+                    </p>
                   </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {show.venue && `${show.venue} · `}
-                    {show.city && `${show.city} · `}
-                    {show.time} · {formatDuration(show.duration_minutes)}
-                  </p>
+
+                  <div style={{ width: 1, height: 36, background: 'var(--border)', flexShrink: 0 }} />
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
+                      <p style={{ fontWeight: 700, fontSize: 14 }}>{show.client_name}</p>
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: statusColors[show.status],
+                        background: `${statusColors[show.status]}20`,
+                        padding: '2px 7px',
+                        borderRadius: 4,
+                      }}>{statusLabels[show.status]}</span>
+                    </div>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {show.venue && `${show.venue} · `}
+                      {show.city && `${show.city} · `}
+                      {show.time} · {formatDuration(show.duration_minutes)}
+                    </p>
+                  </div>
+
+                  {/* Finance — top right on mobile */}
+                  {isMobile && (
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <p style={{ fontWeight: 700, fontSize: 14 }}>{formatCurrency(show.fee)}</p>
+                      <p style={{ fontSize: 11, color: show.is_paid ? 'var(--green)' : 'var(--orange)' }}>
+                        {show.is_paid ? '✓ Pago' : '⏳ A receber'}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Finance */}
-                <div style={{ textAlign: 'right', minWidth: 130 }}>
-                  <p style={{ fontWeight: 700, fontSize: 15 }}>{formatCurrency(show.fee)}</p>
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Comissão: {formatCurrency(show.fee * show.commission_pct / 100)}
-                  </p>
-                  <p style={{ fontSize: 12, color: show.is_paid ? 'var(--green)' : 'var(--orange)' }}>
-                    {show.is_paid ? '✓ Pago' : '⏳ A receber'}
-                  </p>
-                </div>
+                {/* Desktop: finance + actions in same row */}
+                {!isMobile && (
+                  <>
+                    <div style={{ textAlign: 'right', minWidth: 130 }}>
+                      <p style={{ fontWeight: 700, fontSize: 15 }}>{formatCurrency(show.fee)}</p>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        Comissão: {formatCurrency(show.fee * show.commission_pct / 100)}
+                      </p>
+                      <p style={{ fontSize: 12, color: show.is_paid ? 'var(--green)' : 'var(--orange)' }}>
+                        {show.is_paid ? '✓ Pago' : '⏳ A receber'}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => { setEditing(show); setAdding(false) }} style={{ padding: '7px 14px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 13 }}>Editar</button>
+                      <button onClick={() => handleDelete(show)} style={{ padding: '7px 14px', borderRadius: 7, border: '1px solid rgba(255,107,107,0.3)', background: 'transparent', color: 'var(--red)', fontSize: 13 }}>Excluir</button>
+                    </div>
+                  </>
+                )}
 
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button
-                    onClick={() => { setEditing(show); setAdding(false) }}
-                    style={{ padding: '7px 14px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 13 }}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDelete(show)}
-                    style={{ padding: '7px 14px', borderRadius: 7, border: '1px solid rgba(248,113,113,0.3)', background: 'transparent', color: 'var(--red)', fontSize: 13 }}
-                  >
-                    Excluir
-                  </button>
-                </div>
+                {/* Mobile: actions row */}
+                {isMobile && (
+                  <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                    <button onClick={() => { setEditing(show); setAdding(false) }} style={{ flex: 1, padding: '8px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>Editar</button>
+                    <button onClick={() => handleDelete(show)} style={{ flex: 1, padding: '8px', borderRadius: 7, border: '1px solid rgba(255,107,107,0.3)', background: 'transparent', color: 'var(--red)', fontSize: 13, fontWeight: 600 }}>Excluir</button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

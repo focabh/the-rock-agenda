@@ -4,8 +4,10 @@ import Shell from '@/components/Shell'
 import { getShows, updateShow } from '@/lib/db'
 import type { Show } from '@/lib/types'
 import { formatCurrency, formatDate, MONTH_NAMES } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 export default function FinanceiroPage() {
+  const isMobile = useIsMobile()
   const [shows, setShows] = useState<Show[]>([])
   const [loading, setLoading] = useState(true)
   const [filterYear, setFilterYear] = useState<number>(
@@ -57,7 +59,7 @@ export default function FinanceiroPage() {
         </div>
 
         {/* Summary cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
           <Card label="Shows confirmados" value={String(shows.length)} sub="no período" />
           <Card label="Cachê total" value={formatCurrency(totalFee)} sub={`Banda: ${formatCurrency(bandNet)}`} />
           <Card label="Comissão produtora" value={formatCurrency(totalCommission)} sub={`Média: ${shows.length > 0 ? (shows.reduce((s,x)=>s+x.commission_pct,0)/shows.length).toFixed(1) : 0}%`} />

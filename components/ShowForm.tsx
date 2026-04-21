@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import type { Show, ShowStatus } from '@/lib/types'
 import { createShow, updateShow } from '@/lib/db'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface Props {
   date?: string
@@ -18,6 +19,7 @@ const FIELD_STYLE = {
 const LABEL = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }
 
 export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
+  const isMobile = useIsMobile()
   const [form, setForm] = useState({
     date: existing?.date ?? date ?? '',
     time: existing?.time ?? '20:00',
@@ -59,7 +61,7 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
         <div style={FIELD_STYLE}>
           <label style={LABEL}>Data</label>
           <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} min="2026-01-01" max="2027-12-31" />
@@ -79,7 +81,7 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
         <div style={FIELD_STYLE}>
           <label style={LABEL}>Local / Venue</label>
           <input placeholder="Nome do local" value={form.venue} onChange={(e) => set('venue', e.target.value)} />
@@ -104,7 +106,7 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
         </select>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
         <div style={FIELD_STYLE}>
           <label style={LABEL}>Cachê (R$)</label>
           <input
@@ -128,7 +130,7 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
         <div style={FIELD_STYLE}>
           <label style={LABEL}>Status do show</label>
           <select value={form.status} onChange={(e) => set('status', e.target.value as ShowStatus)}>
