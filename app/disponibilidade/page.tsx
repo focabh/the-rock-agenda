@@ -6,9 +6,11 @@ import type { MusicianAvailability, AvailabilityStatus, MusicianId } from '@/lib
 import { MUSICIANS } from '@/lib/types'
 import { MONTH_NAMES, getDaysInMonth } from '@/lib/utils'
 import { useAuth } from '@/components/AuthProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 export default function DisponibilidadePage() {
   const { isAdmin, isProducer, musicianId } = useAuth()
+  const isMobile = useIsMobile()
   const canManageAll = isAdmin || isProducer
   // Regular musicians only see/edit their own row
   const visibleMusicians = canManageAll
@@ -80,11 +82,24 @@ export default function DisponibilidadePage() {
   return (
     <Shell>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800, flex: 1, fontFamily: "'Barlow Condensed', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em' }}>Disponibilidade</h1>
-          <button disabled={!canGoPrev} onClick={prev} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, width: 36, height: 36, fontSize: 18 }}>‹</button>
-          <span style={{ fontWeight: 700, minWidth: 160, textAlign: 'center' }}>{MONTH_NAMES[month - 1]} {year}</span>
-          <button disabled={!canGoNext} onClick={next} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, width: 36, height: 36, fontSize: 18 }}>›</button>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? 10 : 0 }}>
+            <h1 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 800, flex: 1, fontFamily: "'Barlow Condensed', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em' }}>Disponibilidade</h1>
+            {!isMobile && (
+              <>
+                <button disabled={!canGoPrev} onClick={prev} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, width: 36, height: 36, fontSize: 18 }}>‹</button>
+                <span style={{ fontWeight: 700, minWidth: 160, textAlign: 'center', margin: '0 4px' }}>{MONTH_NAMES[month - 1]} {year}</span>
+                <button disabled={!canGoNext} onClick={next} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, width: 36, height: 36, fontSize: 18 }}>›</button>
+              </>
+            )}
+          </div>
+          {isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button disabled={!canGoPrev} onClick={prev} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, width: 36, height: 36, fontSize: 18, flexShrink: 0 }}>‹</button>
+              <span style={{ fontWeight: 700, flex: 1, textAlign: 'center', fontSize: 15 }}>{MONTH_NAMES[month - 1]} {year}</span>
+              <button disabled={!canGoNext} onClick={next} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, width: 36, height: 36, fontSize: 18, flexShrink: 0 }}>›</button>
+            </div>
+          )}
         </div>
 
         {/* Legend */}

@@ -6,12 +6,14 @@ import { supabase } from '@/lib/supabase'
 import { ROLES } from '@/lib/auth-types'
 import { validatePhone, formatPhone, validateCEP, formatCEP, validatePassword } from '@/lib/validators'
 import AvatarUpload from '@/components/AvatarUpload'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const LABEL = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }
 const FIELD = { display: 'flex', flexDirection: 'column' as const, gap: 5 }
 
 export default function PerfilPage() {
   const { profile, refreshProfile } = useAuth()
+  const isMobile = useIsMobile()
   const [form, setForm] = useState({
     full_name: '', nickname: '', birth_date: '', phone: '', cep: '', pix_key: '',
   })
@@ -108,7 +110,7 @@ export default function PerfilPage() {
   return (
     <Shell>
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 24, fontFamily: "'Barlow Condensed', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        <h1 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 800, marginBottom: 24, fontFamily: "'Barlow Condensed', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em' }}>
           Meu Perfil
         </h1>
 

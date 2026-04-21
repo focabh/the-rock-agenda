@@ -1,13 +1,16 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import Shell from '@/components/Shell'
 import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import type { Profile } from '@/lib/auth-types'
 import { ROLES } from '@/lib/auth-types'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 export default function UsuariosPage() {
   const { isAdmin, isProducer, profile: me } = useAuth()
+  const isMobile = useIsMobile()
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
@@ -56,7 +59,7 @@ export default function UsuariosPage() {
     <Shell>
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800, flex: 1, fontFamily: "'Barlow Condensed', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <h1 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 800, flex: 1, fontFamily: "'Barlow Condensed', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Usuários
           </h1>
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{profiles.length} cadastrado{profiles.length !== 1 ? 's' : ''}</span>
@@ -81,9 +84,13 @@ export default function UsuariosPage() {
                   border: `2px solid ${p.is_admin ? 'var(--accent)' : 'var(--border)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 14, fontWeight: 700, color: p.is_admin ? 'var(--accent)' : 'var(--text)',
-                  flexShrink: 0,
+                  flexShrink: 0, overflow: 'hidden', position: 'relative',
                 }}>
-                  {p.nickname.slice(0, 2).toUpperCase()}
+                  {p.avatar_url ? (
+                    <Image src={p.avatar_url} alt={p.nickname} fill style={{ objectFit: 'cover' }} unoptimized />
+                  ) : (
+                    p.nickname.slice(0, 2).toUpperCase()
+                  )}
                 </div>
 
                 {/* Info */}
