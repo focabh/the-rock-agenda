@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { ROLES, BACKING_VOCAL_ROLES, type RoleType } from '@/lib/auth-types'
+import AvatarUpload from '@/components/AvatarUpload'
 import {
   validateCPF, formatCPF,
   validatePhone, formatPhone,
@@ -23,6 +24,7 @@ export default function CadastroPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showPw, setShowPw] = useState(false)
   const [showPw2, setShowPw2] = useState(false)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
 
   const [form, setForm] = useState({
     full_name: '',
@@ -57,6 +59,7 @@ export default function CadastroPage() {
 
   function validate(): boolean {
     const e: Record<string, string> = {}
+    if (!avatarFile) e.avatar = 'Foto de perfil é obrigatória'
     if (!form.full_name.trim()) e.full_name = 'Obrigatório'
     if (!form.nickname.trim()) e.nickname = 'Obrigatório'
     if (!form.birth_date) e.birth_date = 'Obrigatório'
@@ -91,6 +94,19 @@ export default function CadastroPage() {
       if (authErr) throw new Error(authErr.message)
       if (!newUser) throw new Error('Erro ao criar usuário')
 
+      // Upload avatar
+      let avatar_url: string | null = null
+      if (avatarFile) {
+        const ext = avatarFile.name.split('.').pop() ?? 'jpg'
+        const path = `${newUser.id}/avatar.${ext}`
+        const { error: uploadErr } = await supabase.storage
+          .from('avatars')
+          .upload(path, avatarFile, { upsert: true })
+        if (uploadErr) throw new Error('Erro ao enviar foto: ' + uploadErr.message)
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+        avatar_url = urlData.publicUrl
+      }
+
       // Insert profile
       const { error: profileErr } = await supabase.from('profiles').insert({
         id: newUser.id,
@@ -103,11 +119,13 @@ export default function CadastroPage() {
         pix_key: form.pix_key.trim(),
         role: form.role,
         is_backing_vocal: BACKING_VOCAL_ROLES.includes(form.role as RoleType) ? form.is_backing_vocal : false,
-        is_admin: isFirstUser, // first user is admin
+        is_admin: isFirstUser,
+        avatar_url,
       })
       if (profileErr) throw new Error(profileErr.message)
 
-      router.replace('/')
+      // Full page reload ensures AuthProvider re-reads profile from DB
+      window.location.href = '/'
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao cadastrar'
       if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('duplicate')) {
@@ -144,6 +162,16 @@ export default function CadastroPage() {
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            <AvatarUpload
+              value={avatarFile}
+              onChange={(file) => {
+                setAvatarFile(file)
+                if (errors.avatar) setErrors((e) => { const n = { ...e }; delete n.avatar; return n })
+              }}
+              error={errors.avatar}
+              size={100}
+            />
 
             <Section title="Dados Pessoais">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

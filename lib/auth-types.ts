@@ -18,6 +18,7 @@ export interface Profile {
   role: RoleType
   is_backing_vocal: boolean
   is_admin: boolean
+  avatar_url?: string
   created_at: string
 }
 

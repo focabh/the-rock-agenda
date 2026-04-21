@@ -106,11 +106,16 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               }}>
                 <span style={{
                   width: 28, height: 28, borderRadius: '50%',
-                  background: 'var(--accent)', color: '#fff',
+                  background: 'var(--accent)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 12, fontWeight: 700, flexShrink: 0,
+                  overflow: 'hidden', position: 'relative',
                 }}>
-                  {profile?.nickname?.slice(0, 2).toUpperCase() ?? '??'}
+                  {profile?.avatar_url ? (
+                    <Image src={profile.avatar_url} alt={profile.nickname} fill style={{ objectFit: 'cover' }} unoptimized />
+                  ) : (
+                    <span style={{ color: '#fff' }}>{profile?.nickname?.slice(0, 2).toUpperCase() ?? '??'}</span>
+                  )}
                 </span>
                 {profile?.nickname ?? ''}
               </Link>

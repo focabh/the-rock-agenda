@@ -5,6 +5,7 @@ import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { ROLES } from '@/lib/auth-types'
 import { validatePhone, formatPhone, validateCEP, formatCEP, validatePassword } from '@/lib/validators'
+import AvatarUpload from '@/components/AvatarUpload'
 
 const LABEL = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }
 const FIELD = { display: 'flex', flexDirection: 'column' as const, gap: 5 }
@@ -16,6 +17,7 @@ export default function PerfilPage() {
   })
   const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' })
   const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false })
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingPw, setSavingPw] = useState(false)
   const [msg, setMsg] = useState('')
@@ -53,17 +55,33 @@ export default function PerfilPage() {
 
     setSaving(true)
     setMsg('')
-    const { error } = await supabase.from('profiles').update({
+
+    let avatar_url: string | undefined
+    if (avatarFile) {
+      const ext = avatarFile.name.split('.').pop() ?? 'jpg'
+      const path = `${profile!.id}/avatar.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, avatarFile, { upsert: true })
+      if (uploadErr) { setMsg('Erro ao enviar foto: ' + uploadErr.message); setSaving(false); return }
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+      avatar_url = urlData.publicUrl
+    }
+
+    const updates: Record<string, unknown> = {
       full_name: form.full_name.trim(),
       nickname: form.nickname.trim(),
       birth_date: form.birth_date,
       phone: form.phone.replace(/\D/g, ''),
       cep: form.cep ? form.cep.replace(/\D/g, '') : null,
       pix_key: form.pix_key.trim(),
-    }).eq('id', profile!.id)
+    }
+    if (avatar_url) updates.avatar_url = avatar_url
+
+    const { error } = await supabase.from('profiles').update(updates).eq('id', profile!.id)
 
     if (error) setMsg('Erro ao salvar: ' + error.message)
-    else { setMsg('✓ Perfil atualizado com sucesso!'); await refreshProfile() }
+    else { setMsg('✓ Perfil atualizado com sucesso!'); setAvatarFile(null); await refreshProfile() }
     setSaving(false)
   }
 
@@ -110,6 +128,16 @@ export default function PerfilPage() {
             )}
           </div>
         )}
+
+        {/* Avatar */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+          <AvatarUpload
+            value={avatarFile}
+            previewUrl={profile?.avatar_url}
+            onChange={(file) => setAvatarFile(file)}
+            size={100}
+          />
+        </div>
 
         {/* Profile form */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, marginBottom: 16 }}>
