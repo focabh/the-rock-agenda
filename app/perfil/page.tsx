@@ -196,9 +196,9 @@ export default function PerfilPage() {
             ))}
             {pwMsg && <p style={{ color: pwMsg.startsWith('✓') ? 'var(--green)' : 'var(--red)', fontSize: 13 }}>{pwMsg}</p>}
             <button type="submit" disabled={savingPw} style={{
-              padding: '10px', borderRadius: 8, border: 'none',
+              padding: '10px', borderRadius: 8,
               background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)', fontWeight: 600, fontSize: 14,
-            } as React.CSSProperties}>
+            }}>
               {savingPw ? 'Salvando...' : 'Alterar Senha'}
             </button>
           </form>
