@@ -294,13 +294,22 @@ function ShowRow({
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ fontWeight: 700, fontSize: 15 }}>{formatCurrency(show.fee)}</p>
-              <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                Comissão: {formatCurrency(show.fee * show.commission_pct / 100)}
-              </p>
-              <p style={{ fontSize: 11, color: 'var(--green)' }}>
-                /músico: {formatCurrency(netPerMusician)}
-              </p>
+              {show.payment_type === 'portaria' ? (
+                <>
+                  <p style={{ fontWeight: 700, fontSize: 13 }}>🎟 {show.portaria_pct}%</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{show.fee > 0 ? formatCurrency(show.fee) : 'A apurar'}</p>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontWeight: 700, fontSize: 15 }}>{formatCurrency(show.fee)}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    Comissão: {formatCurrency(show.fee * show.commission_pct / 100)}
+                  </p>
+                  <p style={{ fontSize: 11, color: 'var(--green)' }}>
+                    /músico: {formatCurrency(netPerMusician)}
+                  </p>
+                </>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -323,12 +332,23 @@ function ShowRow({
             {show.venue && <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{show.venue}{show.city ? ` · ${show.city}` : ''}</p>}
           </div>
           <div style={{ textAlign: 'right', minWidth: 150 }}>
-            <p style={{ fontWeight: 700 }}>{formatCurrency(show.fee)}</p>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              Comissão: {formatCurrency(show.fee * show.commission_pct / 100)}
-              &nbsp;·&nbsp;
-              <span style={{ color: 'var(--green)' }}>/músico: {formatCurrency(netPerMusician)}</span>
-            </p>
+            {show.payment_type === 'portaria' ? (
+              <>
+                <p style={{ fontWeight: 700 }}>🎟 {show.portaria_pct}% portaria</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {show.fee > 0 ? `Cachê: ${formatCurrency(show.fee)}` : 'Bilheteria a apurar'}
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ fontWeight: 700 }}>{formatCurrency(show.fee)}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  Comissão: {formatCurrency(show.fee * show.commission_pct / 100)}
+                  &nbsp;·&nbsp;
+                  <span style={{ color: 'var(--green)' }}>/músico: {formatCurrency(netPerMusician)}</span>
+                </p>
+              </>
+            )}
           </div>
           <ProofArea show={show} uploading={uploading} onAttach={onAttachProof} />
           <button

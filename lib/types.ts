@@ -39,6 +39,9 @@ export interface Show {
   city?: string
   fee: number
   commission_pct: number
+  payment_type: 'cache' | 'portaria'
+  portaria_pct?: number
+  ticket_revenue?: number
   is_paid: boolean
   payment_proof_url?: string
   status: ShowStatus

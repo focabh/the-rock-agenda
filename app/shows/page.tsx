@@ -185,7 +185,14 @@ export default function ShowsPage() {
                   {/* Finance — top right on mobile */}
                   {isMobile && (
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <p style={{ fontWeight: 700, fontSize: 14 }}>{formatCurrency(show.fee)}</p>
+                      {show.payment_type === 'portaria' ? (
+                        <>
+                          <p style={{ fontWeight: 700, fontSize: 13 }}>🎟 {show.portaria_pct}%</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{show.fee > 0 ? formatCurrency(show.fee) : 'A apurar'}</p>
+                        </>
+                      ) : (
+                        <p style={{ fontWeight: 700, fontSize: 14 }}>{formatCurrency(show.fee)}</p>
+                      )}
                       <p style={{ fontSize: 11, color: show.is_paid ? 'var(--green)' : 'var(--orange)' }}>
                         {show.is_paid ? '✓ Pago' : '⏳ A receber'}
                       </p>
@@ -196,11 +203,22 @@ export default function ShowsPage() {
                 {/* Desktop: finance + actions in same row */}
                 {!isMobile && (
                   <>
-                    <div style={{ textAlign: 'right', minWidth: 130 }}>
-                      <p style={{ fontWeight: 700, fontSize: 15 }}>{formatCurrency(show.fee)}</p>
-                      <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                        Comissão: {formatCurrency(show.fee * show.commission_pct / 100)}
-                      </p>
+                    <div style={{ textAlign: 'right', minWidth: 140 }}>
+                      {show.payment_type === 'portaria' ? (
+                        <>
+                          <p style={{ fontWeight: 700, fontSize: 14 }}>🎟 {show.portaria_pct}% portaria</p>
+                          <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            {show.fee > 0 ? `Cachê: ${formatCurrency(show.fee)}` : 'Bilheteria a apurar'}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ fontWeight: 700, fontSize: 15 }}>{formatCurrency(show.fee)}</p>
+                          <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                            Comissão: {formatCurrency(show.fee * show.commission_pct / 100)}
+                          </p>
+                        </>
+                      )}
                       <p style={{ fontSize: 12, color: show.is_paid ? 'var(--green)' : 'var(--orange)' }}>
                         {show.is_paid ? '✓ Pago' : '⏳ A receber'}
                       </p>

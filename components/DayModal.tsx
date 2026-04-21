@@ -140,7 +140,11 @@ function Overview({ shows, availability }: { date: string; shows: Show[]; availa
                 <div style={{ display: 'flex', gap: 14, fontSize: 13, flexWrap: 'wrap' }}>
                   <span>🕐 {show.time}</span>
                   <span>⏱ {formatDuration(show.duration_minutes)}</span>
-                  <span>💰 {formatCurrency(show.fee)}</span>
+                  {show.payment_type === 'portaria' ? (
+                    <span>🎟 {show.portaria_pct}% portaria{show.fee > 0 ? ` · ${formatCurrency(show.fee)}` : ' · bilheteria a apurar'}</span>
+                  ) : (
+                    <span>💰 {formatCurrency(show.fee)}</span>
+                  )}
                   <span style={{ color: show.is_paid ? 'var(--green)' : 'var(--orange)' }}>
                     {show.is_paid ? '✓ Pago' : '⏳ Pendente'}
                   </span>

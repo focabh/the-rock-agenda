@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import type { Show, ShowStatus } from '@/lib/types'
 import { createShow, updateShow } from '@/lib/db'
+import { formatCurrency } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface Props {
@@ -11,11 +12,7 @@ interface Props {
   onCancel?: () => void
 }
 
-const FIELD_STYLE = {
-  display: 'flex',
-  flexDirection: 'column' as const,
-  gap: 6,
-}
+const FIELD_STYLE = { display: 'flex', flexDirection: 'column' as const, gap: 6 }
 const LABEL = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }
 
 export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
@@ -27,7 +24,10 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
     client_name: existing?.client_name ?? '',
     venue: existing?.venue ?? '',
     city: existing?.city ?? '',
+    payment_type: (existing?.payment_type ?? 'cache') as 'cache' | 'portaria',
     fee: existing?.fee ?? 0,
+    portaria_pct: existing?.portaria_pct ?? 50,
+    ticket_revenue: existing?.ticket_revenue ?? 0,
     commission_pct: existing?.commission_pct ?? 10,
     is_paid: existing?.is_paid ?? false,
     status: (existing?.status ?? 'pending') as ShowStatus,
@@ -38,18 +38,29 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
 
   const set = (key: string, value: unknown) => setForm((f) => ({ ...f, [key]: value }))
 
+  const calculatedFee = form.payment_type === 'portaria' && form.ticket_revenue > 0
+    ? Math.round(form.ticket_revenue * form.portaria_pct / 100 * 100) / 100
+    : form.fee
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.client_name.trim()) { setError('Nome do contratante é obrigatório'); return }
     if (!form.date) { setError('Data é obrigatória'); return }
+    if (form.payment_type === 'portaria' && (form.portaria_pct <= 0 || form.portaria_pct > 100)) {
+      setError('Percentual de portaria deve ser entre 1 e 100'); return
+    }
     setLoading(true)
     setError('')
     try {
+      const payload = {
+        ...form,
+        fee: calculatedFee,
+      }
       let saved: Show
       if (existing) {
-        saved = await updateShow(existing.id, form)
+        saved = await updateShow(existing.id, payload)
       } else {
-        saved = await createShow(form)
+        saved = await createShow(payload)
       }
       onSaved(saved)
     } catch (e: unknown) {
@@ -83,8 +94,8 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
         <div style={FIELD_STYLE}>
-          <label style={LABEL}>Local / Venue</label>
-          <input placeholder="Nome do local" value={form.venue} onChange={(e) => set('venue', e.target.value)} />
+          <label style={LABEL}>Local do show</label>
+          <input placeholder="Nome do local ou casa de show" value={form.venue} onChange={(e) => set('venue', e.target.value)} />
         </div>
         <div style={FIELD_STYLE}>
           <label style={LABEL}>Cidade</label>
@@ -106,33 +117,107 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
         </select>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-        <div style={FIELD_STYLE}>
-          <label style={LABEL}>Cachê (R$)</label>
-          <input
-            type="number"
-            min={0}
-            step={50}
-            value={form.fee}
-            onChange={(e) => set('fee', Number(e.target.value))}
-          />
-        </div>
-        <div style={FIELD_STYLE}>
-          <label style={LABEL}>Comissão da produtora (%)</label>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            step={1}
-            value={form.commission_pct}
-            onChange={(e) => set('commission_pct', Number(e.target.value))}
-          />
+      {/* Payment type toggle */}
+      <div style={FIELD_STYLE}>
+        <label style={LABEL}>Tipo de pagamento</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {(['cache', 'portaria'] as const).map((t) => (
+            <label key={t} style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+              border: `1px solid ${form.payment_type === t ? 'var(--accent)' : 'var(--border)'}`,
+              background: form.payment_type === t ? 'rgba(204,26,26,0.1)' : 'var(--surface2)',
+              transition: 'all 0.15s',
+            }}>
+              <input
+                type="radio"
+                name="payment_type"
+                value={t}
+                checked={form.payment_type === t}
+                onChange={() => set('payment_type', t)}
+                style={{ accentColor: 'var(--accent)' }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>
+                {t === 'cache' ? '💵 Cachê fixo' : '🎟 Portaria (%)'}
+              </span>
+            </label>
+          ))}
         </div>
       </div>
 
+      {/* Cachê fixo fields */}
+      {form.payment_type === 'cache' && (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+          <div style={FIELD_STYLE}>
+            <label style={LABEL}>Cachê (R$)</label>
+            <input
+              type="number" min={0} step={50}
+              value={form.fee}
+              onChange={(e) => set('fee', Number(e.target.value))}
+            />
+          </div>
+          <div style={FIELD_STYLE}>
+            <label style={LABEL}>Comissão da produtora (%)</label>
+            <input
+              type="number" min={0} max={100} step={1}
+              value={form.commission_pct}
+              onChange={(e) => set('commission_pct', Number(e.target.value))}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Portaria fields */}
+      {form.payment_type === 'portaria' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+            <div style={FIELD_STYLE}>
+              <label style={LABEL}>Percentual da portaria (%)</label>
+              <input
+                type="number" min={1} max={100} step={1}
+                value={form.portaria_pct}
+                onChange={(e) => set('portaria_pct', Number(e.target.value))}
+              />
+              <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ex: 50 = banda recebe 50% da bilheteria</p>
+            </div>
+            <div style={FIELD_STYLE}>
+              <label style={LABEL}>Comissão da produtora (%)</label>
+              <input
+                type="number" min={0} max={100} step={1}
+                value={form.commission_pct}
+                onChange={(e) => set('commission_pct', Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <div style={FIELD_STYLE}>
+            <label style={LABEL}>Total arrecadado na bilheteria (R$)</label>
+            <input
+              type="number" min={0} step={100}
+              value={form.ticket_revenue}
+              onChange={(e) => set('ticket_revenue', Number(e.target.value))}
+              placeholder="Preencher após o show"
+            />
+            <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pode ser preenchido depois do show</p>
+          </div>
+          {/* Calculated preview */}
+          <div style={{
+            background: 'rgba(204,26,26,0.08)', border: '1px solid rgba(204,26,26,0.2)',
+            borderRadius: 8, padding: '10px 14px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              Cachê calculado ({form.portaria_pct}% de {formatCurrency(form.ticket_revenue)}):
+            </span>
+            <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--accent)', fontFamily: "'Barlow Condensed', sans-serif" }}>
+              {formatCurrency(calculatedFee)}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
         <div style={FIELD_STYLE}>
-          <label style={LABEL}>Status do show</label>
+          <label style={LABEL}>Situação do show</label>
           <select value={form.status} onChange={(e) => set('status', e.target.value as ShowStatus)}>
             <option value="pending">Pendente</option>
             <option value="confirmed">Confirmado</option>
@@ -175,14 +260,9 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
           type="submit"
           disabled={loading}
           style={{
-            padding: '10px 24px',
-            borderRadius: 8,
-            border: 'none',
-            background: 'var(--accent)',
-            color: 'var(--bg)',
-            fontWeight: 700,
-            fontSize: 14,
-            opacity: loading ? 0.7 : 1,
+            padding: '10px 24px', borderRadius: 8, border: 'none',
+            background: 'var(--accent)', color: 'var(--bg)',
+            fontWeight: 700, fontSize: 14, opacity: loading ? 0.7 : 1,
           }}
         >
           {loading ? 'Salvando...' : existing ? 'Atualizar' : 'Cadastrar Show'}
