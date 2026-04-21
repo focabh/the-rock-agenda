@@ -82,8 +82,8 @@ export default function Calendar({ year, month, shows, availability, onNavigate,
             justifyContent: 'center',
           }}
         >‹</button>
-        <h2 style={{ fontSize: 22, fontWeight: 700, minWidth: 220, textAlign: 'center' }}>
-          {MONTH_NAMES[month - 1]} {year}
+        <h2 style={{ fontSize: 26, fontWeight: 800, minWidth: 220, textAlign: 'center', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          {MONTH_NAMES[month - 1]} <span style={{ color: 'var(--accent)' }}>{year}</span>
         </h2>
         <button
           onClick={next}
@@ -136,7 +136,7 @@ export default function Calendar({ year, month, shows, availability, onNavigate,
                 borderRadius: 8,
                 border: `1px solid ${isToday ? 'var(--accent)' : hardBlocked ? 'var(--red)' : 'var(--border)'}`,
                 background: isToday
-                  ? 'rgba(232,200,74,0.08)'
+                  ? 'rgba(204,26,26,0.08)'
                   : hardBlocked
                   ? 'rgba(248,113,113,0.05)'
                   : 'var(--surface)',

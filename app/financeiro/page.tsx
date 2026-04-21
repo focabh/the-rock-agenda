@@ -49,7 +49,7 @@ export default function FinanceiroPage() {
     <Shell>
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 800, flex: 1 }}>Financeiro</h1>
+          <h1 style={{ fontSize: 32, fontWeight: 800, flex: 1, fontFamily: "'Barlow Condensed', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em' }}>Financeiro</h1>
           <select value={filterYear} onChange={(e) => setFilterYear(Number(e.target.value))} style={{ width: 'auto' }}>
             <option value={2026}>2026</option>
             <option value={2027}>2027</option>
@@ -82,7 +82,7 @@ export default function FinanceiroPage() {
                 return (
                   <div key={m}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
-                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)' }}>
+                      <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent)', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                         {MONTH_NAMES[Number(m) - 1]}
                       </h3>
                       <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
