@@ -40,6 +40,7 @@ export interface Show {
   fee: number
   commission_pct: number
   is_paid: boolean
+  payment_proof_url?: string
   status: ShowStatus
   notes?: string
   created_at: string
