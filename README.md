@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Rock — Agenda
 
-## Getting Started
+Sistema de gerenciamento de shows e disponibilidade da banda **The Rock**.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Next.js 15** + App Router
+- **Supabase** (PostgreSQL)
+- **TypeScript** + Tailwind CSS
+
+## Funcionalidades
+
+- **Calendário** mensal (2026–2027) com shows e indisponibilidades
+- **Gerenciamento de Shows**: contratante, data/hora, duração, cachê, comissão, status de pagamento
+- **Disponibilidade dos Músicos**: registro de indisponibilidades com motivo e substituto (sub)
+- **Financeiro**: visão anual com totais de cachê, comissão e pagamentos pendentes
+
+## Músicos
+
+| Nome | Função | Observação |
+|------|--------|-----------|
+| Foca | Vocalista / Líder | — |
+| Marco | Guitarrista Base | Ausência não impede o show |
+| Felipe | Guitarrista Base e Solo | — |
+| Ester | Bateria | — |
+| Rafa | Baixo | — |
+
+> Quando qualquer músico (exceto Marco) estiver indisponível, o sistema exibe um campo **Sub** para indicar o substituto. Sem sub, o sistema marca a banda como bloqueada naquela data.
+
+## Setup
+
+### 1. Supabase
+
+1. Crie um projeto em [supabase.com](https://supabase.com)
+2. Abra o **SQL Editor** e execute o conteúdo de `supabase/schema.sql`
+3. Copie a URL e a chave anon do projeto
+
+### 2. Variáveis de ambiente
+
+Edite `.env.local` na raiz do projeto:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Rodar localmente
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Abra [http://localhost:3000](http://localhost:3000)
 
-## Learn More
+### 4. Deploy (Vercel)
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Faça push para um repositório GitHub
+2. Importe no [Vercel](https://vercel.com)
+3. Adicione as variáveis de ambiente no painel do Vercel
+4. Deploy automático
