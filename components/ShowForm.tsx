@@ -120,27 +120,25 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
       {/* Payment type toggle */}
       <div style={FIELD_STYLE}>
         <label style={LABEL}>Tipo de pagamento</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {(['cache', 'portaria'] as const).map((t) => (
-            <label key={t} style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
-              border: `1px solid ${form.payment_type === t ? 'var(--accent)' : 'var(--border)'}`,
-              background: form.payment_type === t ? 'rgba(204,26,26,0.1)' : 'var(--surface2)',
-              transition: 'all 0.15s',
-            }}>
-              <input
-                type="radio"
-                name="payment_type"
-                value={t}
-                checked={form.payment_type === t}
-                onChange={() => set('payment_type', t)}
-                style={{ accentColor: 'var(--accent)' }}
-              />
-              <span style={{ fontSize: 13, fontWeight: 600 }}>
-                {t === 'cache' ? '💵 Cachê fixo' : '🎟 Portaria (%)'}
-              </span>
-            </label>
+        <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 8, border: '1px solid var(--border)', padding: 3, gap: 3 }}>
+          {([
+            { value: 'cache', label: '💵 Cachê fixo' },
+            { value: 'portaria', label: '🎟 Portaria (%)' },
+          ] as const).map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => set('payment_type', t.value)}
+              style={{
+                flex: 1, padding: '8px 12px', borderRadius: 6, border: 'none',
+                background: form.payment_type === t.value ? 'var(--accent)' : 'transparent',
+                color: form.payment_type === t.value ? '#fff' : 'var(--text-muted)',
+                fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                transition: 'all 0.15s', whiteSpace: 'nowrap',
+              }}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
       </div>

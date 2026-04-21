@@ -85,25 +85,37 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </Link>
 
         {isMobile && user && (
-          <Link href="/perfil" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {profile?.nickname ?? ''}
-            </span>
-            <span style={{
-              width: 36, height: 36, borderRadius: '50%',
-              background: 'var(--accent)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 13, fontWeight: 700, flexShrink: 0,
-              overflow: 'hidden', position: 'relative',
-              border: '2px solid var(--border)',
-            }}>
-              {profile?.avatar_url ? (
-                <Image src={profile.avatar_url} alt={profile?.nickname ?? ''} fill style={{ objectFit: 'cover' }} unoptimized />
-              ) : (
-                <span style={{ color: '#fff' }}>{profile?.nickname?.slice(0, 2).toUpperCase() ?? '?'}</span>
-              )}
-            </span>
-          </Link>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link href="/perfil" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {profile?.nickname ?? ''}
+              </span>
+              <span style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: 'var(--accent)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 700, flexShrink: 0,
+                overflow: 'hidden', position: 'relative',
+                border: '2px solid var(--border)',
+              }}>
+                {profile?.avatar_url ? (
+                  <Image src={profile.avatar_url} alt={profile?.nickname ?? ''} fill style={{ objectFit: 'cover' }} unoptimized />
+                ) : (
+                  <span style={{ color: '#fff' }}>{profile?.nickname?.slice(0, 2).toUpperCase() ?? '?'}</span>
+                )}
+              </span>
+            </Link>
+            <button
+              onClick={handleSignOut}
+              style={{
+                background: 'none', border: '1px solid var(--border)', borderRadius: 6,
+                color: 'var(--text-muted)', fontSize: 12, padding: '5px 10px',
+                cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              Sair
+            </button>
+          </div>
         )}
 
         {!isMobile && user && (
