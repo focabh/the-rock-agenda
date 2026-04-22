@@ -12,10 +12,10 @@ const LABEL = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textT
 const FIELD = { display: 'flex', flexDirection: 'column' as const, gap: 5 }
 
 export default function PerfilPage() {
-  const { profile, refreshProfile } = useAuth()
+  const { profile, userEmail, refreshProfile } = useAuth()
   const isMobile = useIsMobile()
   const [form, setForm] = useState({
-    full_name: '', nickname: '', birth_date: '', phone: '', cep: '', pix_key: '',
+    full_name: '', nickname: '', birth_date: '', phone: '', cep: '', pix_key: '', contact_email: '',
   })
   const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' })
   const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false })
@@ -37,6 +37,7 @@ export default function PerfilPage() {
         phone: formatPhone(profile.phone),
         cep: profile.cep ? `${profile.cep.slice(0,5)}-${profile.cep.slice(5)}` : '',
         pix_key: profile.pix_key,
+        contact_email: profile.contact_email ?? '',
       })
     }
   }, [profile])
@@ -82,6 +83,7 @@ export default function PerfilPage() {
       phone: form.phone.replace(/\D/g, ''),
       cep: form.cep ? form.cep.replace(/\D/g, '') : null,
       pix_key: form.pix_key.trim(),
+      contact_email: form.contact_email.trim() || null,
     }).eq('id', profile!.id)
 
     if (error) setMsg('Erro ao salvar: ' + error.message)
@@ -167,8 +169,23 @@ export default function PerfilPage() {
             </div>
 
             <div style={FIELD}>
-              <label style={LABEL}>Email (login) — não editável aqui</label>
-              <input value={profile?.id ? '' : ''} placeholder="Gerenciado pelo sistema" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} />
+              <label style={LABEL}>Nome de usuário</label>
+              <input
+                value={userEmail ?? ''}
+                disabled
+                style={{ opacity: 0.55, cursor: 'not-allowed', fontFamily: 'monospace', fontSize: 13 }}
+              />
+              <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>E-mail usado para acessar o sistema. Não pode ser alterado aqui.</p>
+            </div>
+
+            <div style={FIELD}>
+              <label style={LABEL}>E-mail para contato</label>
+              <input
+                type="email"
+                value={form.contact_email}
+                onChange={(e) => set('contact_email', e.target.value)}
+                placeholder="Outro e-mail para receber comunicados (opcional)"
+              />
             </div>
 
             <div style={FIELD}>

@@ -15,6 +15,7 @@ export interface Profile {
   phone: string
   cep?: string
   pix_key: string
+  contact_email?: string | null
   role: RoleType
   is_backing_vocal: boolean
   is_admin: boolean

@@ -8,6 +8,7 @@ import { ROLE_TO_MUSICIAN_ID } from '@/lib/auth-types'
 interface AuthCtx {
   user: User | null
   profile: Profile | null
+  userEmail: string | null
   isAdmin: boolean
   isProducer: boolean
   musicianId: string | null
@@ -17,7 +18,7 @@ interface AuthCtx {
 }
 
 const Ctx = createContext<AuthCtx>({
-  user: null, profile: null, isAdmin: false, isProducer: false,
+  user: null, profile: null, userEmail: null, isAdmin: false, isProducer: false,
   musicianId: null, loading: true,
   signOut: async () => {}, refreshProfile: async () => {},
 })
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  const userEmail = user?.email ?? null
   const isAdmin = profile?.is_admin ?? false
   const isProducer = profile?.role === 'produtor'
   const musicianId = profile ? (ROLE_TO_MUSICIAN_ID[profile.role] ?? null) : null
@@ -63,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ user, profile, isAdmin, isProducer, musicianId, loading, signOut, refreshProfile }}>
+    <Ctx.Provider value={{ user, profile, userEmail, isAdmin, isProducer, musicianId, loading, signOut, refreshProfile }}>
       {children}
     </Ctx.Provider>
   )

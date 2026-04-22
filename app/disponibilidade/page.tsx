@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import Shell from '@/components/Shell'
-import { getAvailabilityByMonth, upsertAvailability, deleteAvailability } from '@/lib/db'
+import { getAvailabilityByMonth, upsertAvailability, deleteAvailability, getMusicianProfiles, type MusicianInfo } from '@/lib/db'
 import type { MusicianAvailability, AvailabilityStatus, MusicianId } from '@/lib/types'
 import { MUSICIANS } from '@/lib/types'
 import { MONTH_NAMES, getDaysInMonth } from '@/lib/utils'
@@ -23,14 +23,19 @@ export default function DisponibilidadePage() {
     today.getFullYear() >= 2026 && today.getFullYear() <= 2027 ? today.getMonth() + 1 : 1
   )
   const [availability, setAvailability] = useState<MusicianAvailability[]>([])
+  const [musicianInfo, setMusicianInfo] = useState<Record<string, MusicianInfo>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getAvailabilityByMonth(year, month)
+      const [data, info] = await Promise.all([
+        getAvailabilityByMonth(year, month),
+        getMusicianProfiles(),
+      ])
       setAvailability(data)
+      setMusicianInfo(info)
     } catch {
       setAvailability([])
     } finally {
@@ -144,7 +149,7 @@ export default function DisponibilidadePage() {
                 {visibleMusicians.map((m) => (
                   <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 12px' }}>
-                      <p style={{ fontWeight: 600 }}>{m.name}</p>
+                      <p style={{ fontWeight: 600 }}>{musicianInfo[m.id]?.name ?? m.name}</p>
                       <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         {m.isOptional ? '(opcional) ' : ''}{m.role.split(' ')[0]}
                       </p>

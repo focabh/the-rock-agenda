@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 import type { Show, ShowMusician, MusicianAvailability, MusicianId } from './types'
+import { MUSICIANS } from './types'
+import { ROLE_TO_MUSICIAN_ID, type RoleType } from './auth-types'
 
 // Shows
 export async function getShows(year?: number) {
@@ -110,6 +112,26 @@ export async function deleteAvailability(musicianId: MusicianId, date: string) {
     .eq('musician_id', musicianId)
     .eq('date', date)
   if (error) throw error
+}
+
+// Musician profiles — merges DB profiles with hardcoded MUSICIANS defaults
+// Returns a map: musicianId → { name, phone }
+export interface MusicianInfo { name: string; phone?: string }
+export async function getMusicianProfiles(): Promise<Record<string, MusicianInfo>> {
+  const result: Record<string, MusicianInfo> = {}
+  for (const m of MUSICIANS) result[m.id] = { name: m.name }
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('role, nickname, phone')
+    .in('role', Object.keys(ROLE_TO_MUSICIAN_ID))
+  if (data) {
+    for (const p of data) {
+      const mid = ROLE_TO_MUSICIAN_ID[p.role as RoleType]
+      if (mid) result[mid] = { name: p.nickname, phone: p.phone }
+    }
+  }
+  return result
 }
 
 // Stats

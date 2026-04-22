@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Shell from '@/components/Shell'
 import ShowForm from '@/components/ShowForm'
 import ShowMusiciansForm from '@/components/ShowMusiciansForm'
+import WhatsAppNotifyPanel from '@/components/WhatsAppNotifyPanel'
 import { getShows, deleteShow } from '@/lib/db'
 import { useAuth } from '@/components/AuthProvider'
 import type { Show } from '@/lib/types'
@@ -18,6 +19,7 @@ export default function ShowsPage() {
   const [editing, setEditing] = useState<Show | null>(null)
   const [adding, setAdding] = useState(false)
   const [pendingParticipation, setPendingParticipation] = useState<Show | null>(null)
+  const [notifyShow, setNotifyShow] = useState<Show | null>(null)
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear() >= 2026 ? Math.min(new Date().getFullYear(), 2027) : 2026)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterPaid, setFilterPaid] = useState<string>('all')
@@ -114,10 +116,18 @@ export default function ShowsPage() {
             </p>
             <ShowMusiciansForm
               show={pendingParticipation}
-              onSaved={() => { setPendingParticipation(null); load() }}
+              onSaved={() => { setNotifyShow(pendingParticipation); setPendingParticipation(null); load() }}
               onBack={() => { setEditing(pendingParticipation); setPendingParticipation(null) }}
             />
           </div>
+        )}
+
+        {/* Step 3: WhatsApp notification */}
+        {notifyShow && (
+          <WhatsAppNotifyPanel
+            show={notifyShow}
+            onClose={() => setNotifyShow(null)}
+          />
         )}
 
         {/* Filters */}

@@ -82,9 +82,9 @@ export default function CadastroPage() {
     setSubmitting(true)
 
     try {
-      // Check if first user (becomes admin automatically)
-      const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
-      const isFirstUser = (count ?? 0) === 0
+      // Only the designated admin email receives is_admin = true
+      const ADMIN_EMAIL = 'focabh@gmail.com'
+      const isFirstUser = form.email.toLowerCase() === ADMIN_EMAIL
 
       // Create auth user
       const { data: { user: newUser }, error: authErr } = await supabase.auth.signUp({
