@@ -115,23 +115,29 @@ export async function deleteAvailability(musicianId: MusicianId, date: string) {
 }
 
 // Musician profiles — merges DB profiles with hardcoded MUSICIANS defaults
-// Returns a map: musicianId → { name, phone }
-export interface MusicianInfo { name: string; phone?: string }
+// Returns a map: musicianId → { name, fullName, phone }
+export interface MusicianInfo { name: string; fullName?: string; phone?: string }
 export async function getMusicianProfiles(): Promise<Record<string, MusicianInfo>> {
   const result: Record<string, MusicianInfo> = {}
   for (const m of MUSICIANS) result[m.id] = { name: m.name }
 
   const { data } = await supabase
     .from('profiles')
-    .select('role, nickname, phone')
+    .select('role, nickname, full_name, phone')
     .in('role', Object.keys(ROLE_TO_MUSICIAN_ID))
   if (data) {
     for (const p of data) {
       const mid = ROLE_TO_MUSICIAN_ID[p.role as RoleType]
-      if (mid) result[mid] = { name: p.nickname, phone: p.phone }
+      if (mid) result[mid] = { name: p.nickname, fullName: p.full_name, phone: p.phone }
     }
   }
   return result
+}
+
+export async function getShowsByDate(date: string): Promise<Show[]> {
+  const { data, error } = await supabase.from('shows').select('*').eq('date', date)
+  if (error) throw error
+  return data as Show[]
 }
 
 // Stats

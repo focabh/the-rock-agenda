@@ -56,6 +56,13 @@ export default function UsuariosPage() {
 
   const roleLabel = (role: string) => ROLES.find((r) => r.value === role)?.label ?? role
 
+  function getInitials(fullName: string) {
+    const parts = fullName.trim().split(/\s+/).filter(Boolean)
+    if (parts.length === 0) return '??'
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+
   function Field({ label, value }: { label: string; value: string }) {
     return (
       <div>
@@ -93,43 +100,42 @@ export default function UsuariosPage() {
                   borderRadius: 10, overflow: 'hidden', transition: 'border-color 0.15s',
                 }}>
                   {/* Header row */}
-                  <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                    {/* Avatar */}
-                    <div style={{
-                      width: 42, height: 42, borderRadius: '50%',
-                      background: p.is_admin ? 'rgba(204,26,26,0.2)' : 'var(--surface2)',
-                      border: `2px solid ${p.is_admin ? 'var(--accent)' : 'var(--border)'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 14, fontWeight: 700, color: p.is_admin ? 'var(--accent)' : 'var(--text)',
-                      flexShrink: 0, overflow: 'hidden', position: 'relative',
-                    }}>
-                      {p.avatar_url ? (
-                        <Image src={p.avatar_url} alt={p.nickname} fill style={{ objectFit: 'cover' }} unoptimized />
-                      ) : (
-                        p.nickname.slice(0, 2).toUpperCase()
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700 }}>{p.full_name}</span>
-                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>({p.nickname})</span>
-                        {p.is_admin && (
-                          <span style={{ fontSize: 11, color: 'var(--blue)', background: 'rgba(96,165,250,0.15)', padding: '2px 8px', borderRadius: 4 }}>⭐ Admin</span>
-                        )}
-                        {p.id === me?.id && (
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--border)', padding: '2px 8px', borderRadius: 4 }}>Você</span>
+                  <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {/* Top: avatar + name */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{
+                        width: 42, height: 42, borderRadius: '50%',
+                        background: p.is_admin ? 'rgba(204,26,26,0.2)' : 'var(--surface2)',
+                        border: `2px solid ${p.is_admin ? 'var(--accent)' : 'var(--border)'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 14, fontWeight: 700, color: p.is_admin ? 'var(--accent)' : 'var(--text)',
+                        flexShrink: 0, overflow: 'hidden', position: 'relative',
+                      }}>
+                        {p.avatar_url ? (
+                          <Image src={p.avatar_url} alt={p.nickname} fill style={{ objectFit: 'cover' }} unoptimized />
+                        ) : (
+                          getInitials(p.full_name)
                         )}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                        <span>{roleLabel(p.role)}</span>
-                        {p.is_backing_vocal && <span>· Backing Vocal</span>}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700 }}>{p.full_name}</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>({p.nickname})</span>
+                          {p.is_admin && (
+                            <span style={{ fontSize: 11, color: 'var(--blue)', background: 'rgba(96,165,250,0.15)', padding: '2px 8px', borderRadius: 4 }}>⭐ Admin</span>
+                          )}
+                          {p.id === me?.id && (
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--border)', padding: '2px 8px', borderRadius: 4 }}>Você</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <span>{roleLabel(p.role)}</span>
+                          {p.is_backing_vocal && <span>· Backing Vocal</span>}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+                    {/* Bottom: action buttons */}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button
                         onClick={() => setExpanded(isOpen ? null : p.id)}
                         style={{

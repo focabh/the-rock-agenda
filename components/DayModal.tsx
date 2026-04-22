@@ -3,10 +3,12 @@ import { useState } from 'react'
 import type { Show, MusicianAvailability } from '@/lib/types'
 import { MUSICIANS } from '@/lib/types'
 import { formatDate, formatCurrency, formatDuration } from '@/lib/utils'
+import { deleteShow } from '@/lib/db'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import ShowForm from './ShowForm'
 import ShowMusiciansForm from './ShowMusiciansForm'
 import AvailabilityForm from './AvailabilityForm'
+import WhatsAppNotifyPanel from './WhatsAppNotifyPanel'
 
 interface Props {
   date: string
@@ -19,6 +21,7 @@ interface Props {
 export default function DayModal({ date, shows, availability, onClose, onRefresh }: Props) {
   const [tab, setTab] = useState<'overview' | 'show' | 'availability'>('overview')
   const [pendingShow, setPendingShow] = useState<Show | null>(null)
+  const [notifyShow, setNotifyShow] = useState<Show | null>(null)
   const isMobile = useIsMobile()
 
   return (
@@ -97,20 +100,30 @@ export default function DayModal({ date, shows, availability, onClose, onRefresh
         </div>
 
         <div style={{ padding: isMobile ? '16px' : 24, overflowY: 'auto' }}>
-          {tab === 'overview' && (
-            <Overview date={date} shows={shows} availability={availability} />
+          {notifyShow && (
+            <WhatsAppNotifyPanel show={notifyShow} onClose={() => { setNotifyShow(null); onRefresh(); setTab('overview') }} />
           )}
-          {tab === 'show' && !pendingShow && (
-            <ShowForm date={date} onSaved={(show) => setPendingShow(show)} />
+          {!notifyShow && tab === 'overview' && (
+            <Overview
+              date={date} shows={shows} availability={availability}
+              onDelete={async (show) => {
+                if (!confirm(`Excluir show "${show.client_name}"?`)) return
+                await deleteShow(show.id)
+                onRefresh()
+              }}
+            />
           )}
-          {tab === 'show' && pendingShow && (
+          {!notifyShow && tab === 'show' && !pendingShow && (
+            <ShowForm date={date} onSaved={(show) => setPendingShow(show)} onCancel={() => setTab('overview')} />
+          )}
+          {!notifyShow && tab === 'show' && pendingShow && (
             <ShowMusiciansForm
               show={pendingShow}
-              onSaved={() => { setPendingShow(null); onRefresh(); setTab('overview') }}
+              onSaved={() => { setNotifyShow(pendingShow); setPendingShow(null) }}
               onBack={() => setPendingShow(null)}
             />
           )}
-          {tab === 'availability' && (
+          {!notifyShow && tab === 'availability' && (
             <AvailabilityForm date={date} existing={availability} onSaved={() => { onRefresh(); setTab('overview') }} />
           )}
         </div>
@@ -119,7 +132,7 @@ export default function DayModal({ date, shows, availability, onClose, onRefresh
   )
 }
 
-function Overview({ shows, availability }: { date: string; shows: Show[]; availability: MusicianAvailability[] }) {
+function Overview({ shows, availability, onDelete }: { date: string; shows: Show[]; availability: MusicianAvailability[]; onDelete: (show: Show) => void }) {
   const blocked = availability.filter((a) => a.status !== 'available')
 
   return (
@@ -144,7 +157,14 @@ function Overview({ shows, availability }: { date: string; shows: Show[]; availa
                     <p style={{ fontWeight: 700, fontSize: 15 }}>{show.client_name}</p>
                     {show.venue && <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{show.venue}{show.city ? ` · ${show.city}` : ''}</p>}
                   </div>
-                  <StatusBadge status={show.status} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <StatusBadge status={show.status} />
+                    <button
+                      onClick={() => onDelete(show)}
+                      style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 16, cursor: 'pointer', padding: '0 2px', lineHeight: 1, opacity: 0.7 }}
+                      title="Excluir show"
+                    >🗑</button>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 14, fontSize: 13, flexWrap: 'wrap' }}>
                   <span>🕐 {show.time}</span>

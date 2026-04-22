@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import type { Show, ShowStatus } from '@/lib/types'
-import { createShow, updateShow } from '@/lib/db'
+import { createShow, updateShow, getShowsByDate } from '@/lib/db'
 import { formatCurrency } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
@@ -25,9 +25,9 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
     venue: existing?.venue ?? '',
     city: existing?.city ?? '',
     payment_type: (existing?.payment_type ?? 'cache') as 'cache' | 'portaria',
-    fee: existing?.fee ?? 0,
+    fee: existing?.fee ?? null as number | null,
     portaria_pct: existing?.portaria_pct ?? 50,
-    ticket_revenue: existing?.ticket_revenue ?? 0,
+    ticket_revenue: existing?.ticket_revenue ?? null as number | null,
     commission_pct: existing?.commission_pct ?? 10,
     is_paid: existing?.is_paid ?? false,
     status: (existing?.status ?? 'pending') as ShowStatus,
@@ -38,9 +38,9 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
 
   const set = (key: string, value: unknown) => setForm((f) => ({ ...f, [key]: value }))
 
-  const calculatedFee = form.payment_type === 'portaria' && form.ticket_revenue > 0
+  const calculatedFee = form.payment_type === 'portaria' && form.ticket_revenue
     ? Math.round(form.ticket_revenue * form.portaria_pct / 100 * 100) / 100
-    : form.fee
+    : (form.fee ?? 0)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -51,10 +51,27 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
     }
     setLoading(true)
     setError('')
+    // Overlap check
+    try {
+      const dayShows = await getShowsByDate(form.date)
+      const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+      const sNew = toMin(form.time), eNew = sNew + form.duration_minutes
+      const conflict = dayShows.find((s) => {
+        if (existing?.id === s.id) return false
+        const sX = toMin(s.time), eX = sX + s.duration_minutes
+        return sNew < eX && sX < eNew
+      })
+      if (conflict) {
+        setError(`Conflito de horário com "${conflict.client_name}" (${conflict.time} · ${conflict.duration_minutes} min)`)
+        setLoading(false)
+        return
+      }
+    } catch { /* ignore fetch errors, proceed */ }
     try {
       const payload = {
         ...form,
         fee: calculatedFee,
+        ticket_revenue: form.ticket_revenue ?? undefined,
       }
       let saved: Show
       if (existing) {
@@ -150,8 +167,9 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
             <label style={LABEL}>Cachê (R$)</label>
             <input
               type="number" min={0} step={50}
-              value={form.fee}
-              onChange={(e) => set('fee', Number(e.target.value))}
+              value={form.fee ?? ''}
+              placeholder="0,00"
+              onChange={(e) => set('fee', e.target.value === '' ? null : Number(e.target.value))}
             />
           </div>
           <div style={FIELD_STYLE}>
@@ -191,9 +209,9 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
             <label style={LABEL}>Total arrecadado na bilheteria (R$)</label>
             <input
               type="number" min={0} step={100}
-              value={form.ticket_revenue}
-              onChange={(e) => set('ticket_revenue', Number(e.target.value))}
+              value={form.ticket_revenue ?? ''}
               placeholder="Preencher após o show"
+              onChange={(e) => set('ticket_revenue', e.target.value === '' ? null : Number(e.target.value))}
             />
             <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pode ser preenchido depois do show</p>
           </div>
@@ -204,7 +222,7 @@ export default function ShowForm({ date, existing, onSaved, onCancel }: Props) {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
             <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              Cachê calculado ({form.portaria_pct}% de {formatCurrency(form.ticket_revenue)}):
+              Cachê calculado ({form.portaria_pct}% de {formatCurrency(form.ticket_revenue ?? 0)}):
             </span>
             <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--accent)', fontFamily: "'Barlow Condensed', sans-serif" }}>
               {formatCurrency(calculatedFee)}

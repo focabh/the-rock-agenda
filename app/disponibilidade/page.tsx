@@ -8,6 +8,13 @@ import { MONTH_NAMES, getDaysInMonth } from '@/lib/utils'
 import { useAuth } from '@/components/AuthProvider'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
+function getInitials(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '??'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 export default function DisponibilidadePage() {
   const { isAdmin, isProducer, musicianId } = useAuth()
   const isMobile = useIsMobile()
@@ -149,10 +156,33 @@ export default function DisponibilidadePage() {
                 {visibleMusicians.map((m) => (
                   <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 12px' }}>
-                      <p style={{ fontWeight: 600 }}>{musicianInfo[m.id]?.name ?? m.name}</p>
-                      <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        {m.isOptional ? '(opcional) ' : ''}{m.role.split(' ')[0]}
-                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {musicianInfo[m.id]?.fullName ? (
+                          <div style={{
+                            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                            background: 'rgba(204,26,26,0.15)', border: '1.5px solid var(--accent)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, fontWeight: 700, color: 'var(--accent)',
+                          }}>
+                            {getInitials(musicianInfo[m.id]!.fullName!)}
+                          </div>
+                        ) : (
+                          <div style={{
+                            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                            background: 'var(--surface2)', border: '1.5px solid var(--border)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, color: 'var(--text-muted)',
+                          }}>
+                            ?
+                          </div>
+                        )}
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontWeight: 600 }}>{musicianInfo[m.id]?.name ?? m.name}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            {m.isOptional ? '(opcional) ' : ''}{m.role.split(' ')[0]}
+                          </p>
+                        </div>
+                      </div>
                     </td>
                     {dates.map((d) => {
                       const entry = getEntry(m.id, d)
