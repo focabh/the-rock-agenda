@@ -49,6 +49,15 @@ export interface Show {
   created_at: string
 }
 
+export interface ShowMusician {
+  id: string
+  show_id: string
+  musician_id: string
+  is_participating: boolean
+  fee: number
+  created_at: string
+}
+
 export type CalendarEvent =
   | { type: 'show'; data: Show }
   | { type: 'availability'; data: MusicianAvailability }

@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Shell from '@/components/Shell'
 import ShowForm from '@/components/ShowForm'
+import ShowMusiciansForm from '@/components/ShowMusiciansForm'
 import { getShows, deleteShow } from '@/lib/db'
 import { useAuth } from '@/components/AuthProvider'
 import type { Show } from '@/lib/types'
@@ -16,6 +17,7 @@ export default function ShowsPage() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Show | null>(null)
   const [adding, setAdding] = useState(false)
+  const [pendingParticipation, setPendingParticipation] = useState<Show | null>(null)
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear() >= 2026 ? Math.min(new Date().getFullYear(), 2027) : 2026)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterPaid, setFilterPaid] = useState<string>('all')
@@ -89,22 +91,31 @@ export default function ShowsPage() {
           </button>
         </div>
 
-        {/* New/Edit form */}
-        {(adding || editing) && (
-          <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            padding: 24,
-            marginBottom: 24,
-          }}>
+        {/* Step 1: Show form */}
+        {(adding || editing) && !pendingParticipation && (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, marginBottom: 24 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
               {editing ? 'Editar Show' : 'Novo Show'}
             </h2>
             <ShowForm
               existing={editing ?? undefined}
-              onSaved={() => { setAdding(false); setEditing(null); load() }}
+              onSaved={(show) => { setAdding(false); setEditing(null); setPendingParticipation(show) }}
               onCancel={() => { setAdding(false); setEditing(null) }}
+            />
+          </div>
+        )}
+
+        {/* Step 2: Musician participation */}
+        {pendingParticipation && (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, marginBottom: 24 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Participação dos Músicos</h2>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+              Confirme quem vai tocar neste show e o cachê individual de cada músico.
+            </p>
+            <ShowMusiciansForm
+              show={pendingParticipation}
+              onSaved={() => { setPendingParticipation(null); load() }}
+              onBack={() => { setEditing(pendingParticipation); setPendingParticipation(null) }}
             />
           </div>
         )}

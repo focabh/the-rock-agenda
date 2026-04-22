@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Show, MusicianAvailability, MusicianId } from './types'
+import type { Show, ShowMusician, MusicianAvailability, MusicianId } from './types'
 
 // Shows
 export async function getShows(year?: number) {
@@ -40,6 +40,33 @@ export async function updateShow(id: string, show: Partial<Omit<Show, 'id' | 'cr
 
 export async function deleteShow(id: string) {
   const { error } = await supabase.from('shows').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Show musicians
+export async function getShowMusicians(showId: string) {
+  const { data, error } = await supabase
+    .from('show_musicians')
+    .select('*')
+    .eq('show_id', showId)
+  if (error) throw error
+  return data as ShowMusician[]
+}
+
+export async function getShowMusiciansForShows(showIds: string[]) {
+  if (showIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('show_musicians')
+    .select('*')
+    .in('show_id', showIds)
+  if (error) throw error
+  return data as ShowMusician[]
+}
+
+export async function upsertShowMusicians(entries: Omit<ShowMusician, 'id' | 'created_at'>[]) {
+  const { error } = await supabase
+    .from('show_musicians')
+    .upsert(entries, { onConflict: 'show_id,musician_id' })
   if (error) throw error
 }
 

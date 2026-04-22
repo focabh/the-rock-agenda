@@ -5,6 +5,7 @@ import { MUSICIANS } from '@/lib/types'
 import { formatDate, formatCurrency, formatDuration } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import ShowForm from './ShowForm'
+import ShowMusiciansForm from './ShowMusiciansForm'
 import AvailabilityForm from './AvailabilityForm'
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 
 export default function DayModal({ date, shows, availability, onClose, onRefresh }: Props) {
   const [tab, setTab] = useState<'overview' | 'show' | 'availability'>('overview')
+  const [pendingShow, setPendingShow] = useState<Show | null>(null)
   const isMobile = useIsMobile()
 
   return (
@@ -98,8 +100,15 @@ export default function DayModal({ date, shows, availability, onClose, onRefresh
           {tab === 'overview' && (
             <Overview date={date} shows={shows} availability={availability} />
           )}
-          {tab === 'show' && (
-            <ShowForm date={date} onSaved={() => { onRefresh(); setTab('overview') }} />
+          {tab === 'show' && !pendingShow && (
+            <ShowForm date={date} onSaved={(show) => setPendingShow(show)} />
+          )}
+          {tab === 'show' && pendingShow && (
+            <ShowMusiciansForm
+              show={pendingShow}
+              onSaved={() => { setPendingShow(null); onRefresh(); setTab('overview') }}
+              onBack={() => setPendingShow(null)}
+            />
           )}
           {tab === 'availability' && (
             <AvailabilityForm date={date} existing={availability} onSaved={() => { onRefresh(); setTab('overview') }} />
