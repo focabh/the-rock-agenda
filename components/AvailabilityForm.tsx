@@ -1,8 +1,15 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { MusicianAvailability, AvailabilityStatus, MusicianId } from '@/lib/types'
 import { MUSICIANS } from '@/lib/types'
-import { upsertAvailability, deleteAvailability } from '@/lib/db'
+import { upsertAvailability, deleteAvailability, getMusicianProfiles, type MusicianInfo } from '@/lib/db'
+
+function getInitials(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '??'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
 
 interface Props {
   date: string
@@ -15,6 +22,11 @@ const LABEL = { fontSize: 12, fontWeight: 600 as const, color: 'var(--text-muted
 export default function AvailabilityForm({ date, existing, onSaved }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [profiles, setProfiles] = useState<Record<string, MusicianInfo>>({})
+
+  useEffect(() => {
+    getMusicianProfiles().then(setProfiles)
+  }, [])
 
   const existingMap: Record<string, MusicianAvailability> = {}
   existing.forEach((a) => { existingMap[a.musician_id] = a })
@@ -83,8 +95,32 @@ export default function AvailabilityForm({ date, existing, onSaved }: Props) {
             transition: 'border-color 0.15s',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isUnavailable ? 12 : 0 }}>
+              {profiles[m.id]?.fullName ? (
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                  background: 'rgba(204,26,26,0.15)', border: '1.5px solid var(--accent)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 700, color: 'var(--accent)',
+                }}>
+                  {getInitials(profiles[m.id]!.fullName!)}
+                </div>
+              ) : (
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                  background: 'var(--surface2)', border: '1.5px solid var(--border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, color: 'var(--text-muted)',
+                }}>
+                  ?
+                </div>
+              )}
               <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 700, fontSize: 14 }}>{m.name}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <p style={{ fontWeight: 700, fontSize: 14 }}>{profiles[m.id]?.name ?? m.name}</p>
+                  {!profiles[m.id]?.fullName && (
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'var(--border)', padding: '1px 6px', borderRadius: 4 }}>TESTE</span>
+                  )}
+                </div>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   {m.role}
                   {m.isOptional && <span style={{ marginLeft: 6, color: 'var(--accent)', fontSize: 11 }}>(opcional)</span>}

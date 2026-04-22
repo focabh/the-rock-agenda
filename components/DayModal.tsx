@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { Show, MusicianAvailability } from '@/lib/types'
 import { MUSICIANS } from '@/lib/types'
 import { formatDate, formatCurrency, formatDuration } from '@/lib/utils'
-import { deleteShow } from '@/lib/db'
+import { deleteShow, updateShow } from '@/lib/db'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import ShowForm from './ShowForm'
 import ShowMusiciansForm from './ShowMusiciansForm'
@@ -111,6 +111,11 @@ export default function DayModal({ date, shows, availability, onClose, onRefresh
                 await deleteShow(show.id)
                 onRefresh()
               }}
+              onCancel={async (show) => {
+                if (!confirm(`Cancelar show "${show.client_name}"? O show ficará marcado como cancelado.`)) return
+                await updateShow(show.id, { status: 'cancelled' })
+                onRefresh()
+              }}
             />
           )}
           {!notifyShow && tab === 'show' && !pendingShow && (
@@ -132,7 +137,7 @@ export default function DayModal({ date, shows, availability, onClose, onRefresh
   )
 }
 
-function Overview({ shows, availability, onDelete }: { date: string; shows: Show[]; availability: MusicianAvailability[]; onDelete: (show: Show) => void }) {
+function Overview({ shows, availability, onDelete, onCancel }: { date: string; shows: Show[]; availability: MusicianAvailability[]; onDelete: (show: Show) => void; onCancel: (show: Show) => void }) {
   const blocked = availability.filter((a) => a.status !== 'available')
 
   return (
@@ -157,8 +162,15 @@ function Overview({ shows, availability, onDelete }: { date: string; shows: Show
                     <p style={{ fontWeight: 700, fontSize: 15 }}>{show.client_name}</p>
                     {show.venue && <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{show.venue}{show.city ? ` · ${show.city}` : ''}</p>}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <StatusBadge status={show.status} />
+                    {show.status !== 'cancelled' && (
+                      <button
+                        onClick={() => onCancel(show)}
+                        style={{ background: 'none', border: '1px solid rgba(251,146,60,0.4)', borderRadius: 6, color: 'var(--orange)', fontSize: 11, fontWeight: 600, cursor: 'pointer', padding: '3px 8px', whiteSpace: 'nowrap' }}
+                        title="Cancelar show"
+                      >Cancelar</button>
+                    )}
                     <button
                       onClick={() => onDelete(show)}
                       style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 16, cursor: 'pointer', padding: '0 2px', lineHeight: 1, opacity: 0.7 }}
