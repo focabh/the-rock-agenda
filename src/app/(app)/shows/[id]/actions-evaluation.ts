@@ -1,13 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
-import { z } from "zod";
 import { db } from "@/db";
-import { venueEvaluations, showPropostas, shows, venues } from "@/db/schema";
+import { showPropostas, shows, venueEvaluations, venues } from "@/db/schema";
+import { requireAdmin } from "@/lib/auth";
 import { parseForm, type ActionState } from "@/lib/form";
 import { formatBRL, formatDataBR } from "@/lib/formatters";
-import { requireAdmin } from "@/lib/auth";
+import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 const avaliacaoSchema = z.object({
   notaGeral: z.coerce.number().int().min(1).max(5).optional(),
@@ -20,7 +20,7 @@ const avaliacaoSchema = z.object({
 export async function saveAvaliacaoAction(
   showId: string,
   _prev: ActionState,
-  formData: FormData
+  formData: FormData,
 ): Promise<ActionState> {
   await requireAdmin();
   const parsed = parseForm(avaliacaoSchema, formData);
@@ -41,7 +41,10 @@ export async function saveAvaliacaoAction(
   return { error: undefined };
 }
 
-export async function savePropostaAction(showId: string, corpoMarkdown: string) {
+export async function savePropostaAction(
+  showId: string,
+  corpoMarkdown: string,
+) {
   await requireAdmin();
   const existing = await db.query.showPropostas.findFirst({
     where: eq(showPropostas.showId, showId),
@@ -57,11 +60,21 @@ export async function savePropostaAction(showId: string, corpoMarkdown: string) 
   revalidatePath(`/shows/${showId}`);
 }
 
-export async function generateDefaultPropostaAction(showId: string): Promise<string> {
+export async function generateDefaultPropostaAction(
+  showId: string,
+): Promise<string> {
   await requireAdmin();
-  const [show] = await db.select().from(shows).where(eq(shows.id, showId)).limit(1);
+  const [show] = await db
+    .select()
+    .from(shows)
+    .where(eq(shows.id, showId))
+    .limit(1);
   if (!show) return "";
-  const [casa] = await db.select().from(venues).where(eq(venues.id, show.casaId)).limit(1);
+  const [casa] = await db
+    .select()
+    .from(venues)
+    .where(eq(venues.id, show.casaId))
+    .limit(1);
   if (!casa) return "";
 
   const cache =

@@ -157,7 +157,9 @@ export function ShowResumo({
               Cachê
             </p>
             <p className="font-mono text-2xl">
-              {show.cacheCentavos > 0 ? formatBRL(show.cacheCentavos) : "—"}
+              {show.cacheCentavos != null && show.cacheCentavos > 0
+                ? formatBRL(show.cacheCentavos)
+                : "—"}
             </p>
             <PagamentoStatusBadge status={show.pagamentoStatus} />
           </CardContent>

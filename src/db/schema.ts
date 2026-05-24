@@ -1,11 +1,11 @@
+import { relations } from "drizzle-orm";
 import {
-  sqliteTable,
-  text,
   integer,
   real,
+  sqliteTable,
+  text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { relations, sql } from "drizzle-orm";
 
 const id = () =>
   text("id")
@@ -47,7 +47,9 @@ export const members = sqliteTable("members", {
   percentualDivisao: real("percentual_divisao").default(0),
   observacoes: text("observacoes"),
   ativo: integer("ativo", { mode: "boolean" }).notNull().default(true),
-  isManager: integer("is_manager", { mode: "boolean" }).notNull().default(false),
+  isManager: integer("is_manager", { mode: "boolean" })
+    .notNull()
+    .default(false),
   userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -92,7 +94,13 @@ export const songs = sqliteTable("songs", {
   titulo: text("titulo").notNull(),
   artista: text("artista").notNull(),
   status: text("status", {
-    enum: ["pronta", "precisa_ensaiar", "aprendendo", "ideia_futura", "aposentada"],
+    enum: [
+      "pronta",
+      "precisa_ensaiar",
+      "aprendendo",
+      "ideia_futura",
+      "aposentada",
+    ],
   })
     .notNull()
     .default("aprendendo"),
@@ -180,9 +188,9 @@ export const showMemberPayment = sqliteTable(
   (t) => ({
     uniqShowMemberPay: uniqueIndex("uniq_show_member_pay").on(
       t.showId,
-      t.memberId
+      t.memberId,
     ),
-  })
+  }),
 );
 
 // ---------------- VENUE EVALUATIONS ----------------
@@ -224,7 +232,7 @@ export const songMemberReadiness = sqliteTable(
   },
   (t) => ({
     uniqSongMember: uniqueIndex("uniq_song_member").on(t.songId, t.memberId),
-  })
+  }),
 );
 
 // Token OAuth da Spotify (singleton — uma conta conectada para toda a banda)
@@ -296,9 +304,12 @@ export const showChecklistItems = sqliteTable("show_checklist_items", {
   texto: text("texto").notNull(),
   ordem: integer("ordem").notNull(),
   concluido: integer("concluido", { mode: "boolean" }).notNull().default(false),
-  responsavelMemberId: text("responsavel_member_id").references(() => members.id, {
-    onDelete: "set null",
-  }),
+  responsavelMemberId: text("responsavel_member_id").references(
+    () => members.id,
+    {
+      onDelete: "set null",
+    },
+  ),
   concluidoEm: integer("concluido_em", { mode: "timestamp_ms" }),
 });
 
@@ -395,7 +406,7 @@ export const checklistTemplatesRelations = relations(
   checklistTemplates,
   ({ many }) => ({
     items: many(checklistTemplateItems),
-  })
+  }),
 );
 
 export const checklistTemplateItemsRelations = relations(
@@ -405,36 +416,51 @@ export const checklistTemplateItemsRelations = relations(
       fields: [checklistTemplateItems.templateId],
       references: [checklistTemplates.id],
     }),
-  })
+  }),
 );
 
-export const showChecklistsRelations = relations(showChecklists, ({ one, many }) => ({
-  show: one(shows, { fields: [showChecklists.showId], references: [shows.id] }),
-  template: one(checklistTemplates, {
-    fields: [showChecklists.templateId],
-    references: [checklistTemplates.id],
+export const showChecklistsRelations = relations(
+  showChecklists,
+  ({ one, many }) => ({
+    show: one(shows, {
+      fields: [showChecklists.showId],
+      references: [shows.id],
+    }),
+    template: one(checklistTemplates, {
+      fields: [showChecklists.templateId],
+      references: [checklistTemplates.id],
+    }),
+    items: many(showChecklistItems),
   }),
-  items: many(showChecklistItems),
-}));
+);
 
-export const showChecklistItemsRelations = relations(showChecklistItems, ({ one }) => ({
-  checklist: one(showChecklists, {
-    fields: [showChecklistItems.showChecklistId],
-    references: [showChecklists.id],
+export const showChecklistItemsRelations = relations(
+  showChecklistItems,
+  ({ one }) => ({
+    checklist: one(showChecklists, {
+      fields: [showChecklistItems.showChecklistId],
+      references: [showChecklists.id],
+    }),
+    responsavel: one(members, {
+      fields: [showChecklistItems.responsavelMemberId],
+      references: [members.id],
+    }),
   }),
-  responsavel: one(members, {
-    fields: [showChecklistItems.responsavelMemberId],
-    references: [members.id],
-  }),
-}));
+);
 
 export const showDayTasksRelations = relations(showDayTasks, ({ one }) => ({
   show: one(shows, { fields: [showDayTasks.showId], references: [shows.id] }),
 }));
 
-export const venueEvaluationsRelations = relations(venueEvaluations, ({ one }) => ({
-  show: one(shows, { fields: [venueEvaluations.showId], references: [shows.id] }),
-}));
+export const venueEvaluationsRelations = relations(
+  venueEvaluations,
+  ({ one }) => ({
+    show: one(shows, {
+      fields: [venueEvaluations.showId],
+      references: [shows.id],
+    }),
+  }),
+);
 
 export const memberUnavailabilityRelations = relations(
   memberUnavailability,
@@ -443,16 +469,22 @@ export const memberUnavailabilityRelations = relations(
       fields: [memberUnavailability.memberId],
       references: [members.id],
     }),
-  })
+  }),
 );
 
-export const showMemberPresenceRelations = relations(showMemberPresence, ({ one }) => ({
-  show: one(shows, { fields: [showMemberPresence.showId], references: [shows.id] }),
-  member: one(members, {
-    fields: [showMemberPresence.memberId],
-    references: [members.id],
+export const showMemberPresenceRelations = relations(
+  showMemberPresence,
+  ({ one }) => ({
+    show: one(shows, {
+      fields: [showMemberPresence.showId],
+      references: [shows.id],
+    }),
+    member: one(members, {
+      fields: [showMemberPresence.memberId],
+      references: [members.id],
+    }),
   }),
-}));
+);
 
 export const membersRelations = relations(members, ({ one, many }) => ({
   user: one(users, { fields: [members.userId], references: [users.id] }),

@@ -1,16 +1,16 @@
-import Link from "next/link";
-import { asc, desc, eq } from "drizzle-orm";
-import { Plus, ExternalLink, Download } from "lucide-react";
-import { db } from "@/db";
-import { songs, members, songMemberReadiness } from "@/db/schema";
-import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
 import { SongList } from "@/components/repertorio/song-list";
-import { BAND } from "@/lib/band";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
-import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SpotifyConnect } from "@/components/repertorio/spotify-connect";
+import { PageHeader } from "@/components/shared/page-header";
+import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
+import { Button } from "@/components/ui/button";
+import { db } from "@/db";
+import { members, songMemberReadiness, songs } from "@/db/schema";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { BAND } from "@/lib/band";
 import { isSpotifyConnected } from "@/lib/spotify";
+import { asc, desc, eq } from "drizzle-orm";
+import { Download, ExternalLink, Plus } from "lucide-react";
+import Link from "next/link";
 
 export default async function RepertorioPage() {
   const user = await getCurrentUser();
@@ -93,7 +93,7 @@ export default async function RepertorioPage() {
             [...readinessBySong.entries()].map(([k, v]) => [
               k,
               Object.fromEntries(v),
-            ])
+            ]),
           )}
         />
       </div>

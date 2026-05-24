@@ -1,45 +1,40 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import {
-  ExternalLink,
-  Loader2,
-  ClipboardPaste,
-  Music,
-  ListMusic,
-} from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { BAND } from "@/lib/band";
-import { parseTracksFromText } from "@/lib/parse-tracks";
 import {
   importFromSpotifyAction,
   importPastedToRepertorioAction,
   type SpotifyImportResult,
 } from "@/app/(app)/repertorio/actions";
 import {
-  importPlaylistToSetlistAction,
   importPastedToSetlistAction,
+  importPlaylistToSetlistAction,
   type SpotifyToSetlistResult,
 } from "@/app/(app)/shows/[id]/actions-setlist";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { BAND } from "@/lib/band";
+import { parseTracksFromText } from "@/lib/parse-tracks";
+import { cn } from "@/lib/utils";
+import {
+  ClipboardPaste,
+  ExternalLink,
+  ListMusic,
+  Loader2,
+  Music,
+} from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 type Props =
   | { mode: "repertorio"; trigger: React.ReactNode }
@@ -62,7 +57,7 @@ export function SpotifyImportDialog(props: Props) {
     if (props.mode === "repertorio") {
       const r = result as SpotifyImportResult;
       toast.success(
-        `${r.added} nova(s), ${r.existing} já existiam (de ${r.total}).`
+        `${r.added} nova(s), ${r.existing} já existiam (de ${r.total}).`,
       );
     } else {
       const r = result as SpotifyToSetlistResult;
@@ -129,7 +124,9 @@ export function SpotifyImportDialog(props: Props) {
 
           <TabsContent value="texto" className="space-y-4">
             <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-1.5">
-              <p className="font-medium text-foreground">Como copiar do Spotify:</p>
+              <p className="font-medium text-foreground">
+                Como copiar do Spotify:
+              </p>
               <ol className="space-y-0.5 list-decimal list-inside text-muted-foreground">
                 <li>
                   Abre a playlist em{" "}
@@ -143,15 +140,17 @@ export function SpotifyImportDialog(props: Props) {
                   </a>
                 </li>
                 <li>
-                  Clica na primeira música → <kbd>Ctrl+A</kbd> pra selecionar todas
+                  Clica na primeira música → <kbd>Ctrl+A</kbd> pra selecionar
+                  todas
                 </li>
                 <li>
                   <kbd>Ctrl+C</kbd> → cola aqui abaixo
                 </li>
               </ol>
               <p className="text-muted-foreground pt-1">
-                Formato: <code className="text-foreground">Música - Artista</code>{" "}
-                (ou tab, —, ·, |). Numeração inicial é ignorada.
+                Formato:{" "}
+                <code className="text-foreground">Música - Artista</code> (ou
+                tab, —, ·, |). Numeração inicial é ignorada.
               </p>
             </div>
 
@@ -162,7 +161,9 @@ export function SpotifyImportDialog(props: Props) {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={8}
-                placeholder={"Smells Like Teen Spirit - Nirvana\nKilling in the Name - RATM\nEverlong - Foo Fighters"}
+                placeholder={
+                  "Smells Like Teen Spirit - Nirvana\nKilling in the Name - RATM\nEverlong - Foo Fighters"
+                }
                 className="font-mono text-xs"
                 autoFocus
               />
@@ -233,8 +234,8 @@ export function SpotifyImportDialog(props: Props) {
             <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200/90 space-y-1">
               <p className="font-medium">⚠ Funciona só em alguns casos</p>
               <p>
-                Spotify exige conta conectada via OAuth + o usuário ser test user
-                no app da Spotify Dashboard. Se der erro, use a aba{" "}
+                Spotify exige conta conectada via OAuth + o usuário ser test
+                user no app da Spotify Dashboard. Se der erro, use a aba{" "}
                 <strong>Colar lista</strong>.
               </p>
             </div>

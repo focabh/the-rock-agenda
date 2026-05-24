@@ -1,19 +1,19 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
-import { Plus, X, CalendarOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { FieldError } from "@/components/shared/field-error";
-import { EmptyState } from "@/components/shared/empty-state";
-import { formatDataBR } from "@/lib/formatters";
 import {
   createUnavailabilityAction,
   deleteUnavailabilityAction,
 } from "@/app/(app)/agenda/actions";
+import { EmptyState } from "@/components/shared/empty-state";
+import { FieldError } from "@/components/shared/field-error";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { MemberUnavailability } from "@/db/schema";
+import { formatDataBR } from "@/lib/formatters";
+import { CalendarOff, Plus, X } from "lucide-react";
+import { useActionState, useState, useTransition } from "react";
 
 function toDateInput(d: Date | number): string {
   const date = typeof d === "number" ? new Date(d) : d;
@@ -31,14 +31,14 @@ export function UnavailabilitySection({
 }) {
   const [state, formAction, pending] = useActionState(
     createUnavailabilityAction,
-    null
+    null,
   );
   const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const todayStr = toDateInput(new Date());
 
   const sorted = [...blocks].sort(
-    (a, b) => a.dataInicio.getTime() - b.dataInicio.getTime()
+    (a, b) => a.dataInicio.getTime() - b.dataInicio.getTime(),
   );
 
   return (
@@ -129,10 +129,7 @@ export function UnavailabilitySection({
               const sameDia =
                 b.dataInicio.toDateString() === b.dataFim.toDateString();
               return (
-                <li
-                  key={b.id}
-                  className="flex items-center gap-3 px-4 py-3"
-                >
+                <li key={b.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">
                       {sameDia
