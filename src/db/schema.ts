@@ -483,6 +483,7 @@ export type SetlistItem = typeof setlistItems.$inferSelect;
 export type Show = typeof shows.$inferSelect;
 export type VenueEvaluation = typeof venueEvaluations.$inferSelect;
 export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
+export type ChecklistTemplateItem = typeof checklistTemplateItems.$inferSelect;
 export type ShowChecklist = typeof showChecklists.$inferSelect;
 export type ShowDayTask = typeof showDayTasks.$inferSelect;
 export type CostCalculation = typeof costCalculations.$inferSelect;
