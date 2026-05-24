@@ -1,0 +1,85 @@
+import { getIronSession, type SessionOptions } from "iron-session";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import { db } from "@/db";
+import { users, members } from "@/db/schema";
+import type { Member, User } from "@/db/schema";
+
+export type AppSession = {
+  authed?: boolean;
+  username?: string;
+};
+
+const THIRTY_DAYS = 60 * 60 * 24 * 30;
+
+const sessionOptions: SessionOptions = {
+  cookieName: "therock_session",
+  password:
+    process.env.SESSION_SECRET ??
+    "dev-secret-replace-me-with-at-least-32-chars-please",
+  cookieOptions: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: THIRTY_DAYS,
+  },
+  ttl: THIRTY_DAYS,
+};
+
+export async function getSession() {
+  const cookieStore = await cookies();
+  return getIronSession<AppSession>(cookieStore, sessionOptions);
+}
+
+export type CurrentUser = User & { member: Member | null };
+
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  const session = await getSession();
+  if (!session.authed || !session.username) return null;
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, session.username))
+    .limit(1);
+  if (!user) return null;
+  const [member] = await db
+    .select()
+    .from(members)
+    .where(eq(members.userId, user.id))
+    .limit(1);
+  return { ...user, member: member ?? null };
+}
+
+export async function requireAuth() {
+  const session = await getSession();
+  if (!session.authed) redirect("/login");
+  return session;
+}
+
+export async function requireCurrentUser(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  return user;
+}
+
+export async function requireAdmin(): Promise<CurrentUser> {
+  const user = await requireCurrentUser();
+  if (user.role !== "admin") {
+    redirect("/?erro=permissao");
+  }
+  return user;
+}
+
+export function isAdmin(user: CurrentUser | null): boolean {
+  return user?.role === "admin";
+}
+
+export async function verifyPassword(input: string, hash: string) {
+  return bcrypt.compare(input, hash);
+}
+
+export async function hashPassword(input: string) {
+  return bcrypt.hash(input, 10);
+}

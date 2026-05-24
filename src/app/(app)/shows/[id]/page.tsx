@@ -1,0 +1,166 @@
+import { eq, asc, and, lte, gte } from "drizzle-orm";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { db } from "@/db";
+import {
+  shows,
+  songs,
+  checklistTemplates,
+  members,
+  memberUnavailability,
+  showMemberPresence,
+  showMemberPayment,
+} from "@/db/schema";
+import { membersUnavailableOn } from "@/lib/conflicts";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { PresenceCard } from "@/components/shows/presence-card";
+import { PaymentBreakdown } from "@/components/shows/payment-breakdown";
+import { PageHeader } from "@/components/shared/page-header";
+import { ShowDetailTabs } from "@/components/shows/show-detail-tabs";
+import { ShowResumo } from "@/components/shows/show-resumo";
+import { SetlistTab } from "@/components/shows/setlist-tab";
+import { ChecklistTab } from "@/components/shows/checklist-tab";
+import { AvaliacaoTab } from "@/components/shows/avaliacao-tab";
+import { PropostaTab } from "@/components/shows/proposta-tab";
+import { Button } from "@/components/ui/button";
+import { formatDataBR } from "@/lib/formatters";
+
+export default async function ShowDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const user = await getCurrentUser();
+  const admin = isAdmin(user);
+  const show = await db.query.shows.findFirst({
+    where: eq(shows.id, id),
+    with: {
+      casa: true,
+      setlists: { with: { items: { with: { song: true } } } },
+      checklists: { with: { items: true, template: true } },
+      avaliacao: true,
+    },
+  });
+  if (!show) notFound();
+
+  const proposta = await db.query.showPropostas.findFirst({
+    where: (sp, { eq }) => eq(sp.showId, id),
+  });
+
+  const [allSongs, allTemplates, allMembers, dayBlocks, presences, payments] = await Promise.all([
+    db.select().from(songs).orderBy(asc(songs.titulo)),
+    db.select().from(checklistTemplates).orderBy(asc(checklistTemplates.nome)),
+    db.select().from(members).where(eq(members.ativo, true)).orderBy(asc(members.nome)),
+    // Janela ampla (±2 dias) — depois filtramos com precisão via brDateKey
+    db
+      .select()
+      .from(memberUnavailability)
+      .where(
+        and(
+          lte(
+            memberUnavailability.dataInicio,
+            new Date(show.data.getTime() + 2 * 86400_000)
+          ),
+          gte(
+            memberUnavailability.dataFim,
+            new Date(show.data.getTime() - 2 * 86400_000)
+          )
+        )
+      ),
+    db
+      .select()
+      .from(showMemberPresence)
+      .where(eq(showMemberPresence.showId, id)),
+    db
+      .select()
+      .from(showMemberPayment)
+      .where(eq(showMemberPayment.showId, id)),
+  ]);
+
+  // Não-managers
+  const playableMembers = allMembers.filter((m) => !m.isManager);
+  // Confirmados
+  const confirmedIds = new Set(
+    presences.filter((p) => p.status === "confirmado").map((p) => p.memberId)
+  );
+  const confirmedMusicos = playableMembers.filter((m) => confirmedIds.has(m.id));
+  const managerMember = allMembers.find((m) => m.isManager) ?? null;
+
+  const conflitos = membersUnavailableOn(show.data, dayBlocks, allMembers);
+  const setlist = show.setlists[0];
+  const setlistItems = setlist?.items ?? [];
+
+  return (
+    <div>
+      <PageHeader
+        title={show.casa.nome}
+        description={formatDataBR(show.data, true)}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href="/shows" />}
+          >
+            <ChevronLeft className="size-4" />
+            Voltar
+          </Button>
+        }
+      />
+
+      <div className="p-6">
+        <ShowDetailTabs
+          resumo={
+            <div className="space-y-4">
+              <ShowResumo
+                show={show}
+                casa={show.casa}
+                conflitos={conflitos}
+                admin={admin}
+              />
+              <PresenceCard
+                showId={show.id}
+                members={playableMembers}
+                presences={presences}
+                currentMemberId={user?.member?.id ?? null}
+                admin={admin}
+              />
+              <PaymentBreakdown
+                showId={show.id}
+                cacheCentavos={show.cacheCentavos ?? 0}
+                applyCommission={show.applyCommission}
+                commissionPct={show.commissionPct}
+                confirmedMusicos={confirmedMusicos}
+                managerMember={managerMember}
+                overrides={payments}
+                admin={admin}
+              />
+            </div>
+          }
+          setlist={
+            <SetlistTab
+              showId={show.id}
+              items={setlistItems}
+              allSongs={allSongs}
+              canEdit={admin}
+            />
+          }
+          checklist={
+            <ChecklistTab
+              showId={show.id}
+              templates={allTemplates}
+              checklists={show.checklists}
+            />
+          }
+          avaliacao={
+            <AvaliacaoTab showId={show.id} avaliacao={show.avaliacao ?? null} />
+          }
+          proposta={
+            <PropostaTab showId={show.id} proposta={proposta ?? null} />
+          }
+        />
+      </div>
+    </div>
+  );
+}

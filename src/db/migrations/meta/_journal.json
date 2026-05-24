@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1779580712758,
+      "tag": "0000_abandoned_war_machine",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1779582763194,
+      "tag": "0001_flat_mentor",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779584802860,
+      "tag": "0002_overconfident_the_renegades",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1779585891722,
+      "tag": "0003_awesome_glorian",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1779587846991,
+      "tag": "0004_sparkling_paladin",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1779590632876,
+      "tag": "0005_silky_martin_li",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1779621833144,
+      "tag": "0006_tricky_praxagora",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1779627466060,
+      "tag": "0007_skinny_quasar",
+      "breakpoints": true
+    }
+  ]
+}
