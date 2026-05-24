@@ -151,7 +151,9 @@ export function UnavailabilitySection({
                     className="text-muted-foreground hover:text-destructive"
                     title="Remover"
                     onClick={() =>
-                      startTransition(() => deleteUnavailabilityAction(b.id))
+                      startTransition(() => {
+                        void deleteUnavailabilityAction(b.id);
+                      })
                     }
                   >
                     <X className="size-4" />
