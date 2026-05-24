@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { ensureDbInitialized } from "@/db/init";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,11 +23,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Initialize database on app startup
+  try {
+    await ensureDbInitialized();
+  } catch (error) {
+    console.error("Failed to initialize database:", error);
+  }
+
   return (
     <html
       lang="pt-BR"

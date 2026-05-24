@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/db";
+import { ensureDbInitialized } from "@/db/init";
 import { users, members } from "@/db/schema";
 import type { Member, User } from "@/db/schema";
 
@@ -36,20 +37,30 @@ export async function getSession() {
 export type CurrentUser = User & { member: Member | null };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
+  try {
+    await ensureDbInitialized();
+  } catch (e) {
+    console.error("DB init failed:", e);
+  }
   const session = await getSession();
   if (!session.authed || !session.username) return null;
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.username, session.username))
-    .limit(1);
-  if (!user) return null;
-  const [member] = await db
-    .select()
-    .from(members)
-    .where(eq(members.userId, user.id))
-    .limit(1);
-  return { ...user, member: member ?? null };
+  try {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, session.username))
+      .limit(1);
+    if (!user) return null;
+    const [member] = await db
+      .select()
+      .from(members)
+      .where(eq(members.userId, user.id))
+      .limit(1);
+    return { ...user, member: member ?? null };
+  } catch (e) {
+    console.error("Error fetching current user:", e);
+    return null;
+  }
 }
 
 export async function requireAuth() {
