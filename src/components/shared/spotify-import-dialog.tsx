@@ -47,7 +47,7 @@ type Props =
 
 export function SpotifyImportDialog(props: Props) {
   const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState(BAND.spotifyPlaylistUrl);
+  const [url, setUrl] = useState<string>(BAND.spotifyPlaylistUrl as string);
   const [text, setText] = useState("");
   const [replace, setReplace] = useState(false);
   const [pending, startTransition] = useTransition();
