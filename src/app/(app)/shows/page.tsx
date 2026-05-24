@@ -81,7 +81,7 @@ export default async function ShowsPage() {
                     </div>
                     <div className="hidden sm:flex flex-col items-end gap-1">
                       <ShowStatusBadge status={s.status} />
-                      {s.cacheCentavos > 0 && (
+                      {s.cacheCentavos != null && s.cacheCentavos > 0 && (
                         <span className="font-mono text-xs text-muted-foreground">
                           {formatBRL(s.cacheCentavos)}
                         </span>
