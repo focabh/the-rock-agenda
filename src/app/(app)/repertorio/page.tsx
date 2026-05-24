@@ -64,7 +64,7 @@ export default async function RepertorioPage() {
               <>
                 <SpotifyConnect
                   connected={spotify.connected}
-                  ownerName={spotify.ownerName}
+                  ownerName={spotify.ownerName ?? null}
                 />
                 <SpotifyImportDialog
                   mode="repertorio"
