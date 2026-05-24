@@ -64,7 +64,10 @@ export async function generateDefaultPropostaAction(showId: string): Promise<str
   const [casa] = await db.select().from(venues).where(eq(venues.id, show.casaId)).limit(1);
   if (!casa) return "";
 
-  const cache = show.cacheCentavos > 0 ? formatBRL(show.cacheCentavos) : "_a combinar_";
+  const cache =
+    show.cacheCentavos != null && show.cacheCentavos > 0
+      ? formatBRL(show.cacheCentavos)
+      : "_a combinar_";
 
   const md = `# Proposta de apresentação — The Rock
 
