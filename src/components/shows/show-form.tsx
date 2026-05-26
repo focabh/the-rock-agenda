@@ -32,15 +32,22 @@ export function ShowForm({
   action,
   submitLabel = "Salvar",
   cancelHref = "/shows",
+  defaultDate,
 }: {
   show?: Show;
   casas: Venue[];
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   submitLabel?: string;
   cancelHref?: string;
+  defaultDate?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const cacheReais = show?.cacheCentavos ? show.cacheCentavos / 100 : "";
+  const dataDefault = show?.data
+    ? toDatetimeLocal(show.data)
+    : defaultDate
+      ? `${defaultDate}T20:00`
+      : "";
 
   return (
     <Card>
@@ -72,7 +79,7 @@ export function ShowForm({
               id="data"
               name="data"
               type="datetime-local"
-              defaultValue={toDatetimeLocal(show?.data)}
+              defaultValue={dataDefault}
               required
             />
             <FieldError state={state} name="data" />

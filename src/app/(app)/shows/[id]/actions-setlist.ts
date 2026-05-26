@@ -59,13 +59,12 @@ export async function reorderSetlistItemsAction(
   orderedIds: string[]
 ) {
   await requireAdmin();
-  // better-sqlite3 transações são síncronas — callback não pode ser async
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     for (let i = 0; i < orderedIds.length; i++) {
-      tx.update(setlistItems)
+      await tx
+        .update(setlistItems)
         .set({ ordem: i })
-        .where(eq(setlistItems.id, orderedIds[i]))
-        .run();
+        .where(eq(setlistItems.id, orderedIds[i]));
     }
   });
   revalidatePath(`/shows/${showId}`);

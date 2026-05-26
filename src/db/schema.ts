@@ -193,6 +193,25 @@ export const showMemberPayment = sqliteTable(
   }),
 );
 
+// ---------------- REHEARSALS (ENSAIOS) ----------------
+
+export const rehearsals = sqliteTable("rehearsals", {
+  id: id(),
+  data: integer("data", { mode: "timestamp_ms" }).notNull(),
+  inicio: text("inicio"), // HH:mm
+  termino: text("termino"), // HH:mm
+  local: text("local"),
+  foco: text("foco"), // o que será ensaiado
+  observacoes: text("observacoes"),
+  status: text("status", {
+    enum: ["planejado", "confirmado", "cancelado"],
+  })
+    .notNull()
+    .default("planejado"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
 // ---------------- VENUE EVALUATIONS ----------------
 
 export const venueEvaluations = sqliteTable("venue_evaluations", {
@@ -523,6 +542,7 @@ export type CostCalculation = typeof costCalculations.$inferSelect;
 export type Contract = typeof contracts.$inferSelect;
 export type ShowProposta = typeof showPropostas.$inferSelect;
 export type MemberUnavailability = typeof memberUnavailability.$inferSelect;
+export type Rehearsal = typeof rehearsals.$inferSelect;
 export type ShowMemberPresence = typeof showMemberPresence.$inferSelect;
 export type SpotifyAuth = typeof spotifyAuth.$inferSelect;
 export type SongMemberReadiness = typeof songMemberReadiness.$inferSelect;

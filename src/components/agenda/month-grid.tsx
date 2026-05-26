@@ -1,7 +1,17 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { colorForMember, brDateKey } from "@/lib/conflicts";
-import type { Show, Venue, Member, MemberUnavailability } from "@/db/schema";
+import { DayDialog } from "@/components/agenda/day-dialog";
+import type {
+  Show,
+  Venue,
+  Member,
+  MemberUnavailability,
+  Rehearsal,
+} from "@/db/schema";
 
 type ShowItem = Show & { casa: Venue };
 
@@ -17,13 +27,24 @@ export function MonthGrid({
   shows,
   blocks,
   members,
+  rehearsals = [],
+  isAdmin = false,
+  currentMemberId = null,
 }: {
   year: number;
   month: number;
   shows: ShowItem[];
   blocks: MemberUnavailability[];
   members: Member[];
+  rehearsals?: Rehearsal[];
+  isAdmin?: boolean;
+  currentMemberId?: string | null;
 }) {
+  const [selected, setSelected] = useState<{ key: string; date: Date } | null>(
+    null
+  );
+  const [open, setOpen] = useState(false);
+
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
   // Semana começa segunda (0=segunda, 6=domingo)
@@ -40,13 +61,30 @@ export function MonthGrid({
 
   const membersById = new Map(members.map((m) => [m.id, m]));
 
-  // Agrupar shows e bloqueios por dayKey (BR)
+  // Agrupar shows, ensaios e bloqueios por dayKey (BR)
   const showsByDay = new Map<string, ShowItem[]>();
   for (const s of shows) {
     const k = brDateKey(s.data);
     if (!showsByDay.has(k)) showsByDay.set(k, []);
     showsByDay.get(k)!.push(s);
   }
+
+  const rehearsalsByDay = new Map<string, Rehearsal[]>();
+  for (const r of rehearsals) {
+    const k = brDateKey(r.data);
+    if (!rehearsalsByDay.has(k)) rehearsalsByDay.set(k, []);
+    rehearsalsByDay.get(k)!.push(r);
+  }
+
+  function openDay(cellKey: string, day: number) {
+    setSelected({ key: cellKey, date: new Date(year, month, day) });
+    setOpen(true);
+  }
+
+  const selectedShows = selected ? (showsByDay.get(selected.key) ?? []) : [];
+  const selectedRehearsals = selected
+    ? (rehearsalsByDay.get(selected.key) ?? [])
+    : [];
 
   return (
     <div className="rounded-md border border-border overflow-hidden bg-card">
@@ -72,6 +110,7 @@ export function MonthGrid({
           }
           const isToday = cell.key === todayKey;
           const dayShows = showsByDay.get(cell.key) ?? [];
+          const dayRehearsals = rehearsalsByDay.get(cell.key) ?? [];
           const dayBlocks = blocks.filter((b) => {
             const startKey = brDateKey(b.dataInicio);
             const endKey = brDateKey(b.dataFim);
@@ -81,8 +120,17 @@ export function MonthGrid({
           return (
             <div
               key={i}
+              role="button"
+              tabIndex={0}
+              onClick={() => openDay(cell.key, cell.day)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openDay(cell.key, cell.day);
+                }
+              }}
               className={cn(
-                "h-28 md:h-32 border-r border-b border-border last:border-r-0 p-1.5 overflow-hidden",
+                "h-28 md:h-32 border-r border-b border-border last:border-r-0 p-1.5 overflow-hidden cursor-pointer hover:bg-accent/30 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-primary/40 transition-colors",
                 isToday && "bg-primary/5 ring-1 ring-inset ring-primary/30"
               )}
             >
@@ -111,6 +159,7 @@ export function MonthGrid({
                   <Link
                     key={s.id}
                     href={`/shows/${s.id}`}
+                    onClick={(e) => e.stopPropagation()}
                     className="block truncate text-[10px] leading-tight px-1.5 py-1 rounded bg-primary/20 text-primary-foreground ring-1 ring-primary/40 font-medium hover:bg-primary/30"
                     title={`${s.casa.nome} — ${s.status}`}
                   >
@@ -121,6 +170,27 @@ export function MonthGrid({
                     )}
                     {s.casa.nome}
                   </Link>
+                ))}
+                {dayRehearsals.map((r) => (
+                  <div
+                    key={r.id}
+                    className={cn(
+                      "truncate text-[10px] leading-tight px-1.5 py-1 rounded ring-1 font-medium",
+                      r.status === "cancelado"
+                        ? "bg-muted text-muted-foreground ring-border line-through"
+                        : "bg-emerald-500/20 text-emerald-200 ring-emerald-500/40"
+                    )}
+                    title={`Ensaio${r.inicio ? " " + r.inicio : ""}${
+                      r.local ? " · " + r.local : ""
+                    }${r.foco ? " — " + r.foco : ""}`}
+                  >
+                    {r.inicio && (
+                      <span className="font-mono opacity-70 mr-1">
+                        {r.inicio}
+                      </span>
+                    )}
+                    Ensaio
+                  </div>
                 ))}
                 {dayBlocks.slice(0, 3).map((b) => {
                   const m = membersById.get(b.memberId);
@@ -154,6 +224,17 @@ export function MonthGrid({
           );
         })}
       </div>
+
+      <DayDialog
+        date={selected?.date ?? null}
+        open={open}
+        onOpenChange={setOpen}
+        shows={selectedShows}
+        rehearsals={selectedRehearsals}
+        isAdmin={isAdmin}
+        currentMemberId={currentMemberId}
+        members={members}
+      />
     </div>
   );
 }

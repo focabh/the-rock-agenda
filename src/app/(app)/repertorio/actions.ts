@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { songs, songMemberReadiness } from "@/db/schema";
 import { and } from "drizzle-orm";
 import { parseForm, type ActionState } from "@/lib/form";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireCurrentUser } from "@/lib/auth";
 import {
   SpotifyConfigError,
   extractPlaylistId,
@@ -153,7 +153,11 @@ export async function setMemberReadinessAction(
   memberId: string,
   status: "pronta" | "precisa_ensaiar" | "aprendendo"
 ) {
-  await requireAdmin();
+  const user = await requireCurrentUser();
+  // Admin marca a prontidão de qualquer músico; membro só a própria.
+  if (user.role !== "admin" && user.member?.id !== memberId) {
+    return { error: "Você só pode marcar a sua própria prontidão." };
+  }
   const existing = await db.query.songMemberReadiness.findFirst({
     where: and(
       eq(songMemberReadiness.songId, songId),

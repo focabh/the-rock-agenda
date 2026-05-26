@@ -51,6 +51,7 @@
 
 /* The Rock — dark-first com accent vermelho rock */
 :root {
+  color-scheme: dark;
   --background: oklch(0.09 0 0);
   --foreground: oklch(0.97 0 0);
   --card: oklch(0.13 0 0);
@@ -129,4 +130,12 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Native <select> dropdown options render dark (not white-on-white).
+   Kept outside @layer so it wins over the select's utility classes. */
+select option,
+select optgroup {
+  background-color: #1c1c1c;
+  color: #f5f5f5;
 }

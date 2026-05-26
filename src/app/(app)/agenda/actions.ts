@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { memberUnavailability } from "@/db/schema";
+import { memberUnavailability, rehearsals } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
-import { requireCurrentUser } from "@/lib/auth";
+import { requireAdmin, requireCurrentUser } from "@/lib/auth";
 
 const dateOnly = z
   .string()
@@ -53,6 +53,80 @@ export async function createUnavailabilityAction(
   revalidatePath("/");
   revalidatePath("/shows");
   return null;
+}
+
+// ---------------- ENSAIOS (REHEARSALS) ----------------
+
+const timeOnly = z
+  .string()
+  .regex(/^\d{2}:\d{2}$/, "Horário inválido (HH:mm)")
+  .optional();
+
+const rehearsalSchema = z.object({
+  data: dateOnly,
+  inicio: timeOnly,
+  termino: timeOnly,
+  local: z.string().max(200).optional(),
+  foco: z.string().max(300).optional(),
+  observacoes: z.string().max(1000).optional(),
+  status: z.enum(["planejado", "confirmado", "cancelado"]).default("planejado"),
+});
+
+function revalidateRehearsalPaths() {
+  revalidatePath("/agenda");
+  revalidatePath("/");
+}
+
+export async function createRehearsalAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireAdmin();
+  const parsed = parseForm(rehearsalSchema, formData);
+  if (!parsed.ok) return parsed.state;
+
+  await db.insert(rehearsals).values({
+    data: parsed.data.data,
+    inicio: parsed.data.inicio,
+    termino: parsed.data.termino,
+    local: parsed.data.local,
+    foco: parsed.data.foco,
+    observacoes: parsed.data.observacoes,
+    status: parsed.data.status,
+  });
+  revalidateRehearsalPaths();
+  return null;
+}
+
+export async function updateRehearsalAction(
+  id: string,
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireAdmin();
+  const parsed = parseForm(rehearsalSchema, formData);
+  if (!parsed.ok) return parsed.state;
+
+  await db
+    .update(rehearsals)
+    .set({
+      data: parsed.data.data,
+      inicio: parsed.data.inicio,
+      termino: parsed.data.termino,
+      local: parsed.data.local,
+      foco: parsed.data.foco,
+      observacoes: parsed.data.observacoes,
+      status: parsed.data.status,
+    })
+    .where(eq(rehearsals.id, id));
+  revalidateRehearsalPaths();
+  return null;
+}
+
+export async function deleteRehearsalAction(id: string) {
+  await requireAdmin();
+  await db.delete(rehearsals).where(eq(rehearsals.id, id));
+  revalidateRehearsalPaths();
 }
 
 export async function deleteUnavailabilityAction(id: string) {

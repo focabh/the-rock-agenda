@@ -9,7 +9,13 @@ import { Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createShowAction } from "../actions";
 
-export default async function NovoShowPage() {
+export default async function NovoShowPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ data?: string }>;
+}) {
+  const { data } = await searchParams;
+  const defaultDate = data && /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : undefined;
   const casas = await db.select().from(venues).orderBy(asc(venues.nome));
 
   return (
@@ -26,7 +32,12 @@ export default async function NovoShowPage() {
             }
           />
         ) : (
-          <ShowForm casas={casas} action={createShowAction} submitLabel="Criar show" />
+          <ShowForm
+            casas={casas}
+            action={createShowAction}
+            submitLabel="Criar show"
+            defaultDate={defaultDate}
+          />
         )}
       </div>
     </div>

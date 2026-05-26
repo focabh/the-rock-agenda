@@ -35,18 +35,23 @@ export function ReadinessSection({
   songId,
   members,
   initial,
+  isAdmin = true,
+  currentMemberId = null,
 }: {
   songId: string;
   members: Member[];
   initial: Array<Pick<SongMemberReadiness, "memberId" | "status">>;
+  isAdmin?: boolean;
+  currentMemberId?: string | null;
 }) {
   const [, startTransition] = useTransition();
   const byMember = new Map(initial.map((r) => [r.memberId, r.status as Readiness]));
 
   function update(memberId: string, status: Readiness) {
     startTransition(async () => {
-      await setMemberReadinessAction(songId, memberId, status);
-      toast.success("Status atualizado.");
+      const res = await setMemberReadinessAction(songId, memberId, status);
+      if (res?.error) toast.error(res.error);
+      else toast.success("Status atualizado.");
     });
   }
 
@@ -74,13 +79,19 @@ export function ReadinessSection({
         <ul className="divide-y divide-border">
           {members.map((m) => {
             const current = byMember.get(m.id) ?? "aprendendo";
+            const canEdit = isAdmin || m.id === currentMemberId;
             return (
               <li
                 key={m.id}
                 className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{m.nome}</p>
+                  <p className="text-sm font-medium truncate">
+                    {m.nome}
+                    {m.id === currentMemberId && (
+                      <span className="text-xs text-primary ml-1.5">(você)</span>
+                    )}
+                  </p>
                   <p className="text-xs text-muted-foreground">{m.funcao}</p>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -91,11 +102,16 @@ export function ReadinessSection({
                         key={opt.value}
                         type="button"
                         onClick={() => update(m.id, opt.value)}
+                        disabled={!canEdit}
+                        title={
+                          canEdit ? opt.label : "Só você pode mudar a sua prontidão"
+                        }
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset transition-colors",
                           active
                             ? opt.ring
-                            : "ring-border text-muted-foreground hover:bg-accent/50"
+                            : "ring-border text-muted-foreground hover:bg-accent/50",
+                          !canEdit && "opacity-40 cursor-not-allowed hover:bg-transparent"
                         )}
                       >
                         <span className={cn("size-1.5 rounded-full", opt.dot)} />

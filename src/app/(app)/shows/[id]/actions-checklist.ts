@@ -49,6 +49,7 @@ export async function toggleChecklistItemAction(
   itemId: string,
   concluido: boolean
 ) {
+  await requireAdmin();
   await db
     .update(showChecklistItems)
     .set({ concluido, concluidoEm: concluido ? new Date() : null })
