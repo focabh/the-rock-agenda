@@ -28,7 +28,12 @@ import { Button } from "@/components/ui/button";
 import { ShowStatusBadge } from "@/components/shared/status-badge";
 import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
-import { formatBRL, formatDataBR, formatDataExtensa } from "@/lib/formatters";
+import {
+  formatBRL,
+  formatDataBR,
+  formatDataExtensa,
+  dataPartesBR,
+} from "@/lib/formatters";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 export default async function DashboardPage() {
@@ -192,12 +197,10 @@ export default async function DashboardPage() {
                     >
                       <div className="flex flex-col items-center text-center w-14 shrink-0">
                         <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
-                          {new Date(s.data)
-                            .toLocaleDateString("pt-BR", { month: "short" })
-                            .replace(".", "")}
+                          {dataPartesBR(s.data).mes}
                         </span>
                         <span className="text-2xl font-bold leading-none">
-                          {new Date(s.data).getDate()}
+                          {dataPartesBR(s.data).dia}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -253,12 +256,10 @@ export default async function DashboardPage() {
                     >
                       <div className="flex flex-col items-center text-center w-14 shrink-0">
                         <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
-                          {new Date(r.data)
-                            .toLocaleDateString("pt-BR", { month: "short" })
-                            .replace(".", "")}
+                          {dataPartesBR(r.data).mes}
                         </span>
                         <span className="text-2xl font-bold leading-none">
-                          {new Date(r.data).getDate()}
+                          {dataPartesBR(r.data).dia}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">

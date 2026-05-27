@@ -10,7 +10,7 @@ import {
   ShowStatusBadge,
   PagamentoStatusBadge,
 } from "@/components/shared/status-badge";
-import { formatDataBR, formatBRL } from "@/lib/formatters";
+import { formatDataBR, formatBRL, dataPartesBR } from "@/lib/formatters";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 export default async function ShowsPage() {
@@ -61,15 +61,13 @@ export default async function ShowsPage() {
                   >
                     <div className="flex flex-col items-center text-center w-16 shrink-0">
                       <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
-                        {new Date(s.data).toLocaleDateString("pt-BR", {
-                          month: "short",
-                        }).replace(".", "")}
+                        {dataPartesBR(s.data).mes}
                       </span>
                       <span className="text-2xl font-bold leading-none">
-                        {new Date(s.data).getDate()}
+                        {dataPartesBR(s.data).dia}
                       </span>
                       <span className="text-xs text-muted-foreground mt-1">
-                        {new Date(s.data).getFullYear()}
+                        {dataPartesBR(s.data).ano}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">

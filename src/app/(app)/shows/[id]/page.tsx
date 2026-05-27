@@ -134,7 +134,7 @@ export default async function ShowDetailPage({
                 admin={admin}
                 wa={{
                   label: "show",
-                  quando: `dia ${new Date(show.data).toLocaleDateString("pt-BR")}${
+                  quando: `dia ${formatDataBR(show.data)}${
                     show.inicio ? ` às ${show.inicio}` : ""
                   }`,
                   local: show.casa.nome,

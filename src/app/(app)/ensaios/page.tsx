@@ -10,12 +10,12 @@ import { Card } from "@/components/ui/card";
 import { DeleteButton } from "@/components/shared/delete-button";
 import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
 import { deleteRehearsalAction } from "@/app/(app)/agenda/actions";
-import { formatDataBR } from "@/lib/formatters";
+import { formatDataBR, dataPartesBR } from "@/lib/formatters";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import type { Rehearsal } from "@/db/schema";
 
 function Row({ r, admin }: { r: Rehearsal; admin: boolean }) {
-  const d = new Date(r.data);
+  const partes = dataPartesBR(r.data);
   return (
     <li className="flex items-center gap-2 pr-3">
       <Link
@@ -24,11 +24,11 @@ function Row({ r, admin }: { r: Rehearsal; admin: boolean }) {
       >
         <div className="flex flex-col items-center text-center w-16 shrink-0">
           <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
-            {d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}
+            {partes.mes}
           </span>
-          <span className="text-2xl font-bold leading-none">{d.getDate()}</span>
+          <span className="text-2xl font-bold leading-none">{partes.dia}</span>
           <span className="text-xs text-muted-foreground mt-1">
-            {d.getFullYear()}
+            {partes.ano}
           </span>
         </div>
         <div className="flex-1 min-w-0">

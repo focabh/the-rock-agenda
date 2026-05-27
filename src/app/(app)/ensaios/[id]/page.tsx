@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
 import { PresenceCard } from "@/components/shows/presence-card";
 import { setRehearsalPresenceAction } from "@/app/(app)/agenda/actions";
-import { formatDataExtensa } from "@/lib/formatters";
+import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 function mapsUrl(r: {
@@ -50,7 +50,7 @@ export default async function EnsaioDetailPage({
   ]);
   const admin = isAdmin(user);
   const maps = mapsUrl(r);
-  const quando = `dia ${new Date(r.data).toLocaleDateString("pt-BR")}${
+  const quando = `dia ${formatDataBR(r.data)}${
     r.inicio ? ` às ${r.inicio}` : ""
   }`;
 

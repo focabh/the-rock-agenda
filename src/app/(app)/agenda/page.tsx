@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { MonthGrid } from "@/components/agenda/month-grid";
 import { MonthNav } from "@/components/agenda/month-nav";
 import { Card, CardContent } from "@/components/ui/card";
-import { colorForMember } from "@/lib/conflicts";
+import { colorForMember, brDateKey } from "@/lib/conflicts";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 function parseMonth(m?: string): { year: number; month: number } {
@@ -18,8 +18,9 @@ function parseMonth(m?: string): { year: number; month: number } {
     const [y, mo] = m.split("-").map(Number);
     return { year: y, month: mo - 1 };
   }
-  const now = new Date();
-  return { year: now.getFullYear(), month: now.getMonth() };
+  // Mês atual no fuso de Brasília (o servidor roda em UTC).
+  const [y, mo] = brDateKey(new Date()).split("-").map(Number);
+  return { year: y, month: mo - 1 };
 }
 
 export default async function AgendaPage({
@@ -30,8 +31,12 @@ export default async function AgendaPage({
   const sp = await searchParams;
   const { year, month } = parseMonth(sp.m);
 
+  // Janela alargada ±1 dia: cobre a diferença UTC↔Brasília nas bordas do mês.
+  // A grade só renderiza células do mês, então shows vizinhos não aparecem.
   const start = new Date(year, month, 1);
+  start.setDate(start.getDate() - 1);
   const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+  end.setDate(end.getDate() + 1);
 
   const [monthShows, monthBlocks, allMembers, monthRehearsals, currentUser] =
     await Promise.all([

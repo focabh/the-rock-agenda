@@ -9,6 +9,7 @@ import { AccessSection } from "@/components/banda/access-section";
 import { Card, CardContent } from "@/components/ui/card";
 import { updateMemberAction } from "../actions";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { formatDataBR } from "@/lib/formatters";
 
 export default async function EditarMembroPage({
   params,
@@ -125,9 +126,9 @@ function ReadOnlyUnavailability({
             .sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime())
             .map((b) => (
               <li key={b.id}>
-                {b.dataInicio.toLocaleDateString("pt-BR")}
-                {b.dataInicio.toDateString() !== b.dataFim.toDateString() &&
-                  ` → ${b.dataFim.toLocaleDateString("pt-BR")}`}
+                {formatDataBR(b.dataInicio)}
+                {formatDataBR(b.dataInicio) !== formatDataBR(b.dataFim) &&
+                  ` → ${formatDataBR(b.dataFim)}`}
                 {b.motivo && (
                   <span className="text-muted-foreground"> — {b.motivo}</span>
                 )}
