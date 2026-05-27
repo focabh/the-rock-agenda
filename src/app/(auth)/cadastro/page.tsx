@@ -3,12 +3,13 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RegisterForm } from "@/components/auth/register-form";
-import { getAvailablePositions, registrationsAllowed } from "@/lib/auth";
+import { getAvailablePositions, getLogoUrl, registrationsAllowed } from "@/lib/auth";
 
 export default async function CadastroPage() {
-  const [allowed, positions] = await Promise.all([
+  const [allowed, positions, logo] = await Promise.all([
     registrationsAllowed(),
     getAvailablePositions(),
+    getLogoUrl(),
   ]);
   const canRegister = allowed && positions.length > 0;
 
@@ -27,15 +28,9 @@ export default async function CadastroPage() {
 
       <Card className="relative w-full max-w-sm border-border/60 bg-card/85 backdrop-blur-md shadow-2xl shadow-primary/10 ring-1 ring-primary/10">
         <CardHeader className="space-y-3 text-center">
-          <div className="relative mx-auto size-16 overflow-hidden rounded-md ring-1 ring-border bg-[#0F1A3A]">
-            <Image
-              src="/the-rock-logo.png"
-              alt="The Rock"
-              fill
-              sizes="64px"
-              className="object-contain"
-              priority
-            />
+          <div className="mx-auto size-16 overflow-hidden rounded-md ring-1 ring-border bg-[#0F1A3A] flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logo} alt="The Rock" className="size-full object-contain" />
           </div>
           <CardTitle className="text-xl">Criar cadastro</CardTitle>
           <p className="text-xs text-muted-foreground uppercase tracking-widest">

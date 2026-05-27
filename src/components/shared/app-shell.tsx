@@ -2,26 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { Menu, LogOut } from "lucide-react";
+import { Menu, LogOut, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { SidebarNav } from "./sidebar-nav";
 import { logoutAction } from "@/app/(auth)/actions";
 
-function Brand() {
+function Brand({ logoUrl }: { logoUrl: string }) {
   return (
     <Link href="/" className="flex items-center gap-3 px-4 py-5">
-      <div className="relative size-12 shrink-0 overflow-hidden rounded-md ring-1 ring-border bg-[#0F1A3A]">
-        <Image
-          src="/the-rock-logo.png"
-          alt="The Rock"
-          fill
-          sizes="48px"
-          className="object-contain"
-          priority
-        />
+      <div className="size-12 shrink-0 overflow-hidden rounded-md ring-1 ring-border bg-[#0F1A3A] flex items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoUrl} alt="The Rock" className="size-full object-contain" />
       </div>
       <div className="flex flex-col leading-tight">
         <span className="text-sm font-semibold tracking-wide">The Rock</span>
@@ -37,20 +30,26 @@ type SidebarProps = {
   username?: string;
   role?: string;
   memberName?: string | null;
+  logoUrl: string;
   onNavigate?: () => void;
 };
 
-function SidebarContent({ username, role, memberName, onNavigate }: SidebarProps) {
+function SidebarContent({ username, role, memberName, logoUrl, onNavigate }: SidebarProps) {
   return (
     <div className="flex h-full flex-col">
-      <Brand />
+      <Brand logoUrl={logoUrl} />
       <Separator />
       <div className="flex-1 overflow-y-auto py-4">
         <SidebarNav onNavigate={onNavigate} isAdmin={role === "admin"} />
       </div>
       <Separator />
       <div className="p-3 flex items-center justify-between gap-2">
-        <div className="flex flex-col leading-tight min-w-0">
+        <Link
+          href="/conta"
+          onClick={onNavigate}
+          className="flex flex-col leading-tight min-w-0 hover:opacity-80"
+          title="Minha conta"
+        >
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
             {role === "admin" ? "Admin" : "Músico"}
           </span>
@@ -62,18 +61,22 @@ function SidebarContent({ username, role, memberName, onNavigate }: SidebarProps
               @{username}
             </span>
           )}
-        </div>
-        <form action={logoutAction}>
+        </Link>
+        <div className="flex items-center gap-1 shrink-0">
           <Button
-            type="submit"
+            render={<Link href="/conta" onClick={onNavigate} />}
             variant="ghost"
             size="icon"
-            title="Sair"
-            className="shrink-0"
+            title="Conta"
           >
-            <LogOut className="size-4" />
+            <UserCog className="size-4" />
           </Button>
-        </form>
+          <form action={logoutAction}>
+            <Button type="submit" variant="ghost" size="icon" title="Sair">
+              <LogOut className="size-4" />
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -83,11 +86,13 @@ export function AppShell({
   username,
   role,
   memberName,
+  logoUrl,
   children,
 }: {
   username?: string;
   role?: string;
   memberName?: string | null;
+  logoUrl: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -96,7 +101,12 @@ export function AppShell({
     <div className="min-h-screen flex">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
-        <SidebarContent username={username} role={role} memberName={memberName} />
+        <SidebarContent
+          username={username}
+          role={role}
+          memberName={memberName}
+          logoUrl={logoUrl}
+        />
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -114,19 +124,15 @@ export function AppShell({
                 username={username}
                 role={role}
                 memberName={memberName}
+                logoUrl={logoUrl}
                 onNavigate={() => setOpen(false)}
               />
             </SheetContent>
           </Sheet>
           <div className="flex items-center gap-2">
-            <div className="relative size-8 overflow-hidden rounded-md ring-1 ring-border bg-[#0F1A3A]">
-              <Image
-                src="/the-rock-logo.png"
-                alt="The Rock"
-                fill
-                sizes="32px"
-                className="object-contain"
-              />
+            <div className="size-8 overflow-hidden rounded-md ring-1 ring-border bg-[#0F1A3A] flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt="The Rock" className="size-full object-contain" />
             </div>
             <span className="text-sm font-semibold">The Rock</span>
           </div>

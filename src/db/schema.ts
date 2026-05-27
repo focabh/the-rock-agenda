@@ -51,6 +51,7 @@ export const appSettings = sqliteTable("app_settings", {
   allowRegistrations: integer("allow_registrations", { mode: "boolean" })
     .notNull()
     .default(true),
+  logoUrl: text("logo_url"), // data URL (base64) da logo personalizada
   updatedAt: updatedAt(),
 });
 

@@ -118,6 +118,20 @@ export async function getAvailablePositions(): Promise<string[]> {
   }
 }
 
+export const DEFAULT_LOGO = "/the-rock-logo.png";
+
+export async function getLogoUrl(): Promise<string> {
+  try {
+    const [s] = await db
+      .select({ logoUrl: appSettings.logoUrl })
+      .from(appSettings)
+      .limit(1);
+    return s?.logoUrl || DEFAULT_LOGO;
+  } catch {
+    return DEFAULT_LOGO;
+  }
+}
+
 export async function verifyPassword(input: string, hash: string) {
   return bcrypt.compare(input, hash);
 }
