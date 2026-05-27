@@ -1,17 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { users, appSettings } from "@/db/schema";
+import { users, members, appSettings } from "@/db/schema";
 import {
+  getAvailablePositions,
   hashPassword,
   requireAdmin,
   requireCurrentUser,
   verifyPassword,
 } from "@/lib/auth";
-import { parseForm, type ActionState } from "@/lib/form";
+import { parseForm } from "@/lib/form";
+import { POSICOES, cpfValido, pixValido, telefoneValido } from "@/lib/validators";
 
 const passwordSchema = z
   .object({
@@ -87,4 +89,125 @@ export async function removeLogoAction() {
   }
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+const optionalTelefone = z
+  .string()
+  .trim()
+  .optional()
+  .refine((v) => !v || telefoneValido(v), "Telefone inválido");
+const optionalCpf = z
+  .string()
+  .trim()
+  .optional()
+  .refine((v) => !v || cpfValido(v), "CPF inválido");
+const optionalPix = z
+  .string()
+  .trim()
+  .max(200)
+  .optional()
+  .refine((v) => !v || pixValido(v), "Chave PIX inválida");
+
+const linkSchema = z.object({
+  nome: z.string().trim().max(120).optional(),
+  posicao: z.enum(POSICOES),
+  telefone: optionalTelefone,
+  cpf: optionalCpf,
+  chavePix: optionalPix,
+});
+
+/** Vincula o usuário logado a um músico (posição). Usado pra o admin virar músico também. */
+export async function linkSelfToPositionAction(
+  _prev: AccountState,
+  formData: FormData
+): Promise<AccountState> {
+  const user = await requireCurrentUser();
+  if (user.member) {
+    return { error: "Você já está vinculado a um músico." };
+  }
+  const parsed = parseForm(linkSchema, formData);
+  if (!parsed.ok) return parsed.state;
+  const { nome, posicao, telefone, cpf, chavePix } = parsed.data;
+
+  const available = await getAvailablePositions();
+  if (!available.some((p) => p.toLowerCase() === posicao.toLowerCase())) {
+    return {
+      fieldErrors: { posicao: ["Essa posição já está ocupada"] },
+      error: "Posição indisponível.",
+    };
+  }
+
+  // Reaproveita o músico existente daquela posição (sem login), senão cria
+  const candidates = await db
+    .select()
+    .from(members)
+    .where(and(eq(members.ativo, true), isNull(members.userId)));
+  const match = candidates.find(
+    (m) => m.funcao.toLowerCase() === posicao.toLowerCase()
+  );
+  if (match) {
+    await db
+      .update(members)
+      .set({
+        userId: user.id,
+        nome: nome ?? match.nome,
+        telefone: telefone ?? match.telefone,
+        cpf: cpf ?? match.cpf,
+        chavePix: chavePix ?? match.chavePix,
+      })
+      .where(eq(members.id, match.id));
+  } else {
+    await db.insert(members).values({
+      nome: nome ?? user.nome ?? user.username,
+      funcao: posicao,
+      telefone,
+      cpf,
+      chavePix,
+      userId: user.id,
+      ativo: true,
+    });
+  }
+
+  await db
+    .update(users)
+    .set({
+      posicao,
+      telefone: telefone ?? user.telefone,
+      cpf: cpf ?? user.cpf,
+      chavePix: chavePix ?? user.chavePix,
+    })
+    .where(eq(users.id, user.id));
+
+  revalidatePath("/conta");
+  revalidatePath("/banda");
+  revalidatePath("/");
+  return { success: true };
+}
+
+const updateMemberSchema = z.object({
+  nome: z.string().trim().min(1, "Informe o nome").max(120),
+  telefone: optionalTelefone,
+  cpf: optionalCpf,
+  chavePix: optionalPix,
+});
+
+/** Edita os próprios dados de músico (telefone/CPF/PIX/nome). */
+export async function updateMyMemberAction(
+  _prev: AccountState,
+  formData: FormData
+): Promise<AccountState> {
+  const user = await requireCurrentUser();
+  if (!user.member) {
+    return { error: "Você não está vinculado a um músico." };
+  }
+  const parsed = parseForm(updateMemberSchema, formData);
+  if (!parsed.ok) return parsed.state;
+  const { nome, telefone, cpf, chavePix } = parsed.data;
+  await db
+    .update(members)
+    .set({ nome, telefone, cpf, chavePix })
+    .where(eq(members.id, user.member.id));
+  revalidatePath("/conta");
+  revalidatePath("/banda");
+  return { success: true };
 }
