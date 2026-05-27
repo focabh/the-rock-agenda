@@ -357,6 +357,8 @@ export const memberUnavailability = sqliteTable("member_unavailability", {
     .references(() => members.id, { onDelete: "cascade" }),
   dataInicio: integer("data_inicio", { mode: "timestamp_ms" }).notNull(),
   dataFim: integer("data_fim", { mode: "timestamp_ms" }).notNull(),
+  horaInicio: text("hora_inicio"), // HH:mm — opcional
+  horaFim: text("hora_fim"), // HH:mm — opcional
   motivo: text("motivo"),
   createdAt: createdAt(),
 });

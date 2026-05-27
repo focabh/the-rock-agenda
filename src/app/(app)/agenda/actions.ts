@@ -23,11 +23,18 @@ const dateOnly = z
     return new Date(Date.UTC(y, m - 1, d, 12));
   });
 
+const timeOnly = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Horário inválido (HH:mm)")
+  .optional();
+
 const unavailSchema = z
   .object({
     memberId: z.string().min(1, "Selecione o membro"),
     dataInicio: dateOnly,
     dataFim: dateOnly,
+    horaInicio: timeOnly,
+    horaFim: timeOnly,
     motivo: z.string().max(200).optional(),
   })
   .refine((d) => d.dataFim.getTime() >= d.dataInicio.getTime(), {
@@ -52,6 +59,8 @@ export async function createUnavailabilityAction(
     memberId: parsed.data.memberId,
     dataInicio: parsed.data.dataInicio,
     dataFim: parsed.data.dataFim,
+    horaInicio: parsed.data.horaInicio,
+    horaFim: parsed.data.horaFim,
     motivo: parsed.data.motivo,
   });
   revalidatePath("/agenda");
@@ -62,11 +71,6 @@ export async function createUnavailabilityAction(
 }
 
 // ---------------- ENSAIOS (REHEARSALS) ----------------
-
-const timeOnly = z
-  .string()
-  .regex(/^\d{2}:\d{2}$/, "Horário inválido (HH:mm)")
-  .optional();
 
 const rehearsalSchema = z.object({
   data: dateOnly,

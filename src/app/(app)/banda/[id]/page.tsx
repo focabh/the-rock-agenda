@@ -129,6 +129,15 @@ function ReadOnlyUnavailability({
                 {formatDataBR(b.dataInicio)}
                 {formatDataBR(b.dataInicio) !== formatDataBR(b.dataFim) &&
                   ` → ${formatDataBR(b.dataFim)}`}
+                {(b.horaInicio || b.horaFim) && (
+                  <span className="font-mono text-muted-foreground ml-1.5 text-xs">
+                    {b.horaInicio && b.horaFim
+                      ? `${b.horaInicio}–${b.horaFim}`
+                      : b.horaInicio
+                        ? `a partir de ${b.horaInicio}`
+                        : `até ${b.horaFim}`}
+                  </span>
+                )}
                 {b.motivo && (
                   <span className="text-muted-foreground"> — {b.motivo}</span>
                 )}

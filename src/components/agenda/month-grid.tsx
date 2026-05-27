@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { CalendarOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { colorForMember, brDateKey } from "@/lib/conflicts";
-import { formatHoraBR } from "@/lib/formatters";
+import { formatHoraBR, formatDataBR } from "@/lib/formatters";
 import { DayDialog } from "@/components/agenda/day-dialog";
 import type {
   Show,
@@ -41,10 +43,19 @@ export function MonthGrid({
   isAdmin?: boolean;
   currentMemberId?: string | null;
 }) {
-  const [selected, setSelected] = useState<{ key: string; date: Date } | null>(
-    null
-  );
+  const [selected, setSelected] = useState<{
+    key: string;
+    date: Date;
+    endDate: Date | null;
+    mode: "menu" | "ensaio" | "indisp";
+  } | null>(null);
   const [open, setOpen] = useState(false);
+
+  // Seleção de período (indisponibilidade): toca no 1º dia, depois no último.
+  const canBlock = isAdmin || Boolean(currentMemberId);
+  const [rangeMode, setRangeMode] = useState(false);
+  const [rangeStart, setRangeStart] = useState<string | null>(null);
+  const [rangeHover, setRangeHover] = useState<string | null>(null);
 
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
@@ -77,9 +88,60 @@ export function MonthGrid({
     rehearsalsByDay.get(k)!.push(r);
   }
 
+  function keyToDate(k: string): Date {
+    const [y, m, d] = k.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+
   function openDay(cellKey: string, day: number) {
-    setSelected({ key: cellKey, date: new Date(year, month, day) });
+    setSelected({
+      key: cellKey,
+      date: new Date(year, month, day),
+      endDate: null,
+      mode: "menu",
+    });
     setOpen(true);
+  }
+
+  function startRange() {
+    setRangeMode(true);
+    setRangeStart(null);
+    setRangeHover(null);
+  }
+
+  function cancelRange() {
+    setRangeMode(false);
+    setRangeStart(null);
+    setRangeHover(null);
+  }
+
+  function handleCellClick(cellKey: string, day: number) {
+    if (!rangeMode) {
+      openDay(cellKey, day);
+      return;
+    }
+    if (!rangeStart) {
+      setRangeStart(cellKey);
+      return;
+    }
+    // Segundo toque fecha o período (ordena início/fim).
+    const [a, b] = [rangeStart, cellKey].sort();
+    setSelected({
+      key: a,
+      date: keyToDate(a),
+      endDate: keyToDate(b),
+      mode: "indisp",
+    });
+    cancelRange();
+    setOpen(true);
+  }
+
+  // Intervalo destacado enquanto seleciona (início + hover).
+  function inPendingRange(key: string): boolean {
+    if (!rangeMode || !rangeStart) return false;
+    const other = rangeHover ?? rangeStart;
+    const [lo, hi] = [rangeStart, other].sort();
+    return key >= lo && key <= hi;
   }
 
   const selectedShows = selected ? (showsByDay.get(selected.key) ?? []) : [];
@@ -88,9 +150,37 @@ export function MonthGrid({
     : [];
 
   return (
-    <div className="rounded-md border border-border overflow-hidden bg-card">
-      <div className="grid grid-cols-7 border-b border-border">
-        {DOW.map((d) => (
+    <div className="space-y-3">
+      {canBlock && (
+        <div className="flex items-center justify-between gap-3">
+          {rangeMode ? (
+            <>
+              <p className="text-sm text-amber-300">
+                {rangeStart
+                  ? `Início ${formatDataBR(keyToDate(rangeStart))} — agora toque no último dia.`
+                  : "Toque no primeiro dia do período."}
+              </p>
+              <Button variant="ghost" size="sm" onClick={cancelRange}>
+                <X className="size-4" />
+                Cancelar
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Quer bloquear vários dias de uma vez?
+              </p>
+              <Button variant="outline" size="sm" onClick={startRange}>
+                <CalendarOff className="size-4" />
+                Bloquear período
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      <div className="rounded-md border border-border overflow-hidden bg-card">
+        <div className="grid grid-cols-7 border-b border-border">
+          {DOW.map((d) => (
           <div
             key={d}
             className="px-3 py-2 text-[11px] uppercase tracking-wider text-muted-foreground text-center font-medium"
@@ -118,21 +208,29 @@ export function MonthGrid({
             return startKey <= cell.key && cell.key <= endKey;
           });
 
+          const pending = inPendingRange(cell.key);
+          const isRangeStart = rangeMode && rangeStart === cell.key;
+
           return (
             <div
               key={i}
               role="button"
               tabIndex={0}
-              onClick={() => openDay(cell.key, cell.day)}
+              onClick={() => handleCellClick(cell.key, cell.day)}
+              onMouseEnter={() =>
+                rangeMode && rangeStart && setRangeHover(cell.key)
+              }
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  openDay(cell.key, cell.day);
+                  handleCellClick(cell.key, cell.day);
                 }
               }}
               className={cn(
                 "h-28 md:h-32 border-r border-b border-border last:border-r-0 p-1.5 overflow-hidden cursor-pointer hover:bg-accent/30 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-primary/40 transition-colors",
-                isToday && "bg-primary/5 ring-1 ring-inset ring-primary/30"
+                isToday && "bg-primary/5 ring-1 ring-inset ring-primary/30",
+                pending && "bg-amber-500/15",
+                isRangeStart && "ring-1 ring-inset ring-amber-400"
               )}
             >
               <div className="flex items-center justify-between mb-1">
@@ -224,16 +322,19 @@ export function MonthGrid({
         })}
       </div>
 
-      <DayDialog
-        date={selected?.date ?? null}
-        open={open}
-        onOpenChange={setOpen}
-        shows={selectedShows}
-        rehearsals={selectedRehearsals}
-        isAdmin={isAdmin}
-        currentMemberId={currentMemberId}
-        members={members}
-      />
+        <DayDialog
+          date={selected?.date ?? null}
+          endDate={selected?.endDate ?? null}
+          initialMode={selected?.mode ?? "menu"}
+          open={open}
+          onOpenChange={setOpen}
+          shows={selectedShows}
+          rehearsals={selectedRehearsals}
+          isAdmin={isAdmin}
+          currentMemberId={currentMemberId}
+          members={members}
+        />
+      </div>
     </div>
   );
 }

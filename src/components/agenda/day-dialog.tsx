@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   CalendarOff,
   CalendarPlus,
@@ -22,7 +22,7 @@ import {
 import { FieldError } from "@/components/shared/field-error";
 import { RehearsalForm } from "@/components/agenda/rehearsal-manager";
 import { createUnavailabilityAction } from "@/app/(app)/agenda/actions";
-import { formatDataExtensa, formatHoraBR } from "@/lib/formatters";
+import { formatDataExtensa, formatDataBR, formatHoraBR } from "@/lib/formatters";
 import { toast } from "sonner";
 import type { Show, Venue, Member, Rehearsal } from "@/db/schema";
 
@@ -38,12 +38,14 @@ function toDateInput(d: Date): string {
 
 function UnavailabilityForm({
   date,
+  endDate,
   isAdmin,
   currentMemberId,
   members,
   onDone,
 }: {
   date: Date;
+  endDate?: Date | null;
   isAdmin: boolean;
   currentMemberId: string | null;
   members: Member[];
@@ -54,6 +56,7 @@ function UnavailabilityForm({
     null
   );
   const dStr = toDateInput(date);
+  const fimStr = toDateInput(endDate ?? date);
 
   return (
     <form
@@ -108,10 +111,22 @@ function UnavailabilityForm({
             id="dataFim"
             name="dataFim"
             type="date"
-            defaultValue={dStr}
+            defaultValue={fimStr}
             required
           />
           <FieldError state={state} name="dataFim" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="horaInicio">Hora início (opcional)</Label>
+          <Input id="horaInicio" name="horaInicio" type="time" />
+          <FieldError state={state} name="horaInicio" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="horaFim">Hora fim (opcional)</Label>
+          <Input id="horaFim" name="horaFim" type="time" />
+          <FieldError state={state} name="horaFim" />
         </div>
       </div>
       <div className="space-y-1.5">
@@ -138,6 +153,8 @@ type Mode = "menu" | "ensaio" | "indisp";
 
 export function DayDialog({
   date,
+  endDate = null,
+  initialMode = "menu",
   open,
   onOpenChange,
   shows,
@@ -147,6 +164,8 @@ export function DayDialog({
   members,
 }: {
   date: Date | null;
+  endDate?: Date | null;
+  initialMode?: Mode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   shows: ShowItem[];
@@ -155,34 +174,43 @@ export function DayDialog({
   currentMemberId: string | null;
   members: Member[];
 }) {
-  const [mode, setMode] = useState<Mode>("menu");
+  const [mode, setMode] = useState<Mode>(initialMode);
+
+  // Sempre que (re)abrir para um dia/intervalo, começa no modo certo.
+  useEffect(() => {
+    if (open) setMode(initialMode);
+  }, [open, initialMode, date?.getTime()]);
 
   function close() {
     onOpenChange(false);
   }
 
-  // Reset to menu whenever the dialog opens for a new day
   function handleOpenChange(next: boolean) {
-    if (next) setMode("menu");
     onOpenChange(next);
   }
 
   if (!date) return null;
   const dateParam = toDateInput(date);
+  const isRange = Boolean(endDate && endDate.getTime() !== date.getTime());
+  const rangeLabel = isRange
+    ? `${formatDataBR(date)} → ${formatDataBR(endDate as Date)}`
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="capitalize">
-            {formatDataExtensa(date)}
+          <DialogTitle className={isRange ? "" : "capitalize"}>
+            {rangeLabel ?? formatDataExtensa(date)}
           </DialogTitle>
           <DialogDescription>
             {mode === "menu"
               ? "O que você quer fazer neste dia?"
               : mode === "ensaio"
                 ? "Novo ensaio"
-                : "Marcar indisponibilidade"}
+                : isRange
+                  ? "Marcar indisponibilidade no período"
+                  : "Marcar indisponibilidade"}
           </DialogDescription>
         </DialogHeader>
 
@@ -288,6 +316,7 @@ export function DayDialog({
         {mode === "indisp" && (
           <UnavailabilityForm
             date={date}
+            endDate={endDate}
             isAdmin={isAdmin}
             currentMemberId={currentMemberId}
             members={members}

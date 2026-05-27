@@ -22,6 +22,20 @@ function toDateInput(d: Date | number): string {
   return local.toISOString().slice(0, 10);
 }
 
+function addDays(base: Date, days: number): Date {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+/** "14:00–18:00" / "a partir de 14:00" / "até 18:00" — só quando há hora. */
+function horaLabel(ini?: string | null, fim?: string | null): string | null {
+  if (ini && fim) return `${ini}–${fim}`;
+  if (ini) return `a partir de ${ini}`;
+  if (fim) return `até ${fim}`;
+  return null;
+}
+
 export function UnavailabilitySection({
   memberId,
   blocks,
@@ -36,6 +50,15 @@ export function UnavailabilitySection({
   const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const todayStr = toDateInput(new Date());
+
+  // Atalhos: a partir de hoje, por N dias.
+  function quickRange(days: number) {
+    const hoje = new Date();
+    const ini = document.getElementById("dataInicio") as HTMLInputElement | null;
+    const fim = document.getElementById("dataFim") as HTMLInputElement | null;
+    if (ini) ini.value = toDateInput(hoje);
+    if (fim) fim.value = toDateInput(addDays(hoje, days));
+  }
 
   const sorted = [...blocks].sort(
     (a, b) => a.dataInicio.getTime() - b.dataInicio.getTime(),
@@ -93,6 +116,38 @@ export function UnavailabilitySection({
                 <FieldError state={state} name="dataFim" />
               </div>
             </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="text-xs text-muted-foreground self-center">
+                Atalhos:
+              </span>
+              {[
+                { label: "Só hoje", days: 0 },
+                { label: "7 dias", days: 6 },
+                { label: "15 dias", days: 14 },
+                { label: "30 dias", days: 29 },
+              ].map((q) => (
+                <button
+                  key={q.label}
+                  type="button"
+                  onClick={() => quickRange(q.days)}
+                  className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-accent/50"
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="horaInicio">Hora início (opcional)</Label>
+                <Input id="horaInicio" name="horaInicio" type="time" />
+                <FieldError state={state} name="horaInicio" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="horaFim">Hora fim (opcional)</Label>
+                <Input id="horaFim" name="horaFim" type="time" />
+                <FieldError state={state} name="horaFim" />
+              </div>
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="motivo">Motivo (opcional)</Label>
               <Input
@@ -128,6 +183,7 @@ export function UnavailabilitySection({
             {sorted.map((b) => {
               const sameDia =
                 b.dataInicio.toDateString() === b.dataFim.toDateString();
+              const hora = horaLabel(b.horaInicio, b.horaFim);
               return (
                 <li key={b.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1 min-w-0">
@@ -135,6 +191,11 @@ export function UnavailabilitySection({
                       {sameDia
                         ? formatDataBR(b.dataInicio)
                         : `${formatDataBR(b.dataInicio)} → ${formatDataBR(b.dataFim)}`}
+                      {hora && (
+                        <span className="font-mono text-muted-foreground ml-2 text-xs">
+                          {hora}
+                        </span>
+                      )}
                     </p>
                     {b.motivo && (
                       <p className="text-xs text-muted-foreground">
