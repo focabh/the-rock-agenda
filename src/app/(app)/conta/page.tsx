@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ChangePasswordForm } from "@/components/conta/change-password-form";
 import { MusicoProfile } from "@/components/conta/musico-profile";
 import { LogoUploader } from "@/components/conta/logo-uploader";
+import { PushManager } from "@/components/conta/push-manager";
 import {
   getAvailablePositions,
   getCurrentUser,
@@ -33,6 +34,7 @@ export default async function ContaPage() {
         description="Sua senha, sua ficha de músico e as configurações do app."
       />
       <div className="p-6 max-w-2xl space-y-6">
+        <PushManager />
         <ChangePasswordForm />
         <MusicoProfile member={member} availablePositions={positions} />
         {admin && <LogoUploader currentLogo={logo} />}

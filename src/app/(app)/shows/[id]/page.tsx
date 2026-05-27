@@ -26,6 +26,7 @@ import { ChecklistTab } from "@/components/shows/checklist-tab";
 import { AvaliacaoTab } from "@/components/shows/avaliacao-tab";
 import { PropostaTab } from "@/components/shows/proposta-tab";
 import { Button } from "@/components/ui/button";
+import { NotifyBandButton } from "@/components/shared/notify-band-button";
 import { formatDataBR } from "@/lib/formatters";
 
 export default async function ShowDetailPage({
@@ -104,14 +105,26 @@ export default async function ShowDetailPage({
         title={show.casa.nome}
         description={formatDataBR(show.data, true)}
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            render={<Link href="/shows" />}
-          >
-            <ChevronLeft className="size-4" />
-            Voltar
-          </Button>
+          <div className="flex items-center gap-2">
+            {admin && (
+              <NotifyBandButton
+                title={`Show: ${show.casa.nome}`}
+                body={`${formatDataBR(show.data, true)}${
+                  show.termino ? ` até ${show.termino}` : ""
+                } — confirme sua presença!`}
+                url={`/shows/${show.id}`}
+                tag={`show-${show.id}`}
+              />
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href="/shows" />}
+            >
+              <ChevronLeft className="size-4" />
+              Voltar
+            </Button>
+          </div>
         }
       />
 

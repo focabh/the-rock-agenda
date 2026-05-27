@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
 import { PresenceCard } from "@/components/shows/presence-card";
+import { NotifyBandButton } from "@/components/shared/notify-band-button";
 import { setRehearsalPresenceAction } from "@/app/(app)/agenda/actions";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
@@ -84,6 +85,14 @@ export default async function EnsaioDetailPage({
             <Button render={<Link href="/ensaios" />} variant="outline" size="sm">
               <ArrowLeft className="size-4" /> Voltar
             </Button>
+            {admin && (
+              <NotifyBandButton
+                title="Ensaio da banda"
+                body={`${quando}${r.local ? ` • ${r.local}` : ""} — confirme presença!`}
+                url={`/ensaios/${r.id}`}
+                tag={`ensaio-${r.id}`}
+              />
+            )}
             {admin && (
               <Button render={<Link href={`/ensaios/${r.id}/editar`} />} size="sm">
                 <Pencil className="size-4" /> Editar

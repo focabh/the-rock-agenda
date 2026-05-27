@@ -55,6 +55,17 @@ export const appSettings = sqliteTable("app_settings", {
   updatedAt: updatedAt(),
 });
 
+// Inscrições de Web Push — um registro por dispositivo/navegador.
+export const pushSubscriptions = sqliteTable("push_subscriptions", {
+  id: id(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  userAgent: text("user_agent"),
+  createdAt: createdAt(),
+});
+
 // ---------------- BAND MEMBERS ----------------
 
 export const members = sqliteTable("members", {
