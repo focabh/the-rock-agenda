@@ -11,6 +11,7 @@ import {
   memberUnavailability,
   showMemberPresence,
   showMemberPayment,
+  showMemberPaid,
 } from "@/db/schema";
 import { membersUnavailableOn } from "@/lib/conflicts";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
@@ -50,7 +51,7 @@ export default async function ShowDetailPage({
     where: (sp, { eq }) => eq(sp.showId, id),
   });
 
-  const [allSongs, allTemplates, allMembers, dayBlocks, presences, payments] = await Promise.all([
+  const [allSongs, allTemplates, allMembers, dayBlocks, presences, payments, paidRows] = await Promise.all([
     db.select().from(songs).orderBy(asc(songs.titulo)),
     db.select().from(checklistTemplates).orderBy(asc(checklistTemplates.nome)),
     db.select().from(members).where(eq(members.ativo, true)).orderBy(asc(members.nome)),
@@ -78,6 +79,10 @@ export default async function ShowDetailPage({
       .select()
       .from(showMemberPayment)
       .where(eq(showMemberPayment.showId, id)),
+    db
+      .select()
+      .from(showMemberPaid)
+      .where(eq(showMemberPaid.showId, id)),
   ]);
 
   // Não-managers
@@ -144,6 +149,7 @@ export default async function ShowDetailPage({
                 confirmedMusicos={confirmedMusicos}
                 managerMember={managerMember}
                 overrides={payments}
+                paidMemberIds={paidRows.map((p) => p.memberId)}
                 admin={admin}
               />
             </div>

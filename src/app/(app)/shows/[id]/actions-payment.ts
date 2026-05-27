@@ -3,8 +3,41 @@
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { shows, showMemberPayment } from "@/db/schema";
+import { shows, showMemberPayment, showMemberPaid } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+
+export async function toggleMemberPaidAction(
+  showId: string,
+  memberId: string,
+  pago: boolean
+) {
+  await requireAdmin();
+  if (pago) {
+    const existing = await db
+      .select({ id: showMemberPaid.id })
+      .from(showMemberPaid)
+      .where(
+        and(
+          eq(showMemberPaid.showId, showId),
+          eq(showMemberPaid.memberId, memberId)
+        )
+      )
+      .limit(1);
+    if (existing.length === 0) {
+      await db.insert(showMemberPaid).values({ showId, memberId });
+    }
+  } else {
+    await db
+      .delete(showMemberPaid)
+      .where(
+        and(
+          eq(showMemberPaid.showId, showId),
+          eq(showMemberPaid.memberId, memberId)
+        )
+      );
+  }
+  revalidatePath(`/shows/${showId}`);
+}
 
 export async function updateShowFinanceAction(
   showId: string,

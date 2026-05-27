@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { DollarSign, RotateCcw, AlertTriangle, Pencil } from "lucide-react";
+import { DollarSign, RotateCcw, AlertTriangle, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatBRL, parseBRLToCentavos } from "@/lib/formatters";
 import { computePaymentBreakdown } from "@/lib/payment";
@@ -14,6 +13,7 @@ import {
   setMemberPaymentAction,
   resetMemberPaymentAction,
   resetAllPaymentsAction,
+  toggleMemberPaidAction,
 } from "@/app/(app)/shows/[id]/actions-payment";
 import { toast } from "sonner";
 import type { Member, ShowMemberPayment } from "@/db/schema";
@@ -27,6 +27,7 @@ export function PaymentBreakdown({
   managerMember,
   overrides,
   admin,
+  paidMemberIds,
 }: {
   showId: string;
   cacheCentavos: number;
@@ -36,8 +37,16 @@ export function PaymentBreakdown({
   managerMember: Member | null;
   overrides: ShowMemberPayment[];
   admin: boolean;
+  paidMemberIds: string[];
 }) {
   const [, startTransition] = useTransition();
+  const paidSet = useMemo(() => new Set(paidMemberIds), [paidMemberIds]);
+
+  function togglePaid(memberId: string, pago: boolean) {
+    startTransition(async () => {
+      await toggleMemberPaidAction(showId, memberId, pago);
+    });
+  }
   const [cacheInput, setCacheInput] = useState(
     cacheCentavos > 0 ? String(cacheCentavos / 100) : ""
   );
@@ -69,6 +78,19 @@ export function PaymentBreakdown({
       overrideMap,
     ]
   );
+
+  const musicoTotal = confirmedMusicos.reduce(
+    (s, m) => s + (breakdown.perMember.get(m.id)?.valorCentavos ?? 0),
+    0
+  );
+  const paidTotal = confirmedMusicos.reduce(
+    (s, m) =>
+      paidSet.has(m.id)
+        ? s + (breakdown.perMember.get(m.id)?.valorCentavos ?? 0)
+        : s,
+    0
+  );
+  const paidCount = confirmedMusicos.filter((m) => paidSet.has(m.id)).length;
 
   function persistFinance(patch: {
     cacheCentavos?: number;
@@ -122,9 +144,17 @@ export function PaymentBreakdown({
   return (
     <Card>
       <CardContent className="py-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <DollarSign className="size-4 text-primary" />
-          <h3 className="font-semibold">Repartição do cachê</h3>
+        <div>
+          <div className="flex items-center gap-2">
+            <DollarSign className="size-4 text-primary" />
+            <h3 className="font-semibold">Repartição do cachê</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Quanto cada músico recebe e quem já foi pago (banda → músicos). O
+            recebimento do contratante (contratante → banda) fica no{" "}
+            <strong className="text-foreground">status de pagamento</strong> do
+            show, no Resumo.
+          </p>
         </div>
 
         {/* Inputs principais */}
@@ -226,6 +256,8 @@ export function PaymentBreakdown({
                     valorCentavos={info.valorCentavos}
                     manual={info.manual}
                     admin={admin}
+                    paid={paidSet.has(m.id)}
+                    onTogglePaid={(p) => togglePaid(m.id, p)}
                     onSet={(v) => setOverride(m.id, v)}
                     onReset={() => clearOverride(m.id)}
                   />
@@ -271,6 +303,35 @@ export function PaymentBreakdown({
             </div>
           </div>
         )}
+
+        {/* Repasse aos músicos (banda -> músico) */}
+        {!noMusicos && (
+          <div className="flex items-center justify-between rounded-md p-2.5 border border-border bg-muted/20">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">
+              Repasse aos músicos
+            </span>
+            <span className="text-sm">
+              <span
+                className={cn(
+                  "font-mono",
+                  paidCount === confirmedMusicos.length
+                    ? "text-emerald-300"
+                    : "text-foreground"
+                )}
+              >
+                {formatBRL(paidTotal)}
+              </span>
+              <span className="text-muted-foreground">
+                {" / "}
+                {formatBRL(musicoTotal)}
+              </span>
+              <span className="text-muted-foreground">
+                {" · "}
+                {paidCount}/{confirmedMusicos.length} pagos
+              </span>
+            </span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -281,6 +342,8 @@ function MemberPaymentRow({
   valorCentavos,
   manual,
   admin,
+  paid,
+  onTogglePaid,
   onSet,
   onReset,
 }: {
@@ -288,6 +351,8 @@ function MemberPaymentRow({
   valorCentavos: number;
   manual: boolean;
   admin: boolean;
+  paid: boolean;
+  onTogglePaid: (pago: boolean) => void;
   onSet: (v: number) => void;
   onReset: () => void;
 }) {
@@ -359,6 +424,22 @@ function MemberPaymentRow({
           <RotateCcw className="size-3.5" />
         </button>
       )}
+      <button
+        type="button"
+        onClick={() => admin && onTogglePaid(!paid)}
+        disabled={!admin}
+        title={admin ? "Marcar como pago/pendente" : undefined}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset shrink-0",
+          paid
+            ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/40"
+            : "bg-zinc-500/15 text-zinc-300 ring-zinc-500/30",
+          admin && "cursor-pointer"
+        )}
+      >
+        {paid && <Check className="size-3" />}
+        {paid ? "Pago" : "Pendente"}
+      </button>
     </li>
   );
 }

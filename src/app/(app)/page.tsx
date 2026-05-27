@@ -2,6 +2,7 @@ import Link from "next/link";
 import { asc, gte, sql, eq, and, ne } from "drizzle-orm";
 import {
   CalendarDays,
+  CalendarClock,
   Music2,
   Plus,
   ChevronRight,
@@ -11,6 +12,7 @@ import {
   Users,
   Building2,
   ClipboardCheck,
+  MapPin,
 } from "lucide-react";
 import { db } from "@/db";
 import {
@@ -18,11 +20,13 @@ import {
   songs,
   members,
   songMemberReadiness,
+  rehearsals,
 } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShowStatusBadge } from "@/components/shared/status-badge";
+import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatBRL, formatDataBR, formatDataExtensa } from "@/lib/formatters";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
@@ -36,8 +40,15 @@ export default async function DashboardPage() {
     where: gte(shows.data, now),
     with: { casa: true },
     orderBy: (s, { asc }) => [asc(s.data)],
-    limit: 5,
+    limit: 4,
   });
+
+  const proximosEnsaios = await db
+    .select()
+    .from(rehearsals)
+    .where(gte(rehearsals.data, now))
+    .orderBy(asc(rehearsals.data))
+    .limit(4);
 
   const planejadosNaoConfirmados = await db
     .select({ count: sql<number>`count(*)` })
@@ -197,6 +208,77 @@ export default async function DashboardPage() {
                         </p>
                       </div>
                       <ShowStatusBadge status={s.status} />
+                      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </section>
+
+        {/* Próximos ensaios */}
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              Próximos ensaios
+            </h2>
+            <Link href="/ensaios" className="text-sm text-primary hover:underline">
+              Ver todos →
+            </Link>
+          </div>
+          {proximosEnsaios.length === 0 ? (
+            <EmptyState
+              icon={CalendarClock}
+              title="Nenhum ensaio agendado"
+              description={
+                admin ? "Marque o próximo ensaio da banda." : "Sem ensaios futuros no momento."
+              }
+              action={
+                admin && (
+                  <Button render={<Link href="/ensaios/novo" />}>
+                    <Plus className="size-4" /> Novo ensaio
+                  </Button>
+                )
+              }
+            />
+          ) : (
+            <Card className="overflow-hidden p-0">
+              <ul className="divide-y divide-border">
+                {proximosEnsaios.map((r) => (
+                  <li key={r.id}>
+                    <Link
+                      href={`/ensaios/${r.id}`}
+                      className="flex items-center gap-4 px-5 py-4 hover:bg-accent/30"
+                    >
+                      <div className="flex flex-col items-center text-center w-14 shrink-0">
+                        <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
+                          {new Date(r.data)
+                            .toLocaleDateString("pt-BR", { month: "short" })
+                            .replace(".", "")}
+                        </span>
+                        <span className="text-2xl font-bold leading-none">
+                          {new Date(r.data).getDate()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">
+                          {r.foco || "Ensaio"}
+                          {r.inicio && (
+                            <span className="font-mono text-muted-foreground ml-2 text-sm">
+                              {r.inicio}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
+                          {(r.local || r.endereco) && (
+                            <MapPin className="size-3.5 shrink-0" />
+                          )}
+                          {[r.local, r.endereco].filter(Boolean).join(" · ") ||
+                            formatDataBR(r.data)}
+                        </p>
+                      </div>
+                      <EnsaioStatusBadge status={r.status} />
                       <ChevronRight className="size-4 text-muted-foreground shrink-0" />
                     </Link>
                   </li>

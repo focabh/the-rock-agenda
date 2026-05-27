@@ -223,6 +223,30 @@ export const showMemberPayment = sqliteTable(
   }),
 );
 
+// Marca que a banda já repassou o cachê a um músico (banda -> músico).
+// A existência da linha = pago. Distinto de shows.pagamentoStatus (contratante -> banda).
+export const showMemberPaid = sqliteTable(
+  "show_member_paid",
+  {
+    id: id(),
+    showId: text("show_id")
+      .notNull()
+      .references(() => shows.id, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    pagoEm: integer("pago_em", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => ({
+    uniqShowMemberPaid: uniqueIndex("uniq_show_member_paid").on(
+      t.showId,
+      t.memberId,
+    ),
+  }),
+);
+
 // ---------------- REHEARSALS (ENSAIOS) ----------------
 
 export const rehearsals = sqliteTable("rehearsals", {
@@ -600,3 +624,4 @@ export type ShowMemberPresence = typeof showMemberPresence.$inferSelect;
 export type SpotifyAuth = typeof spotifyAuth.$inferSelect;
 export type SongMemberReadiness = typeof songMemberReadiness.$inferSelect;
 export type ShowMemberPayment = typeof showMemberPayment.$inferSelect;
+export type ShowMemberPaid = typeof showMemberPaid.$inferSelect;
