@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 type Component = { longText?: string; shortText?: string; types?: string[] };
 
@@ -11,6 +12,8 @@ function pick(components: Component[], ...types: string[]): Component | undefine
 }
 
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session.authed) return NextResponse.json({}, { status: 401 });
   const key = process.env.GOOGLE_PLACES_API_KEY;
   const id = req.nextUrl.searchParams.get("id");
   if (!key || !id) return NextResponse.json({});
