@@ -1,6 +1,6 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-const APP_URL = process.env.APP_URL ?? "https://focabh-the-rock-agenda.vercel.app";
+const APP_URL = process.env.APP_URL ?? "https://therockbh.vercel.app";
 
 type NewSignup = {
   nome?: string | null;
