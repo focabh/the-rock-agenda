@@ -162,7 +162,15 @@ export default async function ShowDetailPage({
                 confirmedMusicos={confirmedMusicos}
                 managerMember={managerMember}
                 overrides={payments}
-                paidMemberIds={paidRows.map((p) => p.memberId)}
+                paidInfo={paidRows.map((p) => ({
+                  memberId: p.memberId,
+                  // linha legada (sem status) = já confirmada
+                  status: (p.status ?? "confirmado") as
+                    | "aguardando"
+                    | "confirmado",
+                  hasComprovante: Boolean(p.comprovante),
+                }))}
+                currentMemberId={user?.member?.id ?? null}
                 admin={admin}
               />
             </div>

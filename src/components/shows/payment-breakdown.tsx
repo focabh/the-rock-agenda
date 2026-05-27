@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { DollarSign, RotateCcw, AlertTriangle, Check } from "lucide-react";
+import { DollarSign, RotateCcw, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,10 +13,19 @@ import {
   setMemberPaymentAction,
   resetMemberPaymentAction,
   resetAllPaymentsAction,
-  toggleMemberPaidAction,
 } from "@/app/(app)/shows/[id]/actions-payment";
+import {
+  MemberPaidControls,
+  type PaidStatus,
+} from "@/components/shows/payment-paid-controls";
 import { toast } from "sonner";
 import type { Member, ShowMemberPayment } from "@/db/schema";
+
+type PaidInfo = {
+  memberId: string;
+  status: "aguardando" | "confirmado";
+  hasComprovante: boolean;
+};
 
 export function PaymentBreakdown({
   showId,
@@ -27,7 +36,8 @@ export function PaymentBreakdown({
   managerMember,
   overrides,
   admin,
-  paidMemberIds,
+  paidInfo,
+  currentMemberId,
 }: {
   showId: string;
   cacheCentavos: number;
@@ -37,16 +47,15 @@ export function PaymentBreakdown({
   managerMember: Member | null;
   overrides: ShowMemberPayment[];
   admin: boolean;
-  paidMemberIds: string[];
+  paidInfo: PaidInfo[];
+  currentMemberId: string | null;
 }) {
   const [, startTransition] = useTransition();
-  const paidSet = useMemo(() => new Set(paidMemberIds), [paidMemberIds]);
+  const paidMap = useMemo(
+    () => new Map(paidInfo.map((p) => [p.memberId, p])),
+    [paidInfo]
+  );
 
-  function togglePaid(memberId: string, pago: boolean) {
-    startTransition(async () => {
-      await toggleMemberPaidAction(showId, memberId, pago);
-    });
-  }
   const [cacheInput, setCacheInput] = useState(
     cacheCentavos > 0 ? String(cacheCentavos / 100) : ""
   );
@@ -85,12 +94,15 @@ export function PaymentBreakdown({
   );
   const paidTotal = confirmedMusicos.reduce(
     (s, m) =>
-      paidSet.has(m.id)
+      paidMap.has(m.id)
         ? s + (breakdown.perMember.get(m.id)?.valorCentavos ?? 0)
         : s,
     0
   );
-  const paidCount = confirmedMusicos.filter((m) => paidSet.has(m.id)).length;
+  const paidCount = confirmedMusicos.filter((m) => paidMap.has(m.id)).length;
+  const confirmedCount = confirmedMusicos.filter(
+    (m) => paidMap.get(m.id)?.status === "confirmado"
+  ).length;
 
   function persistFinance(patch: {
     cacheCentavos?: number;
@@ -249,15 +261,18 @@ export function PaymentBreakdown({
             <ul className="divide-y divide-border">
               {confirmedMusicos.map((m) => {
                 const info = breakdown.perMember.get(m.id)!;
+                const paid = paidMap.get(m.id);
                 return (
                   <MemberPaymentRow
                     key={m.id}
+                    showId={showId}
                     member={m}
                     valorCentavos={info.valorCentavos}
                     manual={info.manual}
                     admin={admin}
-                    paid={paidSet.has(m.id)}
-                    onTogglePaid={(p) => togglePaid(m.id, p)}
+                    paidStatus={paid ? paid.status : "none"}
+                    hasComprovante={paid?.hasComprovante ?? false}
+                    isSelf={currentMemberId === m.id}
                     onSet={(v) => setOverride(m.id, v)}
                     onReset={() => clearOverride(m.id)}
                   />
@@ -328,6 +343,7 @@ export function PaymentBreakdown({
               <span className="text-muted-foreground">
                 {" · "}
                 {paidCount}/{confirmedMusicos.length} pagos
+                {paidCount > 0 && ` · ${confirmedCount} confirmados`}
               </span>
             </span>
           </div>
@@ -338,21 +354,25 @@ export function PaymentBreakdown({
 }
 
 function MemberPaymentRow({
+  showId,
   member,
   valorCentavos,
   manual,
   admin,
-  paid,
-  onTogglePaid,
+  paidStatus,
+  hasComprovante,
+  isSelf,
   onSet,
   onReset,
 }: {
+  showId: string;
   member: Member;
   valorCentavos: number;
   manual: boolean;
   admin: boolean;
-  paid: boolean;
-  onTogglePaid: (pago: boolean) => void;
+  paidStatus: PaidStatus;
+  hasComprovante: boolean;
+  isSelf: boolean;
   onSet: (v: number) => void;
   onReset: () => void;
 }) {
@@ -424,22 +444,15 @@ function MemberPaymentRow({
           <RotateCcw className="size-3.5" />
         </button>
       )}
-      <button
-        type="button"
-        onClick={() => admin && onTogglePaid(!paid)}
-        disabled={!admin}
-        title={admin ? "Marcar como pago/pendente" : undefined}
-        className={cn(
-          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset shrink-0",
-          paid
-            ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/40"
-            : "bg-zinc-500/15 text-zinc-300 ring-zinc-500/30",
-          admin && "cursor-pointer"
-        )}
-      >
-        {paid && <Check className="size-3" />}
-        {paid ? "Pago" : "Pendente"}
-      </button>
+      <MemberPaidControls
+        showId={showId}
+        memberId={member.id}
+        memberNome={member.nome}
+        status={paidStatus}
+        hasComprovante={hasComprovante}
+        admin={admin}
+        isSelf={isSelf}
+      />
     </li>
   );
 }

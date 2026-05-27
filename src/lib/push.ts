@@ -1,8 +1,8 @@
 import "server-only";
 import webpush from "web-push";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { pushSubscriptions } from "@/db/schema";
+import { pushSubscriptions, users } from "@/db/schema";
 
 let configured = false;
 
@@ -89,6 +89,21 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
     })
     .from(pushSubscriptions)
     .where(inArray(pushSubscriptions.userId, [userId]));
+  return send(rows, payload);
+}
+
+/** Envia para todos os admins (ex.: músico confirmou/contestou um repasse). */
+export async function sendPushToAdmins(payload: PushPayload) {
+  const rows = await db
+    .select({
+      id: pushSubscriptions.id,
+      endpoint: pushSubscriptions.endpoint,
+      p256dh: pushSubscriptions.p256dh,
+      auth: pushSubscriptions.auth,
+    })
+    .from(pushSubscriptions)
+    .innerJoin(users, eq(pushSubscriptions.userId, users.id))
+    .where(eq(users.role, "admin"));
   return send(rows, payload);
 }
 

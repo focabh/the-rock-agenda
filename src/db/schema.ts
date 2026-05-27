@@ -249,6 +249,10 @@ export const showMemberPaid = sqliteTable(
     pagoEm: integer("pago_em", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
+    // null = linha legada (já quitada). Novos repasses começam "aguardando".
+    status: text("status", { enum: ["aguardando", "confirmado"] }),
+    comprovante: text("comprovante"), // data URL (imagem/PDF) do comprovante
+    confirmadoEm: integer("confirmado_em", { mode: "timestamp_ms" }),
   },
   (t) => ({
     uniqShowMemberPaid: uniqueIndex("uniq_show_member_paid").on(
