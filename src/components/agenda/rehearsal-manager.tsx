@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
+import { AddressAutocomplete } from "@/components/shared/address-autocomplete";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDataBR } from "@/lib/formatters";
 import { toast } from "sonner";
@@ -125,6 +126,16 @@ export function RehearsalForm({
           </select>
         </div>
       </div>
+      <AddressAutocomplete
+        label="Endereço (opcional)"
+        defaultValue={rehearsal?.endereco ?? ""}
+        defaults={{
+          cidade: rehearsal?.cidade ?? "",
+          estado: rehearsal?.estado ?? "",
+          lat: rehearsal?.latitude?.toString() ?? "",
+          lon: rehearsal?.longitude?.toString() ?? "",
+        }}
+      />
       <div className="space-y-1.5">
         <Label htmlFor="foco">Foco do ensaio</Label>
         <Input

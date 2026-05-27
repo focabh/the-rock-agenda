@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
+import { AddressAutocomplete } from "@/components/shared/address-autocomplete";
 import type { ActionState } from "@/lib/form";
 import type { Venue } from "@/db/schema";
 
@@ -39,31 +40,17 @@ export function CasaForm({ casa, action, submitLabel = "Salvar" }: Props) {
             <FieldError state={state} name="nome" />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="cidade">Cidade</Label>
-            <Input
-              id="cidade"
-              name="cidade"
-              defaultValue={casa?.cidade ?? ""}
-              placeholder="Belo Horizonte"
-            />
-            <FieldError state={state} name="cidade" />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bairro">Bairro</Label>
-            <Input id="bairro" name="bairro" defaultValue={casa?.bairro ?? ""} />
-            <FieldError state={state} name="bairro" />
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="endereco">Endereço</Label>
-            <Input
-              id="endereco"
-              name="endereco"
+          <div className="sm:col-span-2">
+            <AddressAutocomplete
               defaultValue={casa?.endereco ?? ""}
+              defaults={{
+                cidade: casa?.cidade ?? "",
+                bairro: casa?.bairro ?? "",
+                estado: casa?.estado ?? "",
+                lat: casa?.latitude?.toString() ?? "",
+                lon: casa?.longitude?.toString() ?? "",
+              }}
             />
-            <FieldError state={state} name="endereco" />
           </div>
 
           <div className="space-y-2">

@@ -100,6 +100,9 @@ export const venues = sqliteTable("venues", {
   endereco: text("endereco"),
   cidade: text("cidade"),
   bairro: text("bairro"),
+  estado: text("estado"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
   contatoPrincipal: text("contato_principal"),
   telefone: text("telefone"),
   observacoes: text("observacoes"),
@@ -169,6 +172,11 @@ export const shows = sqliteTable("shows", {
   termino: text("termino"), // HH:mm
   contatoNome: text("contato_nome"),
   contatoTelefone: text("contato_telefone"),
+  endereco: text("endereco"),
+  cidade: text("cidade"),
+  estado: text("estado"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
   cacheCentavos: integer("cache_centavos").default(0), // valor em centavos
   pagamentoStatus: text("pagamento_status", {
     enum: ["pendente", "parcial", "pago", "atrasado"],
@@ -222,6 +230,11 @@ export const rehearsals = sqliteTable("rehearsals", {
   inicio: text("inicio"), // HH:mm
   termino: text("termino"), // HH:mm
   local: text("local"),
+  endereco: text("endereco"),
+  cidade: text("cidade"),
+  estado: text("estado"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
   foco: text("foco"), // o que será ensaiado
   observacoes: text("observacoes"),
   status: text("status", {

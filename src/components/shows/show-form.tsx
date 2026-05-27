@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
+import { AddressAutocomplete } from "@/components/shared/address-autocomplete";
 import {
   SHOW_STATUS_OPTIONS,
   PAGAMENTO_STATUS_OPTIONS,
@@ -71,6 +72,19 @@ export function ShowForm({
               ))}
             </select>
             <FieldError state={state} name="casaId" />
+          </div>
+
+          <div className="sm:col-span-2">
+            <AddressAutocomplete
+              label="Endereço do show (opcional — sobrepõe o da casa)"
+              defaultValue={show?.endereco ?? ""}
+              defaults={{
+                cidade: show?.cidade ?? "",
+                estado: show?.estado ?? "",
+                lat: show?.latitude?.toString() ?? "",
+                lon: show?.longitude?.toString() ?? "",
+              }}
+            />
           </div>
 
           <div className="space-y-2">
