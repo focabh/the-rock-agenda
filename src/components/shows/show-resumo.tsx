@@ -7,7 +7,7 @@ import {
   ShowStatusBadge,
   PagamentoStatusBadge,
 } from "@/components/shared/status-badge";
-import { formatBRL, formatDataExtensa } from "@/lib/formatters";
+import { formatBRL, formatDataExtensa, formatHoraBR } from "@/lib/formatters";
 import { deleteShowAction } from "@/app/(app)/shows/actions";
 import type { Show, Venue, Member } from "@/db/schema";
 
@@ -91,19 +91,17 @@ export function ShowResumo({
           </p>
 
           <div className="grid sm:grid-cols-2 gap-3 text-sm">
-            {show.inicio && (
-              <p className="flex items-center gap-2">
-                <Clock className="size-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Início:</span>
-                <span className="font-mono">{show.inicio}</span>
-                {show.termino && (
-                  <>
-                    <span className="text-muted-foreground">— Fim:</span>
-                    <span className="font-mono">{show.termino}</span>
-                  </>
-                )}
-              </p>
-            )}
+            <p className="flex items-center gap-2">
+              <Clock className="size-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Início:</span>
+              <span className="font-mono">{formatHoraBR(show.data)}</span>
+              {show.termino && (
+                <>
+                  <span className="text-muted-foreground">— Fim:</span>
+                  <span className="font-mono">{show.termino}</span>
+                </>
+              )}
+            </p>
             {show.passagemSom && (
               <p className="flex items-center gap-2">
                 <Volume2 className="size-4 text-muted-foreground" />

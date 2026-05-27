@@ -33,6 +33,81 @@ export function formatDataBR(date: Date | number, withTime = false): string {
   return `${data} às ${hora}`;
 }
 
+/** Só a hora (HH:mm) no fuso de Brasília. */
+export function formatHoraBR(date: Date | number): string {
+  const d = typeof date === "number" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
+/** Offset de São Paulo (em ms) no instante dado — hoje sempre -3h. */
+function brOffsetMs(utcMs: number): number {
+  const p = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+    .formatToParts(new Date(utcMs))
+    .reduce<Record<string, string>>((a, x) => {
+      a[x.type] = x.value;
+      return a;
+    }, {});
+  let hour = Number(p.hour);
+  if (hour === 24) hour = 0;
+  const asIfUTC = Date.UTC(
+    Number(p.year),
+    Number(p.month) - 1,
+    Number(p.day),
+    hour,
+    Number(p.minute),
+    Number(p.second)
+  );
+  return asIfUTC - utcMs;
+}
+
+// Converte um "YYYY-MM-DDTHH:mm" (valor de <input datetime-local>) interpretado
+// como horário de Brasília no instante UTC correto. Sem isso, o servidor em UTC
+// (Vercel) grava o show 3h adiantado.
+export function parseBRDateTime(input: string): Date {
+  const m = input.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return new Date(input);
+  const [, y, mo, d, h, mi] = m.map(Number);
+  const naiveUTC = Date.UTC(y, mo - 1, d, h, mi);
+  return new Date(naiveUTC - brOffsetMs(naiveUTC));
+}
+
+// Formata um instante como "YYYY-MM-DDTHH:mm" no fuso de Brasília, pro valor
+// inicial de um <input datetime-local> (independente do fuso do dispositivo).
+export function toBRDatetimeLocal(date: Date | number | null | undefined): string {
+  if (!date) return "";
+  const d = typeof date === "number" ? new Date(date) : date;
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .formatToParts(d)
+    .reduce<Record<string, string>>((a, x) => {
+      a[x.type] = x.value;
+      return a;
+    }, {});
+  const hour = p.hour === "24" ? "00" : p.hour;
+  return `${p.year}-${p.month}-${p.day}T${hour}:${p.minute}`;
+}
+
 export function formatDataExtensa(date: Date | number): string {
   const d = typeof date === "number" ? new Date(date) : date;
   return new Intl.DateTimeFormat("pt-BR", {

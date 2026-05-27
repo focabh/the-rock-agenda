@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { colorForMember, brDateKey } from "@/lib/conflicts";
+import { formatHoraBR } from "@/lib/formatters";
 import { DayDialog } from "@/components/agenda/day-dialog";
 import type {
   Show,
@@ -163,11 +164,9 @@ export function MonthGrid({
                     className="block truncate text-[10px] leading-tight px-1.5 py-1 rounded bg-primary/20 text-primary-foreground ring-1 ring-primary/40 font-medium hover:bg-primary/30"
                     title={`${s.casa.nome} — ${s.status}`}
                   >
-                    {s.inicio && (
-                      <span className="font-mono opacity-70 mr-1">
-                        {s.inicio}
-                      </span>
-                    )}
+                    <span className="font-mono opacity-70 mr-1">
+                      {formatHoraBR(s.data)}
+                    </span>
                     {s.casa.nome}
                   </Link>
                 ))}

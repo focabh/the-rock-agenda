@@ -22,7 +22,7 @@ import {
 import { FieldError } from "@/components/shared/field-error";
 import { RehearsalForm } from "@/components/agenda/rehearsal-manager";
 import { createUnavailabilityAction } from "@/app/(app)/agenda/actions";
-import { formatDataExtensa } from "@/lib/formatters";
+import { formatDataExtensa, formatHoraBR } from "@/lib/formatters";
 import { toast } from "sonner";
 import type { Show, Venue, Member, Rehearsal } from "@/db/schema";
 
@@ -201,11 +201,9 @@ export function DayDialog({
               >
                 <CheckCircle2 className="size-4 text-primary shrink-0" />
                 <span className="flex-1 min-w-0 truncate">
-                  {s.inicio && (
-                    <span className="font-mono text-muted-foreground mr-1.5">
-                      {s.inicio}
-                    </span>
-                  )}
+                  <span className="font-mono text-muted-foreground mr-1.5">
+                    {formatHoraBR(s.data)}
+                  </span>
                   {s.casa.nome}
                 </span>
                 <span className="text-xs text-primary shrink-0">

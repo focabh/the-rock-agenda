@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { showPropostas, shows, venueEvaluations, venues } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { parseForm, type ActionState } from "@/lib/form";
-import { formatBRL, formatDataBR } from "@/lib/formatters";
+import { formatBRL, formatDataBR, formatHoraBR } from "@/lib/formatters";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -88,7 +88,7 @@ export async function generateDefaultPropostaAction(
 **Contato:** ${show.contatoNome ?? casa.contatoPrincipal ?? ""} ${show.contatoTelefone ? "— " + show.contatoTelefone : ""}
 
 **Data:** ${formatDataBR(show.data, true)}
-**Horário do show:** ${show.inicio ?? "—"} às ${show.termino ?? "—"}
+**Horário do show:** ${formatHoraBR(show.data)}${show.termino ? ` às ${show.termino}` : ""}
 **Passagem de som:** ${show.passagemSom ?? "a combinar"}
 
 ## Cachê

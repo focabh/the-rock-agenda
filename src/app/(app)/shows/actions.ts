@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { shows } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin } from "@/lib/auth";
+import { parseBRDateTime } from "@/lib/formatters";
 
 const SHOW_STATUSES = ["planejado", "confirmado", "concluido", "cancelado"] as const;
 const PAGAMENTO_STATUSES = ["pendente", "parcial", "pago", "atrasado"] as const;
@@ -21,8 +22,11 @@ const horaOptional = z
 
 const showSchema = z.object({
   casaId: z.string().min(1, "Selecione a casa"),
-  data: z.coerce.date(),
-  inicio: horaOptional,
+  // datetime-local interpretado como horário de Brasília (não do servidor).
+  data: z
+    .string()
+    .min(1, "Informe a data e hora")
+    .transform((s) => parseBRDateTime(s)),
   termino: horaOptional,
   passagemSom: horaOptional,
   contatoNome: z.string().max(80).optional(),

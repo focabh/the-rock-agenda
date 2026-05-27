@@ -134,8 +134,8 @@ export default async function ShowDetailPage({
                 admin={admin}
                 wa={{
                   label: "show",
-                  quando: `dia ${formatDataBR(show.data)}${
-                    show.inicio ? ` às ${show.inicio}` : ""
+                  quando: `dia ${formatDataBR(show.data, true)}${
+                    show.termino ? ` até ${show.termino}` : ""
                   }`,
                   local: show.casa.nome,
                   path: `/shows/${show.id}`,

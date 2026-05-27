@@ -207,7 +207,7 @@ export default async function DashboardPage() {
                         <p className="font-medium truncate">{s.casa.nome}</p>
                         <p className="text-sm text-muted-foreground">
                           {formatDataBR(s.data, true)}
-                          {s.inicio && ` • Início ${s.inicio}`}
+                          {s.termino && ` até ${s.termino}`}
                         </p>
                       </div>
                       <ShowStatusBadge status={s.status} />

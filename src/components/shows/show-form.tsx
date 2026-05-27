@@ -15,14 +15,7 @@ import {
 } from "@/components/shared/status-badge";
 import type { ActionState } from "@/lib/form";
 import type { Show, Venue } from "@/db/schema";
-
-function toDatetimeLocal(d: Date | number | undefined | null): string {
-  if (!d) return "";
-  const date = typeof d === "number" ? new Date(d) : d;
-  const off = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - off * 60000);
-  return local.toISOString().slice(0, 16);
-}
+import { toBRDatetimeLocal } from "@/lib/formatters";
 
 const selectCls =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -45,7 +38,7 @@ export function ShowForm({
   const [state, formAction, pending] = useActionState(action, null);
   const cacheReais = show?.cacheCentavos ? show.cacheCentavos / 100 : "";
   const dataDefault = show?.data
-    ? toDatetimeLocal(show.data)
+    ? toBRDatetimeLocal(show.data)
     : defaultDate
       ? `${defaultDate}T20:00`
       : "";
@@ -88,7 +81,7 @@ export function ShowForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="data">Data e hora do show *</Label>
+            <Label htmlFor="data">Início — data e hora *</Label>
             <Input
               id="data"
               name="data"
@@ -115,17 +108,6 @@ export function ShowForm({
               ))}
             </select>
             <FieldError state={state} name="status" />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="inicio">Início (HH:mm)</Label>
-            <Input
-              id="inicio"
-              name="inicio"
-              type="time"
-              defaultValue={show?.inicio ?? ""}
-            />
-            <FieldError state={state} name="inicio" />
           </div>
 
           <div className="space-y-2">

@@ -74,7 +74,7 @@ export default async function ShowsPage() {
                       <p className="font-medium truncate">{s.casa.nome}</p>
                       <p className="text-sm text-muted-foreground">
                         {formatDataBR(s.data, true)}
-                        {s.inicio && ` • Início ${s.inicio}`}
+                        {s.termino && ` até ${s.termino}`}
                       </p>
                     </div>
                     <div className="hidden sm:flex flex-col items-end gap-1">
