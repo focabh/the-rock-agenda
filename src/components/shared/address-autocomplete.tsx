@@ -14,32 +14,42 @@ type Picked = {
   lon: string;
 };
 
-type OsmResult = {
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: Record<string, string>;
+type PhotonFeature = {
+  properties: Record<string, string | number | undefined>;
+  geometry?: { coordinates?: [number, number] };
 };
 
-function uf(r: OsmResult): string {
-  const iso = r.address?.["ISO3166-2-lvl4"];
-  if (iso && iso.includes("-")) return iso.split("-")[1];
-  return r.address?.state ?? "";
+// Centro de Belo Horizonte — usado pra priorizar resultados locais.
+const BH = { lat: -19.9191, lon: -43.9386 };
+
+function str(v: string | number | undefined): string {
+  return v == null ? "" : String(v);
 }
 
-function format(r: OsmResult): string {
-  const a = r.address ?? {};
-  const parts = [
-    [a.road, a.house_number].filter(Boolean).join(", "),
-    a.suburb || a.neighbourhood || a.quarter,
-    a.city || a.town || a.village || a.municipality,
-    uf(r),
+function partsOf(f: PhotonFeature) {
+  const p = f.properties;
+  const street = str(p.street) || str(p.name);
+  const num = str(p.housenumber);
+  const bairro =
+    str(p.district) || str(p.suburb) || str(p.neighbourhood) || str(p.locality);
+  const cidade = str(p.city) || str(p.town) || str(p.village) || str(p.county);
+  const estado = str(p.state);
+  return { street, num, bairro, cidade, estado };
+}
+
+function label(f: PhotonFeature): string {
+  const { street, num, bairro, cidade, estado } = partsOf(f);
+  const arr = [
+    [street, num].filter(Boolean).join(", "),
+    bairro,
+    cidade,
+    estado,
   ].filter(Boolean);
-  return parts.join(" - ") || r.display_name;
+  return arr.join(" - ") || str(f.properties.name);
 }
 
 export function AddressAutocomplete({
-  label = "Endereço",
+  label: fieldLabel = "Endereço",
   defaultValue = "",
   defaults,
 }: {
@@ -56,7 +66,7 @@ export function AddressAutocomplete({
     lat: defaults?.lat ?? "",
     lon: defaults?.lon ?? "",
   });
-  const [results, setResults] = useState<OsmResult[]>([]);
+  const [results, setResults] = useState<PhotonFeature[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const skip = useRef(false);
@@ -67,7 +77,7 @@ export function AddressAutocomplete({
       return;
     }
     const q = query.trim();
-    if (q.length < 4) {
+    if (q.length < 3) {
       setResults([]);
       setOpen(false);
       return;
@@ -76,33 +86,43 @@ export function AddressAutocomplete({
     const t = setTimeout(async () => {
       try {
         const url =
-          "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=br&limit=6&q=" +
+          "https://photon.komoot.io/api/?limit=8" +
+          `&lat=${BH.lat}&lon=${BH.lon}` +
+          "&q=" +
           encodeURIComponent(q);
-        const res = await fetch(url, { headers: { "Accept-Language": "pt-BR" } });
+        const res = await fetch(url);
         const data = await res.json();
-        setResults(Array.isArray(data) ? data : []);
+        const feats: PhotonFeature[] = Array.isArray(data?.features)
+          ? data.features
+          : [];
+        // só Brasil
+        const br = feats.filter(
+          (f) => str(f.properties.countrycode).toUpperCase() === "BR"
+        );
+        setResults(br.length ? br : feats);
         setOpen(true);
       } catch {
         setResults([]);
       } finally {
         setLoading(false);
       }
-    }, 450);
+    }, 350);
     return () => clearTimeout(t);
   }, [query]);
 
-  function choose(r: OsmResult) {
-    const a = r.address ?? {};
-    const endereco = format(r);
+  function choose(f: PhotonFeature) {
+    const { bairro, cidade, estado } = partsOf(f);
+    const endereco = label(f);
+    const coords = f.geometry?.coordinates;
     skip.current = true;
     setQuery(endereco);
     setPicked({
       endereco,
-      cidade: a.city || a.town || a.village || a.municipality || "",
-      bairro: a.suburb || a.neighbourhood || a.quarter || "",
-      estado: uf(r),
-      lat: r.lat ?? "",
-      lon: r.lon ?? "",
+      cidade,
+      bairro,
+      estado,
+      lat: coords ? String(coords[1]) : "",
+      lon: coords ? String(coords[0]) : "",
     });
     setOpen(false);
     setResults([]);
@@ -110,7 +130,7 @@ export function AddressAutocomplete({
 
   return (
     <div className="relative space-y-2">
-      <Label htmlFor="endereco">{label}</Label>
+      <Label htmlFor="endereco">{fieldLabel}</Label>
       <div className="relative">
         <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
         <Input
@@ -133,17 +153,17 @@ export function AddressAutocomplete({
       </div>
       {open && results.length > 0 && (
         <ul className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-md border border-border bg-popover shadow-md">
-          {results.map((r, i) => (
+          {results.map((f, i) => (
             <li key={i}>
               <button
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  choose(r);
+                  choose(f);
                 }}
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-accent/60"
               >
-                {r.display_name}
+                {label(f)}
               </button>
             </li>
           ))}
@@ -152,7 +172,7 @@ export function AddressAutocomplete({
       <p className="text-[11px] text-muted-foreground">
         {picked.cidade || picked.estado
           ? `${picked.cidade}${picked.estado ? " - " + picked.estado : ""}`
-          : "Busca via OpenStreetMap"}
+          : "Busca de endereço (OpenStreetMap/Photon)"}
       </p>
       <input type="hidden" name="cidade" value={picked.cidade} />
       <input type="hidden" name="bairro" value={picked.bairro} />
