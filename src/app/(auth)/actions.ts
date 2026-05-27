@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -17,14 +17,19 @@ import { sendRegistrationNotification } from "@/lib/email";
 import { POSICOES, pixValido, telefoneValido } from "@/lib/validators";
 
 export async function loginAction(_prev: { error?: string } | null, formData: FormData) {
-  const username = String(formData.get("username") ?? "").trim();
+  const ident = String(formData.get("username") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
 
-  if (!username || !password) {
-    return { error: "Preencha usuário e senha." };
+  if (!ident || !password) {
+    return { error: "Preencha usuário/email e senha." };
   }
 
-  const [user] = await db.select().from(users).where(eq(users.username, username)).limit(1);
+  // Aceita login por usuário OU email (case-insensitive)
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(or(eq(users.username, ident), sql`lower(${users.email}) = ${ident}`))
+    .limit(1);
   if (!user) return { error: "Usuário ou senha inválidos." };
 
   const ok = await verifyPassword(password, user.passwordHash);

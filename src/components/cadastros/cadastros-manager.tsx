@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, X, UserPlus, ShieldCheck, Shield } from "lucide-react";
+import { Check, X, UserPlus, ShieldCheck, Shield, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import {
   approveUserAction,
   rejectUserAction,
+  resetUserPasswordAction,
   setUserRoleAction,
   toggleRegistrationsAction,
 } from "@/app/(app)/cadastros/actions";
@@ -197,6 +198,24 @@ export function CadastrosManager({
                       </span>
                     </p>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title="Redefinir senha"
+                    onClick={() => {
+                      const nova = window.prompt(
+                        `Nova senha para ${fullName(u)} (mínimo 6 caracteres):`
+                      );
+                      if (!nova) return;
+                      startTransition(async () => {
+                        const r = await resetUserPasswordAction(u.id, nova);
+                        if (r?.error) toast.error(r.error);
+                        else toast.success(`Senha de ${fullName(u)} redefinida.`);
+                      });
+                    }}
+                  >
+                    <KeyRound className="size-4" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"

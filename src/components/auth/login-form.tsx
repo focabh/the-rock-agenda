@@ -13,7 +13,7 @@ export function LoginForm() {
   return (
     <form action={formAction} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="username">Usuário</Label>
+        <Label htmlFor="username">Usuário ou email</Label>
         <Input id="username" name="username" autoComplete="username" required autoFocus />
       </div>
       <div className="space-y-2">

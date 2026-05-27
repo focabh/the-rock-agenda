@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users, members, appSettings } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth";
+import { hashPassword, requireAdmin } from "@/lib/auth";
 
 export async function toggleRegistrationsAction(enabled: boolean) {
   await requireAdmin();
@@ -78,6 +78,16 @@ export async function rejectUserAction(userId: string) {
   await requireAdmin();
   await db.update(users).set({ status: "recusado" }).where(eq(users.id, userId));
   revalidatePath("/cadastros");
+  return { ok: true };
+}
+
+export async function resetUserPasswordAction(userId: string, novaSenha: string) {
+  await requireAdmin();
+  if (!novaSenha || novaSenha.length < 6) {
+    return { error: "A senha precisa ter ao menos 6 caracteres." };
+  }
+  const hash = await hashPassword(novaSenha);
+  await db.update(users).set({ passwordHash: hash }).where(eq(users.id, userId));
   return { ok: true };
 }
 
