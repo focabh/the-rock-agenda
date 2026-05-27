@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { ChunkErrorReloader } from "@/components/shared/chunk-error-reloader";
 import { ensureDbInitialized } from "@/db/init";
 import "./globals.css";
 
@@ -42,6 +43,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         {children}
+        <ChunkErrorReloader />
         <Toaster richColors position="top-right" />
       </body>
     </html>
