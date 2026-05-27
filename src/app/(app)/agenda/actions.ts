@@ -1,10 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { memberUnavailability, rehearsals } from "@/db/schema";
+import {
+  memberUnavailability,
+  rehearsals,
+  rehearsalMemberPresence,
+} from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin, requireCurrentUser } from "@/lib/auth";
 
@@ -143,6 +147,39 @@ export async function deleteRehearsalAction(id: string) {
   await requireAdmin();
   await db.delete(rehearsals).where(eq(rehearsals.id, id));
   revalidateRehearsalPaths();
+}
+
+const PRESENCE_STATUSES = ["pendente", "confirmado", "recusado"] as const;
+
+export async function setRehearsalPresenceAction(
+  rehearsalId: string,
+  memberId: string,
+  status: (typeof PRESENCE_STATUSES)[number]
+) {
+  const user = await requireCurrentUser();
+  const isAdmin = user.role === "admin";
+  const isSelf = user.member?.id === memberId;
+  if (!isAdmin && !isSelf) {
+    return { error: "Você só pode confirmar a própria presença." };
+  }
+  const existing = await db.query.rehearsalMemberPresence.findFirst({
+    where: and(
+      eq(rehearsalMemberPresence.rehearsalId, rehearsalId),
+      eq(rehearsalMemberPresence.memberId, memberId)
+    ),
+  });
+  if (existing) {
+    await db
+      .update(rehearsalMemberPresence)
+      .set({ status })
+      .where(eq(rehearsalMemberPresence.id, existing.id));
+  } else {
+    await db
+      .insert(rehearsalMemberPresence)
+      .values({ rehearsalId, memberId, status });
+  }
+  revalidatePath(`/ensaios/${rehearsalId}`);
+  return { ok: true };
 }
 
 export async function deleteUnavailabilityAction(id: string) {

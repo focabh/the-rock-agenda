@@ -247,6 +247,22 @@ export const rehearsals = sqliteTable("rehearsals", {
   updatedAt: updatedAt(),
 });
 
+// Presença confirmada por ensaio por membro
+export const rehearsalMemberPresence = sqliteTable("rehearsal_member_presence", {
+  id: id(),
+  rehearsalId: text("rehearsal_id")
+    .notNull()
+    .references(() => rehearsals.id, { onDelete: "cascade" }),
+  memberId: text("member_id")
+    .notNull()
+    .references(() => members.id, { onDelete: "cascade" }),
+  status: text("status", { enum: ["pendente", "confirmado", "recusado"] })
+    .notNull()
+    .default("pendente"),
+  observacao: text("observacao"),
+  updatedAt: updatedAt(),
+});
+
 // ---------------- VENUE EVALUATIONS ----------------
 
 export const venueEvaluations = sqliteTable("venue_evaluations", {
@@ -578,6 +594,7 @@ export type Contract = typeof contracts.$inferSelect;
 export type ShowProposta = typeof showPropostas.$inferSelect;
 export type MemberUnavailability = typeof memberUnavailability.$inferSelect;
 export type Rehearsal = typeof rehearsals.$inferSelect;
+export type RehearsalMemberPresence = typeof rehearsalMemberPresence.$inferSelect;
 export type AppSettings = typeof appSettings.$inferSelect;
 export type ShowMemberPresence = typeof showMemberPresence.$inferSelect;
 export type SpotifyAuth = typeof spotifyAuth.$inferSelect;

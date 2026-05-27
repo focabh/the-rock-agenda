@@ -1,17 +1,23 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, MapPin, Clock, Target, StickyNote } from "lucide-react";
 import { db } from "@/db";
-import { rehearsals } from "@/db/schema";
+import { rehearsals, members, rehearsalMemberPresence } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
+import { PresenceCard } from "@/components/shows/presence-card";
+import { setRehearsalPresenceAction } from "@/app/(app)/agenda/actions";
 import { formatDataExtensa } from "@/lib/formatters";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
-function mapsUrl(r: { latitude: number | null; longitude: number | null; endereco: string | null }) {
+function mapsUrl(r: {
+  latitude: number | null;
+  longitude: number | null;
+  endereco: string | null;
+}) {
   if (r.latitude != null && r.longitude != null) {
     return `https://www.google.com/maps/search/?api=1&query=${r.latitude},${r.longitude}`;
   }
@@ -30,8 +36,24 @@ export default async function EnsaioDetailPage({
   const [r] = await db.select().from(rehearsals).where(eq(rehearsals.id, id)).limit(1);
   if (!r) notFound();
 
-  const admin = isAdmin(await getCurrentUser());
+  const [user, playableMembers, presences] = await Promise.all([
+    getCurrentUser(),
+    db
+      .select()
+      .from(members)
+      .where(and(eq(members.ativo, true), eq(members.isManager, false)))
+      .orderBy(asc(members.nome)),
+    db
+      .select()
+      .from(rehearsalMemberPresence)
+      .where(eq(rehearsalMemberPresence.rehearsalId, id)),
+  ]);
+  const admin = isAdmin(user);
   const maps = mapsUrl(r);
+  const quando = `dia ${new Date(r.data).toLocaleDateString("pt-BR")}${
+    r.inicio ? ` às ${r.inicio}` : ""
+  }`;
+
   const Item = ({
     icon: Icon,
     label,
@@ -63,10 +85,7 @@ export default async function EnsaioDetailPage({
               <ArrowLeft className="size-4" /> Voltar
             </Button>
             {admin && (
-              <Button
-                render={<Link href={`/ensaios/${r.id}/editar`} />}
-                size="sm"
-              >
+              <Button render={<Link href={`/ensaios/${r.id}/editar`} />} size="sm">
                 <Pencil className="size-4" /> Editar
               </Button>
             )}
@@ -74,7 +93,7 @@ export default async function EnsaioDetailPage({
         }
       />
 
-      <div className="p-6 max-w-2xl">
+      <div className="p-6 max-w-2xl space-y-6">
         <Card>
           <CardContent className="py-6 space-y-5">
             <div className="flex items-center justify-between">
@@ -94,9 +113,7 @@ export default async function EnsaioDetailPage({
             {(r.local || r.endereco) && (
               <Item icon={MapPin} label="Local">
                 {r.local && <p>{r.local}</p>}
-                {r.endereco && (
-                  <p className="text-muted-foreground">{r.endereco}</p>
-                )}
+                {r.endereco && <p className="text-muted-foreground">{r.endereco}</p>}
                 {maps && (
                   <a
                     href={maps}
@@ -123,6 +140,21 @@ export default async function EnsaioDetailPage({
             )}
           </CardContent>
         </Card>
+
+        <PresenceCard
+          eventId={r.id}
+          action={setRehearsalPresenceAction}
+          members={playableMembers}
+          presences={presences}
+          currentMemberId={user?.member?.id ?? null}
+          admin={admin}
+          wa={{
+            label: "ensaio",
+            quando,
+            local: r.local || r.endereco || "",
+            path: `/ensaios/${r.id}`,
+          }}
+        />
       </div>
     </div>
   );

@@ -6,10 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { setPresenceAction } from "@/app/(app)/shows/[id]/actions-presence";
-import type { Member, ShowMemberPresence } from "@/db/schema";
+import type { Member } from "@/db/schema";
 
 type Status = "pendente" | "confirmado" | "recusado";
+
+type PresenceLite = { memberId: string; status: string };
+type PresenceAction = (
+  eventId: string,
+  memberId: string,
+  status: Status
+) => Promise<{ error?: string } | { ok?: boolean } | void>;
 
 const STATUS_LABEL: Record<Status, string> = {
   pendente: "Pendente",
@@ -17,10 +23,11 @@ const STATUS_LABEL: Record<Status, string> = {
   recusado: "Recusado",
 };
 
-export type ShowInfo = {
-  data: Date | number;
-  inicio: string | null;
-  casaNome: string;
+export type PresenceWa = {
+  label: string; // "show" | "ensaio"
+  quando: string; // ex: "dia 12/07 às 21:00"
+  local: string; // casa ou local (pode ser vazio)
+  path: string; // ex: "/shows/123"
 };
 
 function waNumber(telefone: string): string {
@@ -30,33 +37,32 @@ function waNumber(telefone: string): string {
 }
 
 export function PresenceCard({
-  showId,
+  eventId,
+  action,
   members,
   presences,
   currentMemberId,
   admin,
-  showInfo,
+  wa,
 }: {
-  showId: string;
+  eventId: string;
+  action: PresenceAction;
   members: Member[];
-  presences: ShowMemberPresence[];
+  presences: PresenceLite[];
   currentMemberId: string | null;
   admin: boolean;
-  showInfo: ShowInfo;
+  wa: PresenceWa;
 }) {
   const [, startTransition] = useTransition();
   const byMember = new Map(presences.map((p) => [p.memberId, p]));
 
-  const dataStr = new Date(showInfo.data).toLocaleDateString("pt-BR");
-  const quando = `dia ${dataStr}${showInfo.inicio ? ` às ${showInfo.inicio}` : ""}`;
-  const showUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/shows/${showId}`
-      : "";
+  const url =
+    typeof window !== "undefined" ? `${window.location.origin}${wa.path}` : "";
+  const localTxt = wa.local ? ` — ${wa.local}` : "";
 
   function msgPara(nome: string): string {
     const primeiro = nome.split(" ")[0];
-    return `Oi ${primeiro}! Tem show ${quando} na ${showInfo.casaNome}. Confirma sua presença aqui: ${showUrl}`;
+    return `Oi ${primeiro}! Tem ${wa.label} ${wa.quando}${localTxt}. Confirma sua presença aqui: ${url}`;
   }
 
   function waLinkPara(m: Member): string {
@@ -66,7 +72,8 @@ export function PresenceCard({
   }
 
   function avisarBanda() {
-    const msg = `🎸 Show da banda ${quando} na ${showInfo.casaNome}!\nConfirmem presença: ${showUrl}`;
+    const L = wa.label.charAt(0).toUpperCase() + wa.label.slice(1);
+    const msg = `🎸 ${L} da banda ${wa.quando}${localTxt}!\nConfirmem presença: ${url}`;
     navigator.clipboard
       .writeText(msg)
       .then(() => toast.success("Mensagem copiada — cole no grupo da banda."))
@@ -82,7 +89,7 @@ export function PresenceCard({
 
   function update(memberId: string, status: Status) {
     startTransition(async () => {
-      const result = await setPresenceAction(showId, memberId, status);
+      const result = await action(eventId, memberId, status);
       if (result && "error" in result && result.error) {
         toast.error(result.error);
       } else {
