@@ -3,10 +3,14 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RegisterForm } from "@/components/auth/register-form";
-import { registrationsAllowed } from "@/lib/auth";
+import { getAvailablePositions, registrationsAllowed } from "@/lib/auth";
 
 export default async function CadastroPage() {
-  const allowed = await registrationsAllowed();
+  const [allowed, positions] = await Promise.all([
+    registrationsAllowed(),
+    getAvailablePositions(),
+  ]);
+  const canRegister = allowed && positions.length > 0;
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden bg-background py-10">
@@ -39,13 +43,14 @@ export default async function CadastroPage() {
           </p>
         </CardHeader>
         <CardContent>
-          {allowed ? (
-            <RegisterForm />
+          {canRegister ? (
+            <RegisterForm availablePositions={positions} />
           ) : (
             <div className="space-y-4 text-center">
               <p className="text-sm text-muted-foreground">
-                Os cadastros estão fechados no momento. Fale com o
-                administrador da banda.
+                {!allowed
+                  ? "Os cadastros estão fechados no momento. Fale com o administrador da banda."
+                  : "Todas as posições da banda já têm cadastro. Fale com o administrador."}
               </p>
               <Button render={<Link href="/login" />} className="w-full">
                 Voltar para o login

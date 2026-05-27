@@ -33,9 +33,12 @@ export const users = sqliteTable("users", {
     .notNull()
     .default("membro"),
   nome: text("nome"),
+  sobrenome: text("sobrenome"),
   email: text("email"),
   telefone: text("telefone"),
+  cpf: text("cpf"),
   chavePix: text("chave_pix"),
+  posicao: text("posicao"), // posição na banda escolhida no cadastro
   status: text("status", { enum: ["pendente", "aprovado", "recusado"] })
     .notNull()
     .default("aprovado"),
@@ -58,6 +61,7 @@ export const members = sqliteTable("members", {
   nome: text("nome").notNull(),
   funcao: text("funcao").notNull(), // vocal, guitarra, baixo, bateria, etc.
   telefone: text("telefone"),
+  cpf: text("cpf"),
   chavePix: text("chave_pix"),
   equipamentos: text("equipamentos"),
   disponibilidade: text("disponibilidade"),

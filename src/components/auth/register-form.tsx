@@ -7,20 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/shared/field-error";
 import { registerAction } from "@/app/(auth)/actions";
+import { maskCPF, maskPhone } from "@/lib/validators";
 import { CheckCircle2 } from "lucide-react";
 
-function maskPhone(value: string): string {
-  const d = value.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 2) return d.length ? `(${d}` : "";
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  if (d.length <= 10)
-    return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-}
+const selectCls =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-export function RegisterForm() {
+export function RegisterForm({
+  availablePositions,
+}: {
+  availablePositions: string[];
+}) {
   const [state, formAction, pending] = useActionState(registerAction, null);
   const [telefone, setTelefone] = useState("");
+  const [cpf, setCpf] = useState("");
 
   if (state?.success) {
     return (
@@ -29,8 +29,7 @@ export function RegisterForm() {
         <div className="space-y-1">
           <h2 className="font-semibold text-lg">Cadastro enviado!</h2>
           <p className="text-sm text-muted-foreground">
-            Seu acesso ficará disponível assim que o administrador aprovar. Você
-            será avisado.
+            Seu acesso ficará disponível assim que o administrador aprovar.
           </p>
         </div>
         <Button render={<Link href="/login" />} className="w-full">
@@ -42,11 +41,34 @@ export function RegisterForm() {
 
   return (
     <form action={formAction} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="nome">Nome</Label>
-        <Input id="nome" name="nome" placeholder="Seu nome" required />
-        <FieldError state={state} name="nome" />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="nome">Nome</Label>
+          <Input id="nome" name="nome" placeholder="João" required />
+          <FieldError state={state} name="nome" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="sobrenome">Sobrenome</Label>
+          <Input id="sobrenome" name="sobrenome" placeholder="Silva" required />
+          <FieldError state={state} name="sobrenome" />
+        </div>
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="posicao">Posição na banda</Label>
+        <select id="posicao" name="posicao" className={selectCls} required defaultValue="">
+          <option value="" disabled>
+            Selecione...
+          </option>
+          {availablePositions.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <FieldError state={state} name="posicao" />
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
@@ -58,17 +80,19 @@ export function RegisterForm() {
         />
         <FieldError state={state} name="email" />
       </div>
+
       <div className="space-y-2">
         <Label htmlFor="username">Usuário</Label>
         <Input
           id="username"
           name="username"
-          placeholder="ex: foca"
+          placeholder="ex: joaosilva"
           autoComplete="off"
           required
         />
         <FieldError state={state} name="username" />
       </div>
+
       <div className="space-y-2">
         <Label htmlFor="password">Senha</Label>
         <Input
@@ -81,29 +105,47 @@ export function RegisterForm() {
         />
         <FieldError state={state} name="password" />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="telefone">Telefone</Label>
-        <Input
-          id="telefone"
-          name="telefone"
-          inputMode="numeric"
-          placeholder="(31) 99999-9999"
-          value={telefone}
-          onChange={(e) => setTelefone(maskPhone(e.target.value))}
-          required
-        />
-        <FieldError state={state} name="telefone" />
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="telefone">Telefone</Label>
+          <Input
+            id="telefone"
+            name="telefone"
+            inputMode="numeric"
+            placeholder="(31) 99999-9999"
+            value={telefone}
+            onChange={(e) => setTelefone(maskPhone(e.target.value))}
+            required
+          />
+          <FieldError state={state} name="telefone" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cpf">CPF</Label>
+          <Input
+            id="cpf"
+            name="cpf"
+            inputMode="numeric"
+            placeholder="000.000.000-00"
+            value={cpf}
+            onChange={(e) => setCpf(maskCPF(e.target.value))}
+            required
+          />
+          <FieldError state={state} name="cpf" />
+        </div>
       </div>
+
       <div className="space-y-2">
         <Label htmlFor="chavePix">Chave PIX</Label>
         <Input
           id="chavePix"
           name="chavePix"
-          placeholder="email, telefone, CPF ou chave aleatória"
+          placeholder="email, CPF, telefone ou chave aleatória"
           required
         />
         <FieldError state={state} name="chavePix" />
       </div>
+
       {state?.error && !state.fieldErrors && (
         <p className="text-sm text-destructive">{state.error}</p>
       )}

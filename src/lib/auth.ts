@@ -1,12 +1,13 @@
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { ensureDbInitialized } from "@/db/init";
 import { users, members, appSettings } from "@/db/schema";
 import type { Member, User } from "@/db/schema";
+import { POSICOES } from "@/lib/validators";
 
 export type AppSession = {
   authed?: boolean;
@@ -93,6 +94,27 @@ export async function registrationsAllowed(): Promise<boolean> {
     return s?.allowRegistrations ?? true;
   } catch {
     return false;
+  }
+}
+
+/** Posições da banda ainda livres (não escolhidas por usuário pendente/aprovado). */
+export async function getAvailablePositions(): Promise<string[]> {
+  try {
+    const taken = await db
+      .select({ posicao: users.posicao })
+      .from(users)
+      .where(
+        and(
+          isNotNull(users.posicao),
+          inArray(users.status, ["pendente", "aprovado"])
+        )
+      );
+    const takenSet = new Set(
+      taken.map((t) => (t.posicao ?? "").toLowerCase())
+    );
+    return POSICOES.filter((p) => !takenSet.has(p.toLowerCase()));
+  } catch {
+    return [...POSICOES];
   }
 }
 

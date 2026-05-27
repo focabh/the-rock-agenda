@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users, members, appSettings } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
@@ -27,21 +27,48 @@ export async function approveUserAction(userId: string) {
 
   await db.update(users).set({ status: "aprovado" }).where(eq(users.id, userId));
 
-  // Cria o músico vinculado, se ainda não houver um
-  const [existingMember] = await db
-    .select({ id: members.id })
+  const fullName =
+    [user.nome, user.sobrenome].filter(Boolean).join(" ") || user.username;
+
+  // Vincula ao músico existente daquela posição (sem login ainda); senão cria
+  const candidates = await db
+    .select()
     .from(members)
-    .where(eq(members.userId, userId))
-    .limit(1);
-  if (!existingMember) {
-    await db.insert(members).values({
-      nome: user.nome ?? user.username,
-      funcao: "A definir",
-      telefone: user.telefone,
-      chavePix: user.chavePix,
-      userId: user.id,
-      ativo: true,
-    });
+    .where(and(eq(members.ativo, true), isNull(members.userId)));
+  const match = user.posicao
+    ? candidates.find(
+        (m) => m.funcao.toLowerCase() === user.posicao!.toLowerCase()
+      )
+    : undefined;
+
+  if (match) {
+    await db
+      .update(members)
+      .set({
+        userId: user.id,
+        nome: fullName,
+        telefone: user.telefone ?? match.telefone,
+        chavePix: user.chavePix ?? match.chavePix,
+        cpf: user.cpf ?? match.cpf,
+      })
+      .where(eq(members.id, match.id));
+  } else {
+    const [already] = await db
+      .select({ id: members.id })
+      .from(members)
+      .where(eq(members.userId, userId))
+      .limit(1);
+    if (!already) {
+      await db.insert(members).values({
+        nome: fullName,
+        funcao: user.posicao ?? "A definir",
+        telefone: user.telefone,
+        chavePix: user.chavePix,
+        cpf: user.cpf,
+        userId: user.id,
+        ativo: true,
+      });
+    }
   }
 
   revalidatePath("/cadastros");
@@ -52,6 +79,16 @@ export async function approveUserAction(userId: string) {
 export async function rejectUserAction(userId: string) {
   await requireAdmin();
   await db.update(users).set({ status: "recusado" }).where(eq(users.id, userId));
+  revalidatePath("/cadastros");
+  return { ok: true };
+}
+
+export async function setUserRoleAction(userId: string, role: "admin" | "membro") {
+  const me = await requireAdmin();
+  if (me.id === userId && role !== "admin") {
+    return { error: "Você não pode remover o seu próprio acesso de admin." };
+  }
+  await db.update(users).set({ role }).where(eq(users.id, userId));
   revalidatePath("/cadastros");
   return { ok: true };
 }

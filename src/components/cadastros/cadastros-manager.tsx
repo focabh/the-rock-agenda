@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, X, UserPlus } from "lucide-react";
+import { Check, X, UserPlus, ShieldCheck, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -9,21 +9,44 @@ import { toast } from "sonner";
 import {
   approveUserAction,
   rejectUserAction,
+  setUserRoleAction,
   toggleRegistrationsAction,
 } from "@/app/(app)/cadastros/actions";
-import type { User } from "@/db/schema";
 
-type Pending = Pick<
-  User,
-  "id" | "nome" | "username" | "email" | "telefone" | "chavePix"
->;
+type Pending = {
+  id: string;
+  nome: string | null;
+  sobrenome: string | null;
+  username: string;
+  email: string | null;
+  telefone: string | null;
+  chavePix: string | null;
+  posicao: string | null;
+};
+
+type Approved = {
+  id: string;
+  nome: string | null;
+  sobrenome: string | null;
+  username: string;
+  role: "admin" | "membro";
+  posicao: string | null;
+};
+
+function fullName(u: { nome: string | null; sobrenome: string | null; username: string }) {
+  return [u.nome, u.sobrenome].filter(Boolean).join(" ") || u.username;
+}
 
 export function CadastrosManager({
   allowRegistrations,
   pending,
+  approved,
+  currentUserId,
 }: {
   allowRegistrations: boolean;
   pending: Pending[];
+  approved: Approved[];
+  currentUserId: string;
 }) {
   const [allowed, setAllowed] = useState(allowRegistrations);
   const [, startTransition] = useTransition();
@@ -38,7 +61,7 @@ export function CadastrosManager({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Card>
         <CardContent className="py-5 flex items-center justify-between gap-4">
           <div>
@@ -87,7 +110,10 @@ export function CadastrosManager({
               <li key={u.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">
-                    {u.nome ?? u.username}{" "}
+                    {fullName(u)}{" "}
+                    {u.posicao && (
+                      <span className="text-xs text-primary">· {u.posicao}</span>
+                    )}{" "}
                     <span className="text-xs text-muted-foreground font-mono">
                       @{u.username}
                     </span>
@@ -106,7 +132,7 @@ export function CadastrosManager({
                     startTransition(async () => {
                       const r = await approveUserAction(u.id);
                       if (r?.error) toast.error(r.error);
-                      else toast.success(`${u.nome ?? u.username} aprovado.`);
+                      else toast.success(`${fullName(u)} aprovado.`);
                     })
                   }
                 >
@@ -118,8 +144,7 @@ export function CadastrosManager({
                   variant="ghost"
                   className="text-muted-foreground hover:text-destructive"
                   onClick={() => {
-                    if (!confirm(`Recusar o cadastro de ${u.nome ?? u.username}?`))
-                      return;
+                    if (!confirm(`Recusar o cadastro de ${fullName(u)}?`)) return;
                     startTransition(async () => {
                       await rejectUserAction(u.id);
                       toast.success("Cadastro recusado.");
@@ -131,6 +156,88 @@ export function CadastrosManager({
                 </Button>
               </li>
             ))}
+          </ul>
+        )}
+      </div>
+
+      <div>
+        <h3 className="font-semibold mb-3">Usuários com acesso</h3>
+        {approved.length === 0 ? (
+          <EmptyState
+            icon={ShieldCheck}
+            title="Nenhum usuário ainda"
+            description="Usuários aprovados aparecem aqui. Você pode torná-los admin."
+          />
+        ) : (
+          <ul className="divide-y divide-border border border-border rounded-md">
+            {approved.map((u) => {
+              const isSelf = u.id === currentUserId;
+              const isAdmin = u.role === "admin";
+              return (
+                <li key={u.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">
+                      {fullName(u)}{" "}
+                      {u.posicao && (
+                        <span className="text-xs text-muted-foreground">
+                          · {u.posicao}
+                        </span>
+                      )}
+                      {isSelf && (
+                        <span className="text-xs text-primary ml-1">(você)</span>
+                      )}
+                    </p>
+                    <p className="text-xs uppercase tracking-wider">
+                      <span
+                        className={
+                          isAdmin ? "text-primary" : "text-muted-foreground"
+                        }
+                      >
+                        {isAdmin ? "Admin" : "Músico"}
+                      </span>
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isSelf}
+                    onClick={() => {
+                      const next = isAdmin ? "membro" : "admin";
+                      if (
+                        !confirm(
+                          next === "admin"
+                            ? `Tornar ${fullName(u)} administrador? Terá acesso total.`
+                            : `Remover o admin de ${fullName(u)}?`
+                        )
+                      )
+                        return;
+                      startTransition(async () => {
+                        const r = await setUserRoleAction(u.id, next);
+                        if (r?.error) toast.error(r.error);
+                        else
+                          toast.success(
+                            next === "admin"
+                              ? `${fullName(u)} agora é admin.`
+                              : `${fullName(u)} agora é músico.`
+                          );
+                      });
+                    }}
+                  >
+                    {isAdmin ? (
+                      <>
+                        <Shield className="size-4" />
+                        Tornar músico
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="size-4" />
+                        Tornar admin
+                      </>
+                    )}
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

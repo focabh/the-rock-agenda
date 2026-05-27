@@ -8,6 +8,7 @@ type NewSignup = {
   email?: string | null;
   telefone?: string | null;
   chavePix?: string | null;
+  posicao?: string | null;
 };
 
 /**
@@ -36,6 +37,7 @@ export async function sendRegistrationNotification(novo: NewSignup): Promise<voi
           <ul>
             <li><strong>Nome:</strong> ${novo.nome ?? "—"}</li>
             <li><strong>Usuário:</strong> ${novo.username}</li>
+            <li><strong>Posição:</strong> ${novo.posicao ?? "—"}</li>
             <li><strong>Email:</strong> ${novo.email ?? "—"}</li>
             <li><strong>Telefone:</strong> ${novo.telefone ?? "—"}</li>
             <li><strong>Chave PIX:</strong> ${novo.chavePix ?? "—"}</li>

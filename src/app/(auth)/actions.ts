@@ -5,9 +5,16 @@ import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { getSession, hashPassword, registrationsAllowed, verifyPassword } from "@/lib/auth";
+import {
+  getAvailablePositions,
+  getSession,
+  hashPassword,
+  registrationsAllowed,
+  verifyPassword,
+} from "@/lib/auth";
 import { parseForm } from "@/lib/form";
 import { sendRegistrationNotification } from "@/lib/email";
+import { POSICOES, cpfValido, pixValido, telefoneValido } from "@/lib/validators";
 
 export async function loginAction(_prev: { error?: string } | null, formData: FormData) {
   const username = String(formData.get("username") ?? "").trim();
@@ -44,10 +51,9 @@ export async function logoutAction() {
   redirect("/login");
 }
 
-const onlyDigits = (s: string) => s.replace(/\D/g, "");
-
 const registerSchema = z.object({
-  nome: z.string().trim().min(2, "Informe seu nome").max(120),
+  nome: z.string().trim().min(2, "Informe seu nome").max(80),
+  sobrenome: z.string().trim().min(2, "Informe seu sobrenome").max(80),
   email: z.string().trim().email("Email inválido").max(160),
   username: z
     .string()
@@ -59,12 +65,14 @@ const registerSchema = z.object({
   telefone: z
     .string()
     .trim()
-    .min(1, "Informe o telefone")
-    .refine((v) => {
-      const d = onlyDigits(v);
-      return d.length === 10 || d.length === 11;
-    }, "Telefone inválido (DDD + número)"),
-  chavePix: z.string().trim().min(1, "Informe a chave PIX").max(200),
+    .refine(telefoneValido, "Telefone inválido (DDD + número)"),
+  cpf: z.string().trim().refine(cpfValido, "CPF inválido"),
+  chavePix: z
+    .string()
+    .trim()
+    .max(200)
+    .refine(pixValido, "Chave PIX inválida (email, CPF, telefone ou chave aleatória)"),
+  posicao: z.enum(POSICOES),
 });
 
 export type RegisterState = {
@@ -96,6 +104,14 @@ export async function registerAction(
     return { fieldErrors: { email: ["Email já cadastrado"] }, error: "Email já cadastrado." };
   }
 
+  const available = await getAvailablePositions();
+  if (!available.some((p) => p.toLowerCase() === data.posicao.toLowerCase())) {
+    return {
+      fieldErrors: { posicao: ["Essa posição já foi escolhida"] },
+      error: "Posição indisponível.",
+    };
+  }
+
   const passwordHash = await hashPassword(data.password);
   await db.insert(users).values({
     username: data.username,
@@ -103,17 +119,21 @@ export async function registerAction(
     role: "membro",
     status: "pendente",
     nome: data.nome,
+    sobrenome: data.sobrenome,
     email: data.email,
     telefone: data.telefone,
+    cpf: data.cpf,
     chavePix: data.chavePix,
+    posicao: data.posicao,
   });
 
   await sendRegistrationNotification({
-    nome: data.nome,
+    nome: `${data.nome} ${data.sobrenome}`,
     username: data.username,
     email: data.email,
     telefone: data.telefone,
     chavePix: data.chavePix,
+    posicao: data.posicao,
   });
 
   return { success: true };
