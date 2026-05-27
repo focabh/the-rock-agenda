@@ -79,6 +79,7 @@ const rehearsalSchema = z.object({
 
 function revalidateRehearsalPaths() {
   revalidatePath("/agenda");
+  revalidatePath("/ensaios");
   revalidatePath("/");
 }
 

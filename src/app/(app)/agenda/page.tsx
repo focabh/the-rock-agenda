@@ -9,7 +9,6 @@ import {
 import { PageHeader } from "@/components/shared/page-header";
 import { MonthGrid } from "@/components/agenda/month-grid";
 import { MonthNav } from "@/components/agenda/month-nav";
-import { RehearsalManager } from "@/components/agenda/rehearsal-manager";
 import { Card, CardContent } from "@/components/ui/card";
 import { colorForMember } from "@/lib/conflicts";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
@@ -91,8 +90,6 @@ export default async function AgendaPage({
           isAdmin={admin}
           currentMemberId={currentUser?.member?.id ?? null}
         />
-
-        {admin && <RehearsalManager rehearsals={monthRehearsals} />}
 
         {/* Legenda dos membros */}
         <Card>
