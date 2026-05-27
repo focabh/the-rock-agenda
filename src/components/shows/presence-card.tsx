@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { Check, X, HelpCircle, Users } from "lucide-react";
+import { Check, X, HelpCircle, Users, MessageCircle, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,21 +17,61 @@ const STATUS_LABEL: Record<Status, string> = {
   recusado: "Recusado",
 };
 
+export type ShowInfo = {
+  data: Date | number;
+  inicio: string | null;
+  casaNome: string;
+};
+
+function waNumber(telefone: string): string {
+  const d = telefone.replace(/\D/g, "");
+  if (d.length === 10 || d.length === 11) return "55" + d;
+  return d;
+}
+
 export function PresenceCard({
   showId,
   members,
   presences,
   currentMemberId,
   admin,
+  showInfo,
 }: {
   showId: string;
   members: Member[];
   presences: ShowMemberPresence[];
   currentMemberId: string | null;
   admin: boolean;
+  showInfo: ShowInfo;
 }) {
   const [, startTransition] = useTransition();
   const byMember = new Map(presences.map((p) => [p.memberId, p]));
+
+  const dataStr = new Date(showInfo.data).toLocaleDateString("pt-BR");
+  const quando = `dia ${dataStr}${showInfo.inicio ? ` às ${showInfo.inicio}` : ""}`;
+  const showUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/shows/${showId}`
+      : "";
+
+  function msgPara(nome: string): string {
+    const primeiro = nome.split(" ")[0];
+    return `Oi ${primeiro}! Tem show ${quando} na ${showInfo.casaNome}. Confirma sua presença aqui: ${showUrl}`;
+  }
+
+  function waLinkPara(m: Member): string {
+    return `https://wa.me/${waNumber(m.telefone ?? "")}?text=${encodeURIComponent(
+      msgPara(m.nome)
+    )}`;
+  }
+
+  function avisarBanda() {
+    const msg = `🎸 Show da banda ${quando} na ${showInfo.casaNome}!\nConfirmem presença: ${showUrl}`;
+    navigator.clipboard
+      .writeText(msg)
+      .then(() => toast.success("Mensagem copiada — cole no grupo da banda."))
+      .catch(() => toast.error("Não consegui copiar."));
+  }
 
   const confirmados = members.filter(
     (m) => byMember.get(m.id)?.status === "confirmado"
@@ -53,7 +93,7 @@ export function PresenceCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <div>
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="size-4" />
@@ -63,6 +103,12 @@ export function PresenceCard({
             {confirmados} confirmado(s), {recusados} recusado(s), {members.length - confirmados - recusados} pendente(s)
           </p>
         </div>
+        {admin && members.length > 0 && (
+          <Button variant="outline" size="sm" onClick={avisarBanda}>
+            <Send className="size-4" />
+            Avisar a banda
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         {members.length === 0 ? (
@@ -95,33 +141,46 @@ export function PresenceCard({
                       {m.funcao}
                     </p>
                   </div>
-                  {canEdit ? (
-                    <div className="flex items-center gap-1">
-                      <PresenceButton
-                        active={status === "confirmado"}
-                        onClick={() => update(m.id, "confirmado")}
-                        color="emerald"
-                        icon={<Check className="size-3.5" />}
-                        label="Sim"
-                      />
-                      <PresenceButton
-                        active={status === "recusado"}
-                        onClick={() => update(m.id, "recusado")}
-                        color="red"
-                        icon={<X className="size-3.5" />}
-                        label="Não"
-                      />
-                      <PresenceButton
-                        active={status === "pendente"}
-                        onClick={() => update(m.id, "pendente")}
-                        color="zinc"
-                        icon={<HelpCircle className="size-3.5" />}
-                        label="?"
-                      />
-                    </div>
-                  ) : (
-                    <StatusPill status={status} />
-                  )}
+                  <div className="flex items-center gap-1">
+                    {admin && m.telefone && (
+                      <a
+                        href={waLinkPara(m)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Pedir confirmação a ${m.nome} no WhatsApp`}
+                        className="inline-flex items-center justify-center size-7 rounded text-emerald-400 hover:bg-emerald-500/15"
+                      >
+                        <MessageCircle className="size-4" />
+                      </a>
+                    )}
+                    {canEdit ? (
+                      <>
+                        <PresenceButton
+                          active={status === "confirmado"}
+                          onClick={() => update(m.id, "confirmado")}
+                          color="emerald"
+                          icon={<Check className="size-3.5" />}
+                          label="Sim"
+                        />
+                        <PresenceButton
+                          active={status === "recusado"}
+                          onClick={() => update(m.id, "recusado")}
+                          color="red"
+                          icon={<X className="size-3.5" />}
+                          label="Não"
+                        />
+                        <PresenceButton
+                          active={status === "pendente"}
+                          onClick={() => update(m.id, "pendente")}
+                          color="zinc"
+                          icon={<HelpCircle className="size-3.5" />}
+                          label="?"
+                        />
+                      </>
+                    ) : (
+                      <StatusPill status={status} />
+                    )}
+                  </div>
                 </li>
               );
             })}

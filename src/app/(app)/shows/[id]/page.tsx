@@ -125,6 +125,11 @@ export default async function ShowDetailPage({
                 presences={presences}
                 currentMemberId={user?.member?.id ?? null}
                 admin={admin}
+                showInfo={{
+                  data: show.data,
+                  inicio: show.inicio,
+                  casaNome: show.casa.nome,
+                }}
               />
               <PaymentBreakdown
                 showId={show.id}
