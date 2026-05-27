@@ -11,6 +11,8 @@ import {
 } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin, requireCurrentUser } from "@/lib/auth";
+import { formatDataBR } from "@/lib/formatters";
+import { sendPushToAll } from "@/lib/push";
 
 const dateOnly = z
   .string()
@@ -95,20 +97,38 @@ export async function createRehearsalAction(
   const parsed = parseForm(rehearsalSchema, formData);
   if (!parsed.ok) return parsed.state;
 
-  await db.insert(rehearsals).values({
-    data: parsed.data.data,
-    inicio: parsed.data.inicio,
-    termino: parsed.data.termino,
-    local: parsed.data.local,
-    endereco: parsed.data.endereco,
-    cidade: parsed.data.cidade,
-    estado: parsed.data.estado,
-    latitude: parsed.data.latitude,
-    longitude: parsed.data.longitude,
-    foco: parsed.data.foco,
-    observacoes: parsed.data.observacoes,
-    status: parsed.data.status,
-  });
+  const [row] = await db
+    .insert(rehearsals)
+    .values({
+      data: parsed.data.data,
+      inicio: parsed.data.inicio,
+      termino: parsed.data.termino,
+      local: parsed.data.local,
+      endereco: parsed.data.endereco,
+      cidade: parsed.data.cidade,
+      estado: parsed.data.estado,
+      latitude: parsed.data.latitude,
+      longitude: parsed.data.longitude,
+      foco: parsed.data.foco,
+      observacoes: parsed.data.observacoes,
+      status: parsed.data.status,
+    })
+    .returning();
+
+  // Avisa a banda automaticamente sobre o novo ensaio (não bloqueia se falhar).
+  try {
+    await sendPushToAll({
+      title: "Novo ensaio",
+      body: `${formatDataBR(row.data)}${row.inicio ? ` às ${row.inicio}` : ""}${
+        row.local ? ` • ${row.local}` : ""
+      } — confirme presença!`,
+      url: `/ensaios/${row.id}`,
+      tag: `ensaio-${row.id}`,
+    });
+  } catch (e) {
+    console.error("push (novo ensaio) falhou:", e);
+  }
+
   revalidateRehearsalPaths();
   return null;
 }

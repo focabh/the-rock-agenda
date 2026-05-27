@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { shows } from "@/db/schema";
+import { shows, venues } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin } from "@/lib/auth";
-import { parseBRDateTime } from "@/lib/formatters";
+import { parseBRDateTime, formatDataBR } from "@/lib/formatters";
+import { sendPushToAll } from "@/lib/push";
 
 const SHOW_STATUSES = ["planejado", "confirmado", "concluido", "cancelado"] as const;
 const PAGAMENTO_STATUSES = ["pendente", "parcial", "pago", "atrasado"] as const;
@@ -59,6 +60,26 @@ export async function createShowAction(
   const parsed = parseForm(showSchema, formData);
   if (!parsed.ok) return parsed.state;
   const [row] = await db.insert(shows).values(toPersist(parsed.data)).returning();
+
+  // Avisa a banda automaticamente sobre o novo show (não bloqueia se falhar).
+  try {
+    const [casa] = await db
+      .select({ nome: venues.nome })
+      .from(venues)
+      .where(eq(venues.id, row.casaId))
+      .limit(1);
+    await sendPushToAll({
+      title: `Novo show: ${casa?.nome ?? "show"}`,
+      body: `${formatDataBR(row.data, true)}${
+        row.termino ? ` até ${row.termino}` : ""
+      } — confirme sua presença!`,
+      url: `/shows/${row.id}`,
+      tag: `show-${row.id}`,
+    });
+  } catch (e) {
+    console.error("push (novo show) falhou:", e);
+  }
+
   revalidatePath("/shows");
   revalidatePath("/");
   redirect(`/shows/${row.id}`);
