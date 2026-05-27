@@ -13,6 +13,8 @@ import {
   Download,
   MoreVertical,
   ArrowRight,
+  UserPlus,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -160,8 +162,35 @@ export function InstallGuide() {
         </div>
       ) : (
         <>
+          {/* Fase 1 — criar conta */}
+          <p className="mt-8 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Passo 1 · Crie sua conta
+          </p>
+          <div className="mt-2 rounded-lg border border-primary/40 bg-primary/5 p-4">
+            <p className="flex items-center gap-2 font-medium">
+              <UserPlus className="size-4 text-primary shrink-0" />
+              Ainda não tem login?
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Crie sua conta e escolha sua posição na banda. Depois é só esperar
+              o admin liberar seu acesso.
+            </p>
+            <Button className="mt-3" render={<Link href="/cadastro" />}>
+              <UserPlus className="size-4" />
+              Criar conta
+            </Button>
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="size-3.5" />
+              Já tem login liberado? Pode pular direto pro passo 2.
+            </p>
+          </div>
+
+          {/* Fase 2 — instalar */}
+          <p className="mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Passo 2 · Instale no celular
+          </p>
           {/* Seletor de plataforma */}
-          <div className="mt-8 grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
+          <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg border border-border p-1">
             <PlatformTab
               active={platform === "ios"}
               onClick={() => setPlatform("ios")}
