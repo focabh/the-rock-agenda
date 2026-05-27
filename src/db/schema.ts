@@ -32,7 +32,23 @@ export const users = sqliteTable("users", {
   role: text("role", { enum: ["admin", "membro"] })
     .notNull()
     .default("membro"),
+  nome: text("nome"),
+  email: text("email"),
+  telefone: text("telefone"),
+  chavePix: text("chave_pix"),
+  status: text("status", { enum: ["pendente", "aprovado", "recusado"] })
+    .notNull()
+    .default("aprovado"),
   createdAt: createdAt(),
+});
+
+// Configuração global (singleton) — controla cadastro aberto, etc.
+export const appSettings = sqliteTable("app_settings", {
+  id: id(),
+  allowRegistrations: integer("allow_registrations", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  updatedAt: updatedAt(),
 });
 
 // ---------------- BAND MEMBERS ----------------
@@ -42,6 +58,7 @@ export const members = sqliteTable("members", {
   nome: text("nome").notNull(),
   funcao: text("funcao").notNull(), // vocal, guitarra, baixo, bateria, etc.
   telefone: text("telefone"),
+  chavePix: text("chave_pix"),
   equipamentos: text("equipamentos"),
   disponibilidade: text("disponibilidade"),
   percentualDivisao: real("percentual_divisao").default(0),
@@ -543,6 +560,7 @@ export type Contract = typeof contracts.$inferSelect;
 export type ShowProposta = typeof showPropostas.$inferSelect;
 export type MemberUnavailability = typeof memberUnavailability.$inferSelect;
 export type Rehearsal = typeof rehearsals.$inferSelect;
+export type AppSettings = typeof appSettings.$inferSelect;
 export type ShowMemberPresence = typeof showMemberPresence.$inferSelect;
 export type SpotifyAuth = typeof spotifyAuth.$inferSelect;
 export type SongMemberReadiness = typeof songMemberReadiness.$inferSelect;

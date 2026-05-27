@@ -46,7 +46,7 @@ function SidebarContent({ username, role, memberName, onNavigate }: SidebarProps
       <Brand />
       <Separator />
       <div className="flex-1 overflow-y-auto py-4">
-        <SidebarNav onNavigate={onNavigate} />
+        <SidebarNav onNavigate={onNavigate} isAdmin={role === "admin"} />
       </div>
       <Separator />
       <div className="p-3 flex items-center justify-between gap-2">

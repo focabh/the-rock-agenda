@@ -1,10 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { getSession, verifyPassword } from "@/lib/auth";
+import { getSession, hashPassword, registrationsAllowed, verifyPassword } from "@/lib/auth";
+import { parseForm } from "@/lib/form";
+import { sendRegistrationNotification } from "@/lib/email";
 
 export async function loginAction(_prev: { error?: string } | null, formData: FormData) {
   const username = String(formData.get("username") ?? "").trim();
@@ -20,6 +23,13 @@ export async function loginAction(_prev: { error?: string } | null, formData: Fo
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) return { error: "Usuário ou senha inválidos." };
 
+  if (user.status === "pendente") {
+    return { error: "Seu cadastro está aguardando aprovação do administrador." };
+  }
+  if (user.status === "recusado") {
+    return { error: "Seu cadastro não foi aprovado. Fale com o administrador." };
+  }
+
   const session = await getSession();
   session.authed = true;
   session.username = user.username;
@@ -32,4 +42,79 @@ export async function logoutAction() {
   const session = await getSession();
   session.destroy();
   redirect("/login");
+}
+
+const onlyDigits = (s: string) => s.replace(/\D/g, "");
+
+const registerSchema = z.object({
+  nome: z.string().trim().min(2, "Informe seu nome").max(120),
+  email: z.string().trim().email("Email inválido").max(160),
+  username: z
+    .string()
+    .trim()
+    .min(3, "Mínimo 3 caracteres")
+    .max(40)
+    .regex(/^[a-z0-9._-]+$/, "Use só letras minúsculas, números, . _ -"),
+  password: z.string().min(6, "Mínimo 6 caracteres").max(100),
+  telefone: z
+    .string()
+    .trim()
+    .min(1, "Informe o telefone")
+    .refine((v) => {
+      const d = onlyDigits(v);
+      return d.length === 10 || d.length === 11;
+    }, "Telefone inválido (DDD + número)"),
+  chavePix: z.string().trim().min(1, "Informe a chave PIX").max(200),
+});
+
+export type RegisterState = {
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+  success?: boolean;
+} | null;
+
+export async function registerAction(
+  _prev: RegisterState,
+  formData: FormData
+): Promise<RegisterState> {
+  if (!(await registrationsAllowed())) {
+    return { error: "Os cadastros estão fechados no momento." };
+  }
+
+  const parsed = parseForm(registerSchema, formData);
+  if (!parsed.ok) return parsed.state;
+  const data = parsed.data;
+
+  const existing = await db
+    .select({ id: users.id, username: users.username, email: users.email })
+    .from(users)
+    .where(or(eq(users.username, data.username), eq(users.email, data.email)));
+  if (existing.some((u) => u.username === data.username)) {
+    return { fieldErrors: { username: ["Usuário já existe"] }, error: "Usuário já existe." };
+  }
+  if (existing.some((u) => u.email === data.email)) {
+    return { fieldErrors: { email: ["Email já cadastrado"] }, error: "Email já cadastrado." };
+  }
+
+  const passwordHash = await hashPassword(data.password);
+  await db.insert(users).values({
+    username: data.username,
+    passwordHash,
+    role: "membro",
+    status: "pendente",
+    nome: data.nome,
+    email: data.email,
+    telefone: data.telefone,
+    chavePix: data.chavePix,
+  });
+
+  await sendRegistrationNotification({
+    nome: data.nome,
+    username: data.username,
+    email: data.email,
+    telefone: data.telefone,
+    chavePix: data.chavePix,
+  });
+
+  return { success: true };
 }

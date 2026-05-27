@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { ensureDbInitialized } from "@/db/init";
-import { users, members } from "@/db/schema";
+import { users, members, appSettings } from "@/db/schema";
 import type { Member, User } from "@/db/schema";
 
 export type AppSession = {
@@ -85,6 +85,15 @@ export async function requireAdmin(): Promise<CurrentUser> {
 
 export function isAdmin(user: CurrentUser | null): boolean {
   return user?.role === "admin";
+}
+
+export async function registrationsAllowed(): Promise<boolean> {
+  try {
+    const [s] = await db.select().from(appSettings).limit(1);
+    return s?.allowRegistrations ?? true;
+  } catch {
+    return false;
+  }
 }
 
 export async function verifyPassword(input: string, hash: string) {

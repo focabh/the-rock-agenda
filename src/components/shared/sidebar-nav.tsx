@@ -10,6 +10,7 @@ import {
   Building2,
   Users,
   ClipboardCheck,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ export type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -27,14 +29,21 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/casas", label: "Casas", icon: Building2 },
   { href: "/banda", label: "Banda", icon: Users },
   { href: "/checklists", label: "Checklists", icon: ClipboardCheck },
+  { href: "/cadastros", label: "Cadastros", icon: UserPlus, adminOnly: true },
 ];
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({
+  onNavigate,
+  isAdmin = false,
+}: {
+  onNavigate?: () => void;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname();
 
   return (
     <nav className="flex flex-col gap-1 px-2">
-      {NAV_ITEMS.map((item) => {
+      {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
         const active =
           item.href === "/"
             ? pathname === "/"

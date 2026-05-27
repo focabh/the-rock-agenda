@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,6 +72,12 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={pending}>
               {pending ? "Entrando..." : "Entrar"}
             </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              Não tem conta?{" "}
+              <Link href="/cadastro" className="text-primary hover:underline">
+                Criar cadastro
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>
