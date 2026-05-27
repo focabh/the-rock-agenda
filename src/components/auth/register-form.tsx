@@ -5,13 +5,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FieldError } from "@/components/shared/field-error";
 import { registerAction } from "@/app/(auth)/actions";
-import { maskCPF, maskPhone } from "@/lib/validators";
+import { maskPhone, telefoneValido } from "@/lib/validators";
 import { CheckCircle2 } from "lucide-react";
 
 const selectCls =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function RegisterForm({
   availablePositions,
@@ -20,7 +21,29 @@ export function RegisterForm({
 }) {
   const [state, formAction, pending] = useActionState(registerAction, null);
   const [telefone, setTelefone] = useState("");
-  const [cpf, setCpf] = useState("");
+  const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
+
+  function err(name: string): string | undefined {
+    return clientErrors[name] ?? state?.fieldErrors?.[name]?.[0];
+  }
+
+  function Err({ name }: { name: string }) {
+    const m = err(name);
+    return m ? <p className="text-sm text-destructive">{m}</p> : null;
+  }
+
+  // Valida no cliente antes de enviar (email + telefone), além da validação no servidor.
+  function handle(fd: FormData) {
+    const errs: Record<string, string> = {};
+    const email = String(fd.get("email") ?? "").trim();
+    if (!EMAIL_RE.test(email)) errs.email = "Email inválido (ex: nome@email.com)";
+    const tel = String(fd.get("telefone") ?? "");
+    if (!telefoneValido(tel))
+      errs.telefone = "Telefone inválido — use DDD + número, ex: (31) 99999-9999";
+    setClientErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    formAction(fd);
+  }
 
   if (state?.success) {
     return (
@@ -40,17 +63,17 @@ export function RegisterForm({
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={handle} className="space-y-4" noValidate>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label htmlFor="nome">Nome</Label>
           <Input id="nome" name="nome" placeholder="João" required />
-          <FieldError state={state} name="nome" />
+          <Err name="nome" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="sobrenome">Sobrenome</Label>
           <Input id="sobrenome" name="sobrenome" placeholder="Silva" required />
-          <FieldError state={state} name="sobrenome" />
+          <Err name="sobrenome" />
         </div>
       </div>
 
@@ -66,7 +89,7 @@ export function RegisterForm({
             </option>
           ))}
         </select>
-        <FieldError state={state} name="posicao" />
+        <Err name="posicao" />
       </div>
 
       <div className="space-y-2">
@@ -75,22 +98,17 @@ export function RegisterForm({
           id="email"
           name="email"
           type="email"
+          inputMode="email"
           placeholder="voce@email.com"
           required
         />
-        <FieldError state={state} name="email" />
+        <Err name="email" />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="username">Usuário</Label>
-        <Input
-          id="username"
-          name="username"
-          placeholder="ex: joaosilva"
-          autoComplete="off"
-          required
-        />
-        <FieldError state={state} name="username" />
+        <Input id="username" name="username" placeholder="ex: joaosilva" autoComplete="off" required />
+        <Err name="username" />
       </div>
 
       <div className="space-y-2">
@@ -103,36 +121,22 @@ export function RegisterForm({
           autoComplete="new-password"
           required
         />
-        <FieldError state={state} name="password" />
+        <Err name="password" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="telefone">Telefone</Label>
-          <Input
-            id="telefone"
-            name="telefone"
-            inputMode="numeric"
-            placeholder="(31) 99999-9999"
-            value={telefone}
-            onChange={(e) => setTelefone(maskPhone(e.target.value))}
-            required
-          />
-          <FieldError state={state} name="telefone" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="cpf">CPF</Label>
-          <Input
-            id="cpf"
-            name="cpf"
-            inputMode="numeric"
-            placeholder="000.000.000-00"
-            value={cpf}
-            onChange={(e) => setCpf(maskCPF(e.target.value))}
-            required
-          />
-          <FieldError state={state} name="cpf" />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="telefone">Telefone</Label>
+        <Input
+          id="telefone"
+          name="telefone"
+          type="tel"
+          inputMode="tel"
+          placeholder="(31) 99999-9999"
+          value={telefone}
+          onChange={(e) => setTelefone(maskPhone(e.target.value))}
+          required
+        />
+        <Err name="telefone" />
       </div>
 
       <div className="space-y-2">
@@ -140,10 +144,10 @@ export function RegisterForm({
         <Input
           id="chavePix"
           name="chavePix"
-          placeholder="email, CPF, telefone ou chave aleatória"
+          placeholder="email, telefone ou chave aleatória"
           required
         />
-        <FieldError state={state} name="chavePix" />
+        <Err name="chavePix" />
       </div>
 
       {state?.error && !state.fieldErrors && (

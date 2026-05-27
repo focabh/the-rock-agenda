@@ -12,7 +12,7 @@ import {
   linkSelfToPositionAction,
   updateMyMemberAction,
 } from "@/app/(app)/conta/actions";
-import { maskCPF, maskPhone } from "@/lib/validators";
+import { maskPhone } from "@/lib/validators";
 import { toast } from "sonner";
 
 const selectCls =
@@ -22,7 +22,6 @@ type Member = {
   nome: string;
   funcao: string;
   telefone: string | null;
-  cpf: string | null;
   chavePix: string | null;
 };
 
@@ -40,7 +39,6 @@ export function MusicoProfile({
 function LinkedView({ member }: { member: Member }) {
   const [state, formAction, pending] = useActionState(updateMyMemberAction, null);
   const [telefone, setTelefone] = useState(member.telefone ?? "");
-  const [cpf, setCpf] = useState(member.cpf ?? "");
 
   useEffect(() => {
     if (state?.success) toast.success("Ficha atualizada.");
@@ -62,31 +60,18 @@ function LinkedView({ member }: { member: Member }) {
             <Input id="nome" name="nome" defaultValue={member.nome} required />
             <FieldError state={state} name="nome" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="telefone">Telefone</Label>
-              <Input
-                id="telefone"
-                name="telefone"
-                inputMode="numeric"
-                placeholder="(31) 99999-9999"
-                value={telefone}
-                onChange={(e) => setTelefone(maskPhone(e.target.value))}
-              />
-              <FieldError state={state} name="telefone" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cpf">CPF</Label>
-              <Input
-                id="cpf"
-                name="cpf"
-                inputMode="numeric"
-                placeholder="000.000.000-00"
-                value={cpf}
-                onChange={(e) => setCpf(maskCPF(e.target.value))}
-              />
-              <FieldError state={state} name="cpf" />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="telefone">Telefone</Label>
+            <Input
+              id="telefone"
+              name="telefone"
+              type="tel"
+              inputMode="tel"
+              placeholder="(31) 99999-9999"
+              value={telefone}
+              onChange={(e) => setTelefone(maskPhone(e.target.value))}
+            />
+            <FieldError state={state} name="telefone" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="chavePix">Chave PIX</Label>
@@ -94,7 +79,7 @@ function LinkedView({ member }: { member: Member }) {
               id="chavePix"
               name="chavePix"
               defaultValue={member.chavePix ?? ""}
-              placeholder="email, CPF, telefone ou chave aleatória"
+              placeholder="email, telefone ou chave aleatória"
             />
             <FieldError state={state} name="chavePix" />
           </div>
@@ -114,7 +99,6 @@ function ClaimView({ availablePositions }: { availablePositions: string[] }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(linkSelfToPositionAction, null);
   const [telefone, setTelefone] = useState("");
-  const [cpf, setCpf] = useState("");
 
   useEffect(() => {
     if (state?.success) {
@@ -161,38 +145,25 @@ function ClaimView({ availablePositions }: { availablePositions: string[] }) {
               <Input id="nome" name="nome" placeholder="Como aparece na banda" />
               <FieldError state={state} name="nome" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="telefone">Telefone</Label>
-                <Input
-                  id="telefone"
-                  name="telefone"
-                  inputMode="numeric"
-                  placeholder="(31) 99999-9999"
-                  value={telefone}
-                  onChange={(e) => setTelefone(maskPhone(e.target.value))}
-                />
-                <FieldError state={state} name="telefone" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cpf">CPF</Label>
-                <Input
-                  id="cpf"
-                  name="cpf"
-                  inputMode="numeric"
-                  placeholder="000.000.000-00"
-                  value={cpf}
-                  onChange={(e) => setCpf(maskCPF(e.target.value))}
-                />
-                <FieldError state={state} name="cpf" />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="telefone">Telefone</Label>
+              <Input
+                id="telefone"
+                name="telefone"
+                type="tel"
+                inputMode="tel"
+                placeholder="(31) 99999-9999"
+                value={telefone}
+                onChange={(e) => setTelefone(maskPhone(e.target.value))}
+              />
+              <FieldError state={state} name="telefone" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="chavePix">Chave PIX</Label>
               <Input
                 id="chavePix"
                 name="chavePix"
-                placeholder="email, CPF, telefone ou chave aleatória"
+                placeholder="email, telefone ou chave aleatória"
               />
               <FieldError state={state} name="chavePix" />
             </div>

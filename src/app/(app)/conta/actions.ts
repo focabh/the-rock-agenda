@@ -13,7 +13,7 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { parseForm } from "@/lib/form";
-import { POSICOES, cpfValido, pixValido, telefoneValido } from "@/lib/validators";
+import { POSICOES, pixValido, telefoneValido } from "@/lib/validators";
 
 const passwordSchema = z
   .object({
@@ -96,11 +96,6 @@ const optionalTelefone = z
   .trim()
   .optional()
   .refine((v) => !v || telefoneValido(v), "Telefone inválido");
-const optionalCpf = z
-  .string()
-  .trim()
-  .optional()
-  .refine((v) => !v || cpfValido(v), "CPF inválido");
 const optionalPix = z
   .string()
   .trim()
@@ -112,7 +107,6 @@ const linkSchema = z.object({
   nome: z.string().trim().max(120).optional(),
   posicao: z.enum(POSICOES),
   telefone: optionalTelefone,
-  cpf: optionalCpf,
   chavePix: optionalPix,
 });
 
@@ -127,7 +121,7 @@ export async function linkSelfToPositionAction(
   }
   const parsed = parseForm(linkSchema, formData);
   if (!parsed.ok) return parsed.state;
-  const { nome, posicao, telefone, cpf, chavePix } = parsed.data;
+  const { nome, posicao, telefone, chavePix } = parsed.data;
 
   const available = await getAvailablePositions();
   if (!available.some((p) => p.toLowerCase() === posicao.toLowerCase())) {
@@ -152,7 +146,6 @@ export async function linkSelfToPositionAction(
         userId: user.id,
         nome: nome ?? match.nome,
         telefone: telefone ?? match.telefone,
-        cpf: cpf ?? match.cpf,
         chavePix: chavePix ?? match.chavePix,
       })
       .where(eq(members.id, match.id));
@@ -161,7 +154,6 @@ export async function linkSelfToPositionAction(
       nome: nome ?? user.nome ?? user.username,
       funcao: posicao,
       telefone,
-      cpf,
       chavePix,
       userId: user.id,
       ativo: true,
@@ -173,7 +165,6 @@ export async function linkSelfToPositionAction(
     .set({
       posicao,
       telefone: telefone ?? user.telefone,
-      cpf: cpf ?? user.cpf,
       chavePix: chavePix ?? user.chavePix,
     })
     .where(eq(users.id, user.id));
@@ -187,7 +178,6 @@ export async function linkSelfToPositionAction(
 const updateMemberSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome").max(120),
   telefone: optionalTelefone,
-  cpf: optionalCpf,
   chavePix: optionalPix,
 });
 
@@ -202,10 +192,10 @@ export async function updateMyMemberAction(
   }
   const parsed = parseForm(updateMemberSchema, formData);
   if (!parsed.ok) return parsed.state;
-  const { nome, telefone, cpf, chavePix } = parsed.data;
+  const { nome, telefone, chavePix } = parsed.data;
   await db
     .update(members)
-    .set({ nome, telefone, cpf, chavePix })
+    .set({ nome, telefone, chavePix })
     .where(eq(members.id, user.member.id));
   revalidatePath("/conta");
   revalidatePath("/banda");

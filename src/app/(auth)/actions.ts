@@ -14,7 +14,7 @@ import {
 } from "@/lib/auth";
 import { parseForm } from "@/lib/form";
 import { sendRegistrationNotification } from "@/lib/email";
-import { POSICOES, cpfValido, pixValido, telefoneValido } from "@/lib/validators";
+import { POSICOES, pixValido, telefoneValido } from "@/lib/validators";
 
 export async function loginAction(_prev: { error?: string } | null, formData: FormData) {
   const username = String(formData.get("username") ?? "").trim();
@@ -66,7 +66,6 @@ const registerSchema = z.object({
     .string()
     .trim()
     .refine(telefoneValido, "Telefone inválido (DDD + número)"),
-  cpf: z.string().trim().refine(cpfValido, "CPF inválido"),
   chavePix: z
     .string()
     .trim()
@@ -122,7 +121,6 @@ export async function registerAction(
     sobrenome: data.sobrenome,
     email: data.email,
     telefone: data.telefone,
-    cpf: data.cpf,
     chavePix: data.chavePix,
     posicao: data.posicao,
   });

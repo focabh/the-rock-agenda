@@ -22,7 +22,6 @@ export default async function ContaPage() {
         nome: user.member.nome,
         funcao: user.member.funcao,
         telefone: user.member.telefone,
-        cpf: user.member.cpf,
         chavePix: user.member.chavePix,
       }
     : null;

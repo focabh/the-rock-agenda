@@ -49,7 +49,6 @@ export async function approveUserAction(userId: string) {
         nome: fullName,
         telefone: user.telefone ?? match.telefone,
         chavePix: user.chavePix ?? match.chavePix,
-        cpf: user.cpf ?? match.cpf,
       })
       .where(eq(members.id, match.id));
   } else {
@@ -64,7 +63,6 @@ export async function approveUserAction(userId: string) {
         funcao: user.posicao ?? "A definir",
         telefone: user.telefone,
         chavePix: user.chavePix,
-        cpf: user.cpf,
         userId: user.id,
         ativo: true,
       });
