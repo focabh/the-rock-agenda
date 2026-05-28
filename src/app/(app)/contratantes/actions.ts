@@ -8,11 +8,19 @@ import { requireCurrentUser } from "@/lib/auth";
 
 const MAX_DAYS = 365;
 
+const TOKEN_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
 function newToken(): string {
-  // dois UUIDs concatenados, sem hífen — ~256 bits de entropia, URL-safe.
-  const a = globalThis.crypto.randomUUID().replace(/-/g, "");
-  const b = globalThis.crypto.randomUUID().replace(/-/g, "");
-  return a + b;
+  // 10 chars base62 = ~59 bits de entropia. Pra link com 10 dias de
+  // validade e que o admin pode revogar a qualquer hora, sobra
+  // entropia. Bruteforce em janela tão curta é inviável.
+  // (O viés do % 62 é irrelevante pra esse modelo de ameaça.)
+  const bytes = new Uint8Array(10);
+  globalThis.crypto.getRandomValues(bytes);
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += TOKEN_ALPHABET[bytes[i] % 62];
+  return s;
 }
 
 /** Confere se quem chama pode mexer no link (criou ele ou é admin). */
