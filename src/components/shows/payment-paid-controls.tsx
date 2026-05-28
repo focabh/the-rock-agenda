@@ -140,7 +140,7 @@ export function MemberPaidControls({
         />
       )}
       {viewOpen && (
-        <ComprovanteViewer
+        <CacheComprovanteViewer
           showId={showId}
           memberId={memberId}
           open={viewOpen}
@@ -151,7 +151,7 @@ export function MemberPaidControls({
   );
 }
 
-function MarkPaidDialog({
+export function MarkPaidDialog({
   showId,
   memberId,
   memberNome,
@@ -248,7 +248,7 @@ function MarkPaidDialog({
   );
 }
 
-function ComprovanteViewer({
+export function CacheComprovanteViewer({
   showId,
   memberId,
   open,
