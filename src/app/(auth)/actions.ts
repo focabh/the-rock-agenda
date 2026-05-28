@@ -60,25 +60,37 @@ export async function logoutAction() {
 const registerSchema = z.object({
   nome: z.string().trim().min(2, "Informe seu nome").max(80),
   sobrenome: z.string().trim().min(2, "Informe seu sobrenome").max(80),
-  email: z.string().trim().email("Email inválido").max(160),
+  email: z.string().trim().email("Email inválido (ex: nome@email.com)").max(160),
   username: z
     .string()
     .trim()
-    .min(3, "Mínimo 3 caracteres")
-    .max(40)
-    .regex(/^[a-z0-9._-]+$/, "Use só letras minúsculas, números, . _ -"),
-  password: z.string().min(6, "Mínimo 6 caracteres").max(100),
+    .min(3, "Use pelo menos 3 caracteres")
+    .max(40, "Máximo 40 caracteres")
+    .regex(/^[a-z0-9._-]+$/, "Use só letras minúsculas, números, ponto, underline ou hífen"),
+  password: z.string().min(6, "A senha precisa ter ao menos 6 caracteres").max(100),
   telefone: z
     .string()
     .trim()
-    .refine(telefoneValido, "Telefone inválido (DDD + número)"),
+    .refine(telefoneValido, "Telefone inválido — use DDD + número, ex: (31) 99999-9999"),
   chavePix: z
     .string()
     .trim()
     .max(200)
-    .refine(pixValido, "Chave PIX inválida (email, CPF, telefone ou chave aleatória)"),
-  posicao: z.enum(POSICOES),
+    .refine(pixValido, "Chave PIX inválida — pode ser CPF, telefone, email ou chave aleatória"),
+  posicao: z.enum(POSICOES, { message: "Escolha sua posição na banda" }),
 });
+
+/** Checagem leve usada no blur do campo "usuário" — não consome login. */
+export async function checkUsernameAction(username: string) {
+  const u = username.trim().toLowerCase();
+  if (u.length < 3) return { ok: true, taken: false };
+  const [row] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.username, u))
+    .limit(1);
+  return { ok: true, taken: Boolean(row) };
+}
 
 export type RegisterState = {
   error?: string;
