@@ -13,6 +13,7 @@ import {
   Wallet,
   Receipt,
   Megaphone,
+  Share2,
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,12 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/pagamentos", label: "Cachês", icon: Wallet },
   { href: "/gastos", label: "Gastos", icon: Receipt, adminOnly: true },
   { href: "/divulgacao", label: "Divulgação", icon: Megaphone },
+  {
+    href: "/contratantes",
+    label: "Contratantes",
+    icon: Share2,
+    adminOnly: true,
+  },
   { href: "/cadastros", label: "Cadastros", icon: UserPlus, adminOnly: true },
 ];
 

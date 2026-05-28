@@ -665,6 +665,24 @@ export const reembolsos = sqliteTable("reembolsos", {
   }),
 });
 
+// ---------------- LINKS PARA CONTRATANTES (PÚBLICOS) ----------------
+
+// Link público, com expiração, pra mostrar press kit + vídeos pra um
+// contratante interessado. Acessado sem login via /c/{token}.
+export const contractorLinks = sqliteTable("contractor_links", {
+  id: id(),
+  token: text("token").notNull().unique(),
+  label: text("label"), // ex.: "Bar do Zé — orçamento jun/2026"
+  expiresEm: integer("expires_em", { mode: "timestamp_ms" }).notNull(),
+  revokedEm: integer("revoked_em", { mode: "timestamp_ms" }),
+  viewCount: integer("view_count").notNull().default(0),
+  lastViewedEm: integer("last_viewed_em", { mode: "timestamp_ms" }),
+  createdBy: text("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: createdAt(),
+});
+
 // ---------------- DIVULGAÇÃO / PRESS KIT ----------------
 
 // Materiais de divulgação: vídeos, fotos, logo e press kit. Apenas links
@@ -710,4 +728,5 @@ export type ShowMemberPayment = typeof showMemberPayment.$inferSelect;
 export type ShowMemberPaid = typeof showMemberPaid.$inferSelect;
 export type Gasto = typeof gastos.$inferSelect;
 export type Reembolso = typeof reembolsos.$inferSelect;
+export type ContractorLink = typeof contractorLinks.$inferSelect;
 export type PromoItem = typeof promoItems.$inferSelect;
