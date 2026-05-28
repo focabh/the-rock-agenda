@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { eq, sql, asc, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ExternalLink, FileText, Maximize2 } from "lucide-react";
+import { ChevronLeft, ExternalLink } from "lucide-react";
 import { db } from "@/db";
 import { contractorLinks, promoItems, users } from "@/db/schema";
 import { getCurrentUser, getLogoUrl } from "@/lib/auth";
 import { detectVideoEmbed } from "@/lib/video-embed";
-import { PressKitViewer } from "@/components/contratantes/press-kit-viewer";
+import { PressKitSection } from "@/components/contratantes/press-kit-section";
 import { VideoPlayer } from "@/components/contratantes/video-player";
 
 export const dynamic = "force-dynamic";
@@ -113,9 +113,10 @@ export default async function ContratantePublicPage({
             <Link
               href={me.role === "admin" ? "/contratantes" : "/"}
               className="ml-auto inline-flex items-center gap-1.5 text-sm text-primary hover:underline shrink-0"
+              title="Você está vendo essa página como contratante. Esse botão só aparece pra você (admin/músico)."
             >
               <ChevronLeft className="size-4" />
-              Voltar pro app
+              Sair da prévia
             </Link>
           )}
         </div>
@@ -123,29 +124,9 @@ export default async function ContratantePublicPage({
 
       <div className="max-w-3xl mx-auto px-5 py-6 space-y-8">
         {/* PRESS KIT */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h1 className="text-lg font-semibold flex items-center gap-2">
-              <FileText className="size-5 text-primary" />
-              Press kit
-            </h1>
-            {presskit && (
-              <a
-                href={`/c/${token}/presskit`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-              >
-                <Maximize2 className="size-3.5" />
-                Abrir tela cheia
-              </a>
-            )}
-          </div>
+        <section>
           {presskit ? (
-            <PressKitViewer
-              src={`/c/${token}/presskit`}
-              fallbackHref={`/c/${token}/presskit`}
-            />
+            <PressKitSection src={`/c/${token}/presskit`} />
           ) : (
             <p className="text-sm text-muted-foreground">
               Press kit ainda não disponível.

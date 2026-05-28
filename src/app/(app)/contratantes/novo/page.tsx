@@ -10,8 +10,8 @@ export default async function NewContractorLinkPage() {
   return (
     <div>
       <PageHeader
-        title="Novo link"
-        description="Gere um link pra um contratante visualizar o material da banda. Padrão 10 dias, pode estender ou revogar depois."
+        title="Novo link de divulgação"
+        description="Gere um link pra um contratante ver o material da banda. Padrão 10 dias, pode estender ou revogar depois."
         actions={
           <Button
             variant="outline"

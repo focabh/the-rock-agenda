@@ -37,8 +37,8 @@ export default async function ContratantesPage() {
   return (
     <div>
       <PageHeader
-        title="Contratantes"
-        description="Crie links com expiração pra mostrar press kit e vídeos da banda pra quem te chamou. Sem cadastro, sem fricção."
+        title="Divulgação"
+        description="Crie links com expiração pra mostrar press kit e vídeos da banda pra possíveis contratantes. Sem cadastro, sem fricção pra eles."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" render={<Link href="/" />}>

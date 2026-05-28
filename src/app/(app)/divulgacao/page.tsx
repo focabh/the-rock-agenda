@@ -20,8 +20,8 @@ export default async function DivulgacaoPage() {
   return (
     <div>
       <PageHeader
-        title="Divulgação"
-        description="Material da banda — vídeos, fotos, logo e press kit. Compartilhe com contratantes."
+        title="Material da banda"
+        description="Vídeos, fotos, logo, press kit e rider técnico. Tudo que é usado pra divulgar a banda."
         actions={
           <Button variant="outline" size="sm" render={<Link href="/" />}>
             <ChevronLeft className="size-4" /> Painel

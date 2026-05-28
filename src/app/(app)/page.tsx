@@ -449,7 +449,7 @@ export default async function DashboardPage() {
             {admin && (
               <QuickLink href="/gastos" icon={Receipt} title="Gastos" />
             )}
-            <QuickLink href="/divulgacao" icon={Megaphone} title="Divulgação" />
+            <QuickLink href="/divulgacao" icon={Megaphone} title="Material" />
           </div>
         </section>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Play } from "lucide-react";
+import { Play, Pause } from "lucide-react";
 import { detectVideoEmbed } from "@/lib/video-embed";
 
 /**
@@ -75,14 +75,23 @@ function CoverPlay({
     <button
       type="button"
       onClick={onPlay}
-      className="block aspect-video w-full bg-black relative group focus:outline-none focus:ring-2 focus:ring-primary"
+      className="block aspect-video w-full bg-black relative group focus:outline-none focus:ring-2 focus:ring-primary overflow-hidden"
       aria-label={`Reproduzir ${title}`}
     >
+      {/* Fundo: mesma imagem desfocada cobrindo tudo (estilo Spotify) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={cover}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60"
+      />
+      {/* Imagem principal: aparece inteira, centralizada */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={cover}
         alt={title}
-        className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity"
+        className="relative w-full h-full object-contain opacity-95 group-hover:opacity-100 transition-opacity"
       />
       <span className="absolute inset-0 flex items-center justify-center">
         <span className="size-16 rounded-full bg-red-600/95 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
@@ -148,6 +157,7 @@ function YouTubePlayer({ src, title }: { src: string; title: string }) {
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
       />
+      {/* Overlay invisível: clique em qualquer lugar pausa/toca */}
       <button
         type="button"
         onClick={toggle}
@@ -161,6 +171,22 @@ function YouTubePlayer({ src, title }: { src: string; title: string }) {
           </div>
         </div>
       )}
+      {/* Botão visível no canto (especialmente útil no celular) */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggle();
+        }}
+        aria-label={paused ? "Tocar" : "Pausar"}
+        className="absolute bottom-3 right-3 size-11 rounded-full bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-black/90 shadow-lg z-10"
+      >
+        {paused ? (
+          <Play className="size-5 fill-white ml-0.5" />
+        ) : (
+          <Pause className="size-5 fill-white" />
+        )}
+      </button>
     </div>
   );
 }
@@ -202,6 +228,21 @@ function VimeoPlayer({ src, title }: { src: string; title: string }) {
           </div>
         </div>
       )}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          toggle();
+        }}
+        aria-label={paused ? "Tocar" : "Pausar"}
+        className="absolute bottom-3 right-3 size-11 rounded-full bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-black/90 shadow-lg z-10"
+      >
+        {paused ? (
+          <Play className="size-5 fill-white ml-0.5" />
+        ) : (
+          <Pause className="size-5 fill-white" />
+        )}
+      </button>
     </div>
   );
 }

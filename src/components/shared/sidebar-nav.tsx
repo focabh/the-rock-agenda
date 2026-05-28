@@ -35,8 +35,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/banda", label: "Banda", icon: Users },
   { href: "/pagamentos", label: "Cachês", icon: Wallet },
   { href: "/gastos", label: "Gastos", icon: Receipt, adminOnly: true },
-  { href: "/divulgacao", label: "Divulgação", icon: Megaphone },
-  { href: "/contratantes", label: "Contratantes", icon: Share2 },
+  { href: "/divulgacao", label: "Material da banda", icon: Megaphone },
+  { href: "/contratantes", label: "Divulgação", icon: Share2 },
   { href: "/cadastros", label: "Cadastros", icon: UserPlus, adminOnly: true },
 ];
 
