@@ -169,10 +169,13 @@ type Embed = {
 
 function buildEmbedUrl(embed: Embed): string {
   if (embed.provider === "youtube") {
-    // controls=1 (default), rel=0 evita "outros vídeos relacionados",
-    // modestbranding=1 tira o logo do YouTube no canto, playsinline=1
-    // pro iOS não pular pra fullscreen forçado.
-    return `${embed.src}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
+    // - controls=1 (default), rel=0 evita "outros vídeos relacionados".
+    // - modestbranding=1 tira o logo do YouTube no canto.
+    // - SEM playsinline: no iOS, isso faz o YouTube entrar automaticamente
+    //   em fullscreen nativo do iOS quando o play começa (a única maneira
+    //   de conseguir fullscreen no iOS Safari, que não suporta Fullscreen
+    //   API em iframes).
+    return `${embed.src}?autoplay=1&rel=0&modestbranding=1`;
   }
   if (embed.provider === "vimeo") {
     return `${embed.src}?autoplay=1&title=0&byline=0&portrait=0`;
@@ -190,22 +193,53 @@ function VideoModal({
   title: string;
   onClose: () => void;
 }) {
-  // ESC fecha + trava scroll do body.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // ESC fecha + trava scroll do body + tenta entrar em fullscreen real.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
+
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    // Pede fullscreen no container — funciona em desktop/Android dentro do
+    // gesto de tap que disparou a abertura do modal. iOS Safari não suporta
+    // Fullscreen API em iframes, mas o YouTube já entra em fullscreen
+    // nativo sozinho (graças ao playsinline removido na URL do embed).
+    const el = containerRef.current;
+    let triedFs = false;
+    if (el?.requestFullscreen) {
+      triedFs = true;
+      el.requestFullscreen().catch(() => {
+        // Ignora — usuário negou, ou navegador não topou. UX continua válida.
+      });
+    }
+
+    // Se o usuário sai do fullscreen (ESC, botão sistema), fecha o modal
+    // junto pra não deixar uma tela preta presa.
+    const onFsChange = () => {
+      if (triedFs && !document.fullscreenElement) onClose();
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+
     return () => {
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFsChange);
       document.body.style.overflow = prevOverflow;
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
     };
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-100 bg-black/95 flex flex-col">
+    <div
+      ref={containerRef}
+      className="fixed inset-0 z-100 bg-black flex flex-col"
+    >
       {/* Header com X */}
       <div className="flex items-center gap-3 px-4 py-3 text-white">
         <p className="font-medium truncate flex-1">{title}</p>
@@ -219,16 +253,14 @@ function VideoModal({
         </button>
       </div>
       {/* Palco do vídeo */}
-      <div className="flex-1 flex items-center justify-center px-2 pb-4">
-        <div className="relative w-full max-w-5xl aspect-video bg-black overflow-hidden rounded-lg">
-          <iframe
-            src={buildEmbedUrl(embed)}
-            title={title}
-            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-            allowFullScreen
-            className="absolute inset-0 w-full h-full"
-          />
-        </div>
+      <div className="flex-1 flex items-center justify-center">
+        <iframe
+          src={buildEmbedUrl(embed)}
+          title={title}
+          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+          allowFullScreen
+          className="w-full h-full"
+        />
       </div>
     </div>
   );
