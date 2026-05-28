@@ -15,6 +15,7 @@ import {
   Wrench,
   RefreshCw,
 } from "lucide-react";
+import { InstagramIcon } from "@/components/shared/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,7 +39,7 @@ import {
 } from "@/app/(app)/divulgacao/actions";
 import { toast } from "sonner";
 
-type Tipo = "video" | "foto" | "logo" | "presskit" | "rider";
+type Tipo = "video" | "foto" | "logo" | "presskit" | "rider" | "instagram";
 
 export type PromoLite = {
   id: string;
@@ -100,9 +101,36 @@ const TIPO_META: Record<Tipo, TipoMeta> = {
     helper: "Lista de equipamentos/exigências (PDF até ~5MB).",
     upload: { accept: "application/pdf,image/jpeg,image/png", maxMB: 5 },
   },
+  instagram: {
+    label: "Instagram",
+    icon: InstagramIcon,
+    singleton: true,
+    max: 1,
+    helper:
+      "Link do perfil oficial. Ex: https://www.instagram.com/sua.banda/",
+    upload: false,
+  },
 };
 
-const TIPO_ORDER: Tipo[] = ["video", "foto", "logo", "presskit", "rider"];
+const TIPO_ORDER: Tipo[] = [
+  "video",
+  "foto",
+  "logo",
+  "presskit",
+  "rider",
+  "instagram",
+];
+
+/** Extrai o @handle de uma URL pública do Instagram. */
+export function extractIgHandle(url: string): string {
+  const m = url.match(/instagram\.com\/([^/?#]+)/i);
+  if (!m) return "";
+  const h = m[1].trim();
+  // Evita capturar /p/ /reel/ /explore/ etc.
+  if (["p", "reel", "reels", "explore", "tv", "stories"].includes(h.toLowerCase()))
+    return "";
+  return h.startsWith("@") ? h.slice(1) : h;
+}
 
 const selectCls =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -123,6 +151,7 @@ export function DivulgacaoManager({
     logo: [],
     presskit: [],
     rider: [],
+    instagram: [],
   };
   for (const i of items) byTipo[i.tipo].push(i);
 
@@ -175,6 +204,12 @@ export function DivulgacaoManager({
               </Card>
             ) : tipo === "foto" ? (
               <FotoGrid items={list} admin={admin} onEdit={(i) => setEditing(i)} />
+            ) : tipo === "instagram" ? (
+              <InstagramCard
+                item={list[0]}
+                admin={admin}
+                onEdit={(i) => setEditing(i)}
+              />
             ) : (
               <ItemList items={list} admin={admin} onEdit={(i) => setEditing(i)} />
             )}
@@ -205,6 +240,54 @@ export function DivulgacaoManager({
         />
       )}
     </div>
+  );
+}
+
+function InstagramCard({
+  item,
+  admin,
+  onEdit,
+}: {
+  item: PromoLite;
+  admin: boolean;
+  onEdit: (i: PromoLite) => void;
+}) {
+  const handle = extractIgHandle(item.url);
+  return (
+    <Card className="p-0 overflow-hidden">
+      <div className="flex items-center gap-4 p-4">
+        <div className="size-14 rounded-xl bg-linear-to-tr from-amber-400 via-pink-600 to-purple-600 flex items-center justify-center text-white shrink-0">
+          <InstagramIcon className="size-7" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium truncate">
+            {handle ? `@${handle}` : item.titulo}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">{item.url}</p>
+        </div>
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline shrink-0"
+        >
+          Abrir <ExternalLink className="size-3.5" />
+        </a>
+        {admin && (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              title="Editar"
+              onClick={() => onEdit(item)}
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <DeleteBtn id={item.id} />
+          </>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -542,7 +625,11 @@ function FormDialog({
               <Input
                 id="url-input"
                 type="url"
-                placeholder="https://..."
+                placeholder={
+                  tipo === "instagram"
+                    ? "https://www.instagram.com/sua.banda/"
+                    : "https://..."
+                }
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
                 required={mode === "link"}

@@ -8,12 +8,20 @@ import { promoItems } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin } from "@/lib/auth";
 
-const TIPOS = ["video", "foto", "logo", "presskit", "rider"] as const;
+const TIPOS = [
+  "video",
+  "foto",
+  "logo",
+  "presskit",
+  "rider",
+  "instagram",
+] as const;
 type Tipo = (typeof TIPOS)[number];
 
 // Limites por tipo (boas práticas).
 // - foto/logo: imagem (compressão JPEG já feita no cliente).
 // - presskit/rider: PDF ou imagem.
+// - instagram: só URL do perfil (instagram.com/...).
 // max em bytes do data URL (já em base64, ~33% maior que o arquivo bruto).
 const LIMITS: Record<
   Tipo,
@@ -32,9 +40,14 @@ const LIMITS: Record<
     sizeBytes: 5_000_000,
     accept: /^(https?:\/\/|data:application\/pdf|data:image\/)/,
   },
+  instagram: {
+    max: 1,
+    sizeBytes: 0,
+    accept: /^https?:\/\/(?:www\.)?instagram\.com\//i,
+  },
 };
 
-const SINGLETONS: Set<Tipo> = new Set(["presskit", "rider"]);
+const SINGLETONS: Set<Tipo> = new Set(["presskit", "rider", "instagram"]);
 
 const schema = z.object({
   tipo: z.enum(TIPOS),
@@ -57,6 +70,8 @@ function validateUrl(tipo: Tipo, url: string): string | null {
   const lim = LIMITS[tipo];
   if (!lim.accept.test(url)) {
     if (tipo === "video") return "Use um link público (YouTube, Vimeo, Drive...).";
+    if (tipo === "instagram")
+      return "Cole o link do perfil. Ex: https://www.instagram.com/sua.banda/";
     return "Use um link ou um arquivo válido para este tipo.";
   }
   if (url.startsWith("data:") && lim.sizeBytes > 0 && url.length > lim.sizeBytes) {

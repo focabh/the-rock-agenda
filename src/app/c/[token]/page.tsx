@@ -2,7 +2,8 @@ import Link from "next/link";
 import { eq, asc, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ExternalLink } from "lucide-react";
+import { InstagramIcon } from "@/components/shared/icons";
 import { db } from "@/db";
 import { contractorLinks, promoItems, users } from "@/db/schema";
 import { getCurrentUser, getLogoUrl } from "@/lib/auth";
@@ -12,6 +13,15 @@ import {
   ipFromHeaders,
   logContractorLinkVisit,
 } from "@/lib/visit-logger";
+
+function extractIgHandle(url: string): string {
+  const m = url.match(/instagram\.com\/([^/?#]+)/i);
+  if (!m) return "";
+  const h = m[1].trim();
+  if (["p", "reel", "reels", "explore", "tv", "stories"].includes(h.toLowerCase()))
+    return "";
+  return h.startsWith("@") ? h.slice(1) : h;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -67,15 +77,17 @@ export default async function ContratantePublicPage({
     logContractorLinkVisit(link.id, ip, ua).catch(() => {});
   }
 
-  // Material: press kit (1) + vídeos (todos).
+  // Material: press kit (1) + vídeos (todos) + instagram (1).
   const items = await db
     .select()
     .from(promoItems)
-    .where(inArray(promoItems.tipo, ["presskit", "video"]))
+    .where(inArray(promoItems.tipo, ["presskit", "video", "instagram"]))
     .orderBy(asc(promoItems.tipo), asc(promoItems.createdAt));
 
   const presskit = items.find((i) => i.tipo === "presskit") ?? null;
   const videos = items.filter((i) => i.tipo === "video");
+  const instagram = items.find((i) => i.tipo === "instagram") ?? null;
+  const igHandle = instagram ? extractIgHandle(instagram.url) : "";
 
   // WhatsApp do admin que criou o link.
   const [creator] = link.createdBy
@@ -169,6 +181,43 @@ export default async function ContratantePublicPage({
             </div>
           )}
         </section>
+
+        {/* INSTAGRAM */}
+        {instagram && (
+          <section>
+            <a
+              href={instagram.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-xl overflow-hidden relative group focus:outline-none focus:ring-2 focus:ring-primary"
+              aria-label="Abrir o Instagram da banda"
+            >
+              <div className="bg-linear-to-tr from-amber-400 via-pink-600 to-purple-600 p-5 sm:p-6 flex items-center gap-4 text-white">
+                <div className="size-14 sm:size-16 rounded-2xl bg-white/15 ring-1 ring-white/30 backdrop-blur flex items-center justify-center shrink-0 group-hover:bg-white/25 transition-colors">
+                  <InstagramIcon className="size-7 sm:size-8" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] uppercase tracking-wider font-semibold text-white/80">
+                    Instagram
+                  </p>
+                  <p className="text-lg sm:text-xl font-bold truncate">
+                    {igHandle ? `@${igHandle}` : "Siga a banda"}
+                  </p>
+                  <p className="text-sm text-white/85">
+                    Bastidores, shows e novidades em primeira mão.
+                  </p>
+                </div>
+                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-white text-purple-700 font-semibold px-4 py-2 text-sm shadow group-hover:scale-[1.03] transition-transform shrink-0">
+                  Ver no Instagram
+                  <ExternalLink className="size-3.5" />
+                </span>
+              </div>
+              <div className="sm:hidden bg-white text-purple-700 font-semibold text-sm text-center py-2.5 inline-flex w-full items-center justify-center gap-1.5">
+                Ver no Instagram <ExternalLink className="size-3.5" />
+              </div>
+            </a>
+          </section>
+        )}
 
         {/* CTA WhatsApp */}
         <section className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-5 text-center space-y-2">

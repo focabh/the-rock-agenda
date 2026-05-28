@@ -707,7 +707,7 @@ export const contractorLinkVisits = sqliteTable("contractor_link_visits", {
 export const promoItems = sqliteTable("promo_items", {
   id: id(),
   tipo: text("tipo", {
-    enum: ["video", "foto", "logo", "presskit", "rider"],
+    enum: ["video", "foto", "logo", "presskit", "rider", "instagram"],
   }).notNull(),
   titulo: text("titulo").notNull(),
   url: text("url").notNull(),
