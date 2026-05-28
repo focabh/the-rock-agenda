@@ -80,6 +80,7 @@ export const members = sqliteTable("members", {
   disponibilidade: text("disponibilidade"),
   percentualDivisao: real("percentual_divisao").default(0),
   observacoes: text("observacoes"),
+  avatar: text("avatar"), // data URL (foto do músico) — opcional
   ativo: integer("ativo", { mode: "boolean" }).notNull().default(true),
   isManager: integer("is_manager", { mode: "boolean" })
     .notNull()

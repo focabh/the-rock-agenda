@@ -8,8 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
+import { AvatarUploader } from "@/components/shared/avatar-uploader";
 import type { ActionState } from "@/lib/form";
 import type { Member } from "@/db/schema";
+import { maskPhone, telefoneValido } from "@/lib/validators";
 
 export function MemberForm({
   member,
@@ -25,21 +27,61 @@ export function MemberForm({
   const [pct, setPct] = useState<string>(
     member?.percentualDivisao != null ? String(member.percentualDivisao) : ""
   );
+  const [telefone, setTelefone] = useState(member?.telefone ?? "");
+  const [clientErr, setClientErr] = useState<Record<string, string>>({});
 
   function onManagerToggle(checked: boolean) {
     setIsManager(checked);
-    // Sugerir 10% quando vira manager e o campo está vazio
     if (checked && (pct === "" || pct === "0")) setPct("10");
   }
+
+  function err(name: string) {
+    return clientErr[name] ?? state?.fieldErrors?.[name]?.[0];
+  }
+  function ErrLine({ name }: { name: string }) {
+    const m = err(name);
+    return m ? <p className="text-sm text-destructive">{m}</p> : null;
+  }
+
+  function handle(fd: FormData) {
+    const errs: Record<string, string> = {};
+    const t = String(fd.get("telefone") ?? "");
+    if (t && !telefoneValido(t))
+      errs.telefone = "Telefone inválido — use DDD + número, ex: (31) 99999-9999";
+    setClientErr(errs);
+    if (Object.keys(errs).length > 0) return;
+    formAction(fd);
+  }
+
+  // Avatar precisa de um "member-like" pra o fallback (mesmo ao criar).
+  const avatarMember = {
+    id: member?.id ?? "novo",
+    nome: member?.nome ?? "Novo músico",
+    funcao: member?.funcao ?? "—",
+    isManager: member?.isManager ?? false,
+  };
 
   return (
     <Card>
       <CardContent className="py-6">
-        <form action={formAction} className="grid gap-5 sm:grid-cols-2">
+        <form action={handle} className="grid gap-5 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <AvatarUploader
+              initialAvatar={member?.avatar ?? null}
+              member={avatarMember}
+            />
+            <ErrLine name="avatar" />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="nome">Nome *</Label>
-            <Input id="nome" name="nome" defaultValue={member?.nome ?? ""} required autoFocus />
-            <FieldError state={state} name="nome" />
+            <Input
+              id="nome"
+              name="nome"
+              defaultValue={member?.nome ?? ""}
+              required
+            />
+            <ErrLine name="nome" />
           </div>
 
           <div className="space-y-2">
@@ -51,7 +93,7 @@ export function MemberForm({
               placeholder="Vocal, Guitarra, Baixo, Manager..."
               required
             />
-            <FieldError state={state} name="funcao" />
+            <ErrLine name="funcao" />
           </div>
 
           <div className="space-y-2">
@@ -59,10 +101,13 @@ export function MemberForm({
             <Input
               id="telefone"
               name="telefone"
-              defaultValue={member?.telefone ?? ""}
+              type="tel"
+              inputMode="tel"
               placeholder="(31) 99999-9999"
+              value={telefone}
+              onChange={(e) => setTelefone(maskPhone(e.target.value))}
             />
-            <FieldError state={state} name="telefone" />
+            <ErrLine name="telefone" />
           </div>
 
           <div className="space-y-2">

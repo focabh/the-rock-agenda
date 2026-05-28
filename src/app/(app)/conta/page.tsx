@@ -21,10 +21,13 @@ export default async function ContaPage() {
 
   const member = user?.member
     ? {
+        id: user.member.id,
         nome: user.member.nome,
         funcao: user.member.funcao,
         telefone: user.member.telefone,
         chavePix: user.member.chavePix,
+        avatar: user.member.avatar,
+        isManager: user.member.isManager,
       }
     : null;
 

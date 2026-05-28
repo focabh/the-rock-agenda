@@ -216,10 +216,25 @@ export async function linkSelfToPositionAction(
   return { success: true };
 }
 
+const optionalAvatar = z
+  .string()
+  .trim()
+  .optional()
+  .refine(
+    (v) => !v || v.startsWith("data:image/"),
+    "Foto inválida (use imagem)"
+  )
+  .refine(
+    (v) => !v || v.length < 1_500_000,
+    "Foto muito grande, escolha uma menor"
+  );
+
 const updateMemberSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome").max(120),
   telefone: optionalTelefone,
   chavePix: optionalPix,
+  avatar: optionalAvatar,
+  removerAvatar: z.string().optional(),
 });
 
 /** Edita os próprios dados de músico (telefone/CPF/PIX/nome). */
@@ -233,12 +248,13 @@ export async function updateMyMemberAction(
   }
   const parsed = parseForm(updateMemberSchema, formData);
   if (!parsed.ok) return parsed.state;
-  const { nome, telefone, chavePix } = parsed.data;
-  await db
-    .update(members)
-    .set({ nome, telefone, chavePix })
-    .where(eq(members.id, user.member.id));
+  const { nome, telefone, chavePix, avatar, removerAvatar } = parsed.data;
+  const update: Record<string, unknown> = { nome, telefone, chavePix };
+  if (removerAvatar === "1") update.avatar = null;
+  else if (avatar) update.avatar = avatar;
+  await db.update(members).set(update).where(eq(members.id, user.member.id));
   revalidatePath("/conta");
   revalidatePath("/banda");
+  revalidatePath(`/banda/${user.member.id}`);
   return { success: true };
 }

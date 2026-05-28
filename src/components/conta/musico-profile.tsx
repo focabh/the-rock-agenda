@@ -7,42 +7,69 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
+import { AvatarUploader } from "@/components/shared/avatar-uploader";
 import { Mic } from "lucide-react";
 import {
   linkSelfToPositionAction,
   updateMyMemberAction,
 } from "@/app/(app)/conta/actions";
-import { maskPhone } from "@/lib/validators";
+import { maskPhone, telefoneValido, pixValido } from "@/lib/validators";
 import { toast } from "sonner";
 
 const selectCls =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-type Member = {
+export type MusicoProfileMember = {
+  id: string;
   nome: string;
   funcao: string;
   telefone: string | null;
   chavePix: string | null;
+  avatar: string | null;
+  isManager: boolean;
 };
 
 export function MusicoProfile({
   member,
   availablePositions,
 }: {
-  member: Member | null;
+  member: MusicoProfileMember | null;
   availablePositions: string[];
 }) {
   if (member) return <LinkedView member={member} />;
   return <ClaimView availablePositions={availablePositions} />;
 }
 
-function LinkedView({ member }: { member: Member }) {
+function LinkedView({ member }: { member: MusicoProfileMember }) {
   const [state, formAction, pending] = useActionState(updateMyMemberAction, null);
   const [telefone, setTelefone] = useState(member.telefone ?? "");
+  const [chavePix, setChavePix] = useState(member.chavePix ?? "");
+  const [clientErr, setClientErr] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (state?.success) toast.success("Ficha atualizada.");
   }, [state]);
+
+  function err(name: string) {
+    return clientErr[name] ?? state?.fieldErrors?.[name]?.[0];
+  }
+  function ErrLine({ name }: { name: string }) {
+    const m = err(name);
+    return m ? <p className="text-sm text-destructive">{m}</p> : null;
+  }
+
+  function handle(fd: FormData) {
+    const errs: Record<string, string> = {};
+    const t = String(fd.get("telefone") ?? "");
+    if (t && !telefoneValido(t))
+      errs.telefone = "Telefone inválido — use DDD + número, ex: (31) 99999-9999";
+    const p = String(fd.get("chavePix") ?? "");
+    if (p && !pixValido(p))
+      errs.chavePix = "Chave PIX inválida — CPF, telefone, email ou chave aleatória";
+    setClientErr(errs);
+    if (Object.keys(errs).length > 0) return;
+    formAction(fd);
+  }
 
   return (
     <Card>
@@ -54,11 +81,12 @@ function LinkedView({ member }: { member: Member }) {
             <span className="text-primary">{member.funcao}</span>
           </h3>
         </div>
-        <form action={formAction} className="space-y-4 max-w-sm">
+        <form action={handle} className="space-y-4 max-w-md">
+          <AvatarUploader initialAvatar={member.avatar} member={member} />
           <div className="space-y-2">
             <Label htmlFor="nome">Nome</Label>
             <Input id="nome" name="nome" defaultValue={member.nome} required />
-            <FieldError state={state} name="nome" />
+            <ErrLine name="nome" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="telefone">Telefone</Label>
@@ -71,17 +99,18 @@ function LinkedView({ member }: { member: Member }) {
               value={telefone}
               onChange={(e) => setTelefone(maskPhone(e.target.value))}
             />
-            <FieldError state={state} name="telefone" />
+            <ErrLine name="telefone" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="chavePix">Chave PIX</Label>
             <Input
               id="chavePix"
               name="chavePix"
-              defaultValue={member.chavePix ?? ""}
+              value={chavePix}
+              onChange={(e) => setChavePix(e.target.value)}
               placeholder="email, telefone ou chave aleatória"
             />
-            <FieldError state={state} name="chavePix" />
+            <ErrLine name="chavePix" />
           </div>
           {state?.error && !state.fieldErrors && (
             <p className="text-sm text-destructive">{state.error}</p>
@@ -97,8 +126,13 @@ function LinkedView({ member }: { member: Member }) {
 
 function ClaimView({ availablePositions }: { availablePositions: string[] }) {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState(linkSelfToPositionAction, null);
+  const [state, formAction, pending] = useActionState(
+    linkSelfToPositionAction,
+    null
+  );
   const [telefone, setTelefone] = useState("");
+  const [chavePix, setChavePix] = useState("");
+  const [clientErr, setClientErr] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (state?.success) {
@@ -106,6 +140,26 @@ function ClaimView({ availablePositions }: { availablePositions: string[] }) {
       router.refresh();
     }
   }, [state, router]);
+
+  function err(name: string) {
+    return clientErr[name] ?? state?.fieldErrors?.[name]?.[0];
+  }
+  function ErrLine({ name }: { name: string }) {
+    const m = err(name);
+    return m ? <p className="text-sm text-destructive">{m}</p> : null;
+  }
+
+  function handle(fd: FormData) {
+    const errs: Record<string, string> = {};
+    const t = String(fd.get("telefone") ?? "");
+    if (t && !telefoneValido(t))
+      errs.telefone = "Telefone inválido — use DDD + número";
+    const p = String(fd.get("chavePix") ?? "");
+    if (p && !pixValido(p)) errs.chavePix = "Chave PIX inválida";
+    setClientErr(errs);
+    if (Object.keys(errs).length > 0) return;
+    formAction(fd);
+  }
 
   return (
     <Card>
@@ -125,10 +179,16 @@ function ClaimView({ availablePositions }: { availablePositions: string[] }) {
             Todas as posições já têm músico vinculado.
           </p>
         ) : (
-          <form action={formAction} className="space-y-4 max-w-sm">
+          <form action={handle} className="space-y-4 max-w-md">
             <div className="space-y-2">
               <Label htmlFor="posicao">Posição na banda</Label>
-              <select id="posicao" name="posicao" className={selectCls} required defaultValue="">
+              <select
+                id="posicao"
+                name="posicao"
+                className={selectCls}
+                required
+                defaultValue=""
+              >
                 <option value="" disabled>
                   Selecione...
                 </option>
@@ -138,12 +198,16 @@ function ClaimView({ availablePositions }: { availablePositions: string[] }) {
                   </option>
                 ))}
               </select>
-              <FieldError state={state} name="posicao" />
+              <ErrLine name="posicao" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="nome">Nome (opcional)</Label>
-              <Input id="nome" name="nome" placeholder="Como aparece na banda" />
-              <FieldError state={state} name="nome" />
+              <Input
+                id="nome"
+                name="nome"
+                placeholder="Como aparece na banda"
+              />
+              <ErrLine name="nome" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="telefone">Telefone</Label>
@@ -156,16 +220,18 @@ function ClaimView({ availablePositions }: { availablePositions: string[] }) {
                 value={telefone}
                 onChange={(e) => setTelefone(maskPhone(e.target.value))}
               />
-              <FieldError state={state} name="telefone" />
+              <ErrLine name="telefone" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="chavePix">Chave PIX</Label>
               <Input
                 id="chavePix"
                 name="chavePix"
+                value={chavePix}
+                onChange={(e) => setChavePix(e.target.value)}
                 placeholder="email, telefone ou chave aleatória"
               />
-              <FieldError state={state} name="chavePix" />
+              <ErrLine name="chavePix" />
             </div>
             {state?.error && !state.fieldErrors && (
               <p className="text-sm text-destructive">{state.error}</p>

@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DeleteButton } from "@/components/shared/delete-button";
+import { MemberAvatar } from "@/components/shared/member-avatar";
 import { deleteMemberAction } from "./actions";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
@@ -50,10 +51,7 @@ export default async function BandaPage() {
               {totalMusicos.toFixed(1)}%
             </span>
             {totalMusicos !== 100 && (
-              <span className="text-amber-400/70">
-                {" "}
-                (ideal: 100%)
-              </span>
+              <span className="text-amber-400/70"> (ideal: 100%)</span>
             )}
             {comissaoManager > 0 && (
               <span className="ml-2">
@@ -80,7 +78,7 @@ export default async function BandaPage() {
             }
           />
         ) : (
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {lista.map((m) => (
               <Card
                 key={m.id}
@@ -90,21 +88,28 @@ export default async function BandaPage() {
                   href={`/banda/${m.id}`}
                   className="block hover:bg-accent/30"
                 >
-                  <CardContent className="py-5 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="font-semibold truncate flex items-center gap-2">
-                          {m.nome}
-                          {m.isManager && (
-                            <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30">
-                              Manager
-                            </span>
-                          )}
-                        </h3>
-                        <p className="text-sm text-primary">{m.funcao}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {m.percentualDivisao !== null && m.percentualDivisao > 0 && (
+                  <CardContent className="py-4 px-4 flex items-center gap-3">
+                    <MemberAvatar member={m} size={48} />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold truncate flex items-center gap-2">
+                        {m.nome}
+                        {m.isManager && (
+                          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30">
+                            Manager
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-sm text-primary truncate">{m.funcao}</p>
+                      {m.telefone && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Phone className="size-3" />
+                          {m.telefone}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {m.percentualDivisao !== null &&
+                        m.percentualDivisao > 0 && (
                           <span
                             className="font-mono text-xs text-muted-foreground"
                             title={m.isManager ? "Comissão" : "Divisão do cachê"}
@@ -112,24 +117,12 @@ export default async function BandaPage() {
                             {m.percentualDivisao}%
                           </span>
                         )}
-                        <ChevronRight className="size-4 text-muted-foreground" />
-                      </div>
+                      <ChevronRight className="size-4 text-muted-foreground" />
                     </div>
-                    {m.telefone && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Phone className="size-3.5" />
-                        {m.telefone}
-                      </p>
-                    )}
-                    {m.equipamentos && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {m.equipamentos}
-                      </p>
-                    )}
                   </CardContent>
                 </Link>
                 {admin && (
-                  <div className="flex items-center justify-end border-t border-border px-3 py-2">
+                  <div className="flex items-center justify-end border-t border-border px-3 py-1.5">
                     <DeleteButton
                       itemName={m.nome}
                       action={deleteMemberAction.bind(null, m.id)}
