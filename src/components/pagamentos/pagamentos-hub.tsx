@@ -13,6 +13,8 @@ import {
   Coins,
   Wallet,
   Paperclip,
+  ChevronRight,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -141,60 +143,47 @@ export function PagamentosHub({
 
       {/* === ADMIN: a pagar aos músicos === */}
       {admin && groups.caches_aPagar.length > 0 && (
-        <Section
+        <GroupedSection
           title="A pagar aos músicos"
           tone="amber"
-          subtitle="Cachês de shows com músico confirmado, ainda sem pagamento registrado."
-        >
-          {groups.caches_aPagar.map((c) => (
-            <CacheRow
-              key={`${c.showId}-${c.memberId}-ap`}
-              item={c}
-              admin={admin}
-              isSelf={currentMemberId === c.memberId}
-            />
-          ))}
-        </Section>
+          subtitle="Cachês de shows com músico confirmado, ainda sem pagamento registrado. Clique no show pra ver os músicos."
+          items={groups.caches_aPagar}
+          admin
+          currentMemberId={currentMemberId}
+          defaultOpen
+        />
       )}
 
       {/* === MUSICIAN: a receber === */}
       {!admin && groups.caches_aPagar.length > 0 && (
-        <Section
+        <GroupedSection
           title="Cachês a receber"
           tone="amber"
           subtitle="Shows que você confirmou presença, ainda aguardando pagamento."
-        >
-          {groups.caches_aPagar.map((c) => (
-            <CacheRow
-              key={`${c.showId}-${c.memberId}-ar`}
-              item={c}
-              admin={false}
-              isSelf
-            />
-          ))}
-        </Section>
+          items={groups.caches_aPagar}
+          admin={false}
+          currentMemberId={currentMemberId}
+          defaultOpen
+        />
       )}
 
       {/* === Aguardando confirmação (ambos) === */}
       {groups.caches_aguardando.length > 0 && (
-        <Section
-          title={admin ? "Aguardando confirmação dos músicos" : "Aguardando sua confirmação"}
+        <GroupedSection
+          title={
+            admin ? "Aguardando confirmação dos músicos" : "Aguardando sua confirmação"
+          }
           tone={admin ? "default" : "amber"}
           subtitle={
             admin
               ? "Você marcou pago. O músico precisa confirmar o recebimento."
               : "O admin marcou que pagou. Confira o comprovante e confirme."
           }
-        >
-          {groups.caches_aguardando.map((c) => (
-            <CacheRow
-              key={`${c.showId}-${c.memberId}-aw`}
-              item={c}
-              admin={admin}
-              isSelf={currentMemberId === c.memberId}
-            />
-          ))}
-        </Section>
+          items={groups.caches_aguardando}
+          admin={admin}
+          currentMemberId={currentMemberId}
+          defaultOpen={!admin}
+        />
       )}
 
       {/* === ADMIN: a receber do contratante === */}
@@ -356,6 +345,107 @@ function Section({
   );
 }
 
+/** Agrupa cachês por show — header com total + nº de músicos, expansível. */
+function GroupedSection({
+  title,
+  subtitle,
+  tone,
+  items,
+  admin,
+  currentMemberId,
+  defaultOpen = false,
+}: {
+  title: string;
+  subtitle?: string;
+  tone?: "default" | "amber";
+  items: CacheItem[];
+  admin: boolean;
+  currentMemberId: string | null;
+  defaultOpen?: boolean;
+}) {
+  // Agrupa por showId preservando ordem (mais recente primeiro pelos itens).
+  const groups = useMemo(() => {
+    const map = new Map<
+      string,
+      { showLabel: string; showData: string; items: CacheItem[] }
+    >();
+    for (const it of items) {
+      if (!map.has(it.showId)) {
+        map.set(it.showId, {
+          showLabel: it.showLabel,
+          showData: it.showData,
+          items: [],
+        });
+      }
+      map.get(it.showId)!.items.push(it);
+    }
+    return Array.from(map.entries())
+      .map(([showId, v]) => ({ showId, ...v }))
+      .sort((a, b) => b.showData.localeCompare(a.showData));
+  }, [items]);
+
+  return (
+    <section className="space-y-2">
+      <div>
+        <h2
+          className={cn(
+            "text-sm font-semibold uppercase tracking-wider",
+            tone === "amber" ? "text-amber-300" : "text-muted-foreground"
+          )}
+        >
+          {title}
+        </h2>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+      </div>
+      <div className="space-y-2">
+        {groups.map((g) => {
+          const total = g.items.reduce((s, x) => s + x.valorCentavos, 0);
+          return (
+            <details
+              key={g.showId}
+              open={defaultOpen}
+              className="group rounded-md border border-border bg-card overflow-hidden"
+            >
+              <summary className="flex items-center gap-3 px-5 py-3 cursor-pointer select-none hover:bg-accent/30 list-none">
+                <ChevronRight className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/20 shrink-0">
+                  <Music2 className="size-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{g.showLabel}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDataBR(new Date(g.showData))} · {g.items.length} músico
+                    {g.items.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    "font-mono text-sm shrink-0",
+                    tone === "amber" ? "text-amber-300" : "text-foreground"
+                  )}
+                >
+                  {formatBRL(total)}
+                </span>
+              </summary>
+              <ul className="divide-y divide-border bg-muted/10">
+                {g.items.map((c) => (
+                  <CacheRow
+                    key={`${c.showId}-${c.memberId}`}
+                    item={c}
+                    admin={admin}
+                    isSelf={currentMemberId === c.memberId}
+                    compact
+                  />
+                ))}
+              </ul>
+            </details>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function StatusBadge({ status }: { status: "aguardando" | "confirmado" }) {
   return (
     <span
@@ -380,10 +470,13 @@ function CacheRow({
   item,
   admin,
   isSelf,
+  compact = false,
 }: {
   item: CacheItem;
   admin: boolean;
   isSelf: boolean;
+  /** Renderiza no contexto de um grupo (sem repetir o show + ícone do show). */
+  compact?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [markOpen, setMarkOpen] = useState(false);
@@ -407,21 +500,33 @@ function CacheRow({
 
   return (
     <li className="flex items-center gap-3 px-5 py-3">
-      <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/20 shrink-0">
-        <Music2 className="size-4 text-primary" />
-      </div>
+      {compact ? (
+        <div className="flex size-8 items-center justify-center rounded-md bg-muted/40 shrink-0">
+          <User className="size-4 text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/20 shrink-0">
+          <Music2 className="size-4 text-primary" />
+        </div>
+      )}
       <div className="flex-1 min-w-0">
-        <Link
-          href={`/shows/${item.showId}`}
-          className="font-medium truncate hover:text-primary"
-        >
-          Cachê — {item.showLabel}
-        </Link>
+        {compact ? (
+          <p className="font-medium truncate">{item.memberNome}</p>
+        ) : (
+          <Link
+            href={`/shows/${item.showId}`}
+            className="font-medium truncate hover:text-primary"
+          >
+            Cachê — {item.showLabel}
+          </Link>
+        )}
         <p className="text-xs text-muted-foreground truncate">
-          {admin && <>Pra {item.memberNome} · </>}
+          {!compact && admin && <>Pra {item.memberNome} · </>}
           {item.pagoEmISO
             ? `Pago em ${formatDataBR(new Date(item.pagoEmISO))}`
-            : `Show em ${formatDataBR(new Date(item.showData))}`}
+            : compact
+              ? null
+              : `Show em ${formatDataBR(new Date(item.showData))}`}
         </p>
       </div>
       <span className="font-mono text-sm shrink-0">

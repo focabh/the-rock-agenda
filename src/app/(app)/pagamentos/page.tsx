@@ -176,7 +176,7 @@ export default async function PagamentosPage() {
   return (
     <div>
       <PageHeader
-        title="Pagamentos"
+        title="Cachês"
         description={
           admin
             ? "Cachês a pagar aos músicos, cachês a receber do contratante e reembolsos. Comprovante PIX obrigatório em todos."

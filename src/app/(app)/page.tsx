@@ -290,7 +290,7 @@ export default async function DashboardPage() {
             <QuickLink href="/repertorio" icon={Music2} title="Repertório" />
             <QuickLink href="/casas" icon={Building2} title="Casas" />
             <QuickLink href="/banda" icon={Users} title="Banda" />
-            <QuickLink href="/pagamentos" icon={Wallet} title="Pagamentos" />
+            <QuickLink href="/pagamentos" icon={Wallet} title="Cachês" />
             {admin && (
               <QuickLink href="/gastos" icon={Receipt} title="Gastos" />
             )}
