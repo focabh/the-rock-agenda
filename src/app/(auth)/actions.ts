@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth";
 import { parseForm } from "@/lib/form";
 import { sendRegistrationNotification } from "@/lib/email";
+import { sendPushToAdmins } from "@/lib/push";
 import { POSICOES, pixValido, telefoneValido } from "@/lib/validators";
 
 export async function loginAction(_prev: { error?: string } | null, formData: FormData) {
@@ -138,6 +139,18 @@ export async function registerAction(
     chavePix: data.chavePix,
     posicao: data.posicao,
   });
+
+  // Avisa os admins por push (não bloqueia se falhar).
+  try {
+    await sendPushToAdmins({
+      title: "Novo cadastro 👥",
+      body: `${data.nome} ${data.sobrenome} (${data.posicao}) está aguardando aprovação.`,
+      url: "/cadastros",
+      tag: `cadastro-${data.username}`,
+    });
+  } catch (e) {
+    console.error("push (novo cadastro) falhou:", e);
+  }
 
   return { success: true };
 }
