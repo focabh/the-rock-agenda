@@ -5,6 +5,8 @@ import { db } from "@/db";
 import { contractorLinks, promoItems, users } from "@/db/schema";
 import { getLogoUrl } from "@/lib/auth";
 import { detectVideoEmbed } from "@/lib/video-embed";
+import { PressKitViewer } from "@/components/contratantes/press-kit-viewer";
+import { VideoPlayer } from "@/components/contratantes/video-player";
 
 export const dynamic = "force-dynamic";
 
@@ -127,17 +129,10 @@ export default async function ContratantePublicPage({
             )}
           </div>
           {presskit ? (
-            <div className="rounded-lg overflow-hidden border border-border bg-card">
-              <iframe
-                src={`/c/${token}/presskit`}
-                title="Press kit"
-                className="w-full h-[70vh] bg-white"
-              />
-              <p className="px-4 py-2 text-xs text-muted-foreground">
-                Se o PDF não abrir aqui (acontece no iPhone), toque em &quot;Abrir tela
-                cheia&quot; acima.
-              </p>
-            </div>
+            <PressKitViewer
+              src={`/c/${token}/presskit`}
+              fallbackHref={`/c/${token}/presskit`}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">
               Press kit ainda não disponível.
@@ -164,16 +159,7 @@ export default async function ContratantePublicPage({
                     className="rounded-lg overflow-hidden border border-border bg-card"
                   >
                     {embed.kind === "embed" ? (
-                      <div className="aspect-video bg-black">
-                        <iframe
-                          src={embed.src}
-                          title={v.titulo}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                          referrerPolicy="strict-origin-when-cross-origin"
-                        />
-                      </div>
+                      <VideoPlayer url={v.url} title={v.titulo} />
                     ) : (
                       <div className="p-4 text-sm text-muted-foreground">
                         Vídeo externo — abra pelo link abaixo.
