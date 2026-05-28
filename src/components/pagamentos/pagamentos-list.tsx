@@ -4,10 +4,11 @@ import { useEffect, useState, useTransition } from "react";
 import {
   Eye,
   Trash2,
-  ExternalLink,
-  Wallet,
-  Ticket,
-  Box,
+  Check,
+  X,
+  Music2,
+  Receipt,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,118 +18,162 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { formatBRL, formatDataBR } from "@/lib/formatters";
 import { toast } from "sonner";
 import {
-  deletePaymentAction,
-  getPaymentComprovanteAction,
+  confirmReembolsoAction,
+  reportReembolsoNotReceivedAction,
+  deleteReembolsoAction,
+  getReembolsoComprovanteAction,
+  getCacheComprovanteAction,
 } from "@/app/(app)/pagamentos/actions";
+import {
+  confirmMemberPaymentAction,
+  reportNotReceivedAction,
+} from "@/app/(app)/shows/[id]/actions-payment";
 
-type Row = {
-  id: string;
-  tipo: "show" | "extra";
-  showLabel: string | null;
+export type PagamentoRow = {
+  kind: "cache" | "reembolso";
+  id: string; // sintético pra "cache"
+  showId: string | null;
+  memberId: string;
+  memberNome: string;
   descricao: string;
-  recipient: string;
-  valorCentavos: number;
-  paidEm: string; // ISO
+  contexto: string | null;
+  valorCentavos: number | null;
+  status: "aguardando" | "confirmado";
+  hasComprovante: boolean;
+  paidEm: string;
 };
 
 export function PagamentosList({
   rows,
+  currentMemberId,
   admin,
 }: {
-  rows: Row[];
+  rows: PagamentoRow[];
+  currentMemberId: string | null;
   admin: boolean;
 }) {
-  const [viewId, setViewId] = useState<string | null>(null);
-
+  const [view, setView] = useState<PagamentoRow | null>(null);
   return (
     <>
       <ul className="divide-y divide-border">
         {rows.map((r) => (
-          <PaymentRow
-            key={r.id}
+          <Row
+            key={`${r.kind}-${r.id}`}
             r={r}
+            isSelf={currentMemberId === r.memberId}
             admin={admin}
-            onView={() => setViewId(r.id)}
+            onView={() => setView(r)}
           />
         ))}
       </ul>
-      {viewId && (
-        <ComprovanteViewer
-          paymentId={viewId}
-          open={Boolean(viewId)}
-          onOpenChange={(o) => !o && setViewId(null)}
+      {view && (
+        <ComprovanteDialog
+          row={view}
+          open={Boolean(view)}
+          onOpenChange={(o) => !o && setView(null)}
         />
       )}
     </>
   );
 }
 
-function PaymentRow({
+function Row({
   r,
+  isSelf,
   admin,
   onView,
 }: {
-  r: Row;
+  r: PagamentoRow;
+  isSelf: boolean;
   admin: boolean;
   onView: () => void;
 }) {
   const [pending, startTransition] = useTransition();
 
-  function onDelete() {
-    if (!confirm("Remover este pagamento do histórico?")) return;
+  function confirmar() {
     startTransition(async () => {
-      await deletePaymentAction(r.id);
-      toast.success("Pagamento removido.");
+      const result =
+        r.kind === "cache"
+          ? await confirmMemberPaymentAction(r.showId!, r.memberId)
+          : await confirmReembolsoAction(r.id);
+      if (result?.error) toast.error(result.error);
+      else toast.success("Recebimento confirmado. 🤘");
+    });
+  }
+  function naoRecebi() {
+    if (!confirm("Informar que você NÃO recebeu este pagamento?")) return;
+    startTransition(async () => {
+      const result =
+        r.kind === "cache"
+          ? await reportNotReceivedAction(r.showId!, r.memberId)
+          : await reportReembolsoNotReceivedAction(r.id);
+      if (result?.error) toast.error(result.error);
+      else toast.success("Avisamos o admin.");
+    });
+  }
+  function remover() {
+    if (r.kind !== "reembolso") return; // cachê é gerenciado no show
+    if (!confirm("Remover este reembolso?")) return;
+    startTransition(async () => {
+      await deleteReembolsoAction(r.id);
+      toast.success("Reembolso removido.");
     });
   }
 
-  // wa.me texto-only: o admin precisa anexar o comprovante manualmente
-  // no WhatsApp (Web Share API com data URL é instável entre browsers).
-  const waText = encodeURIComponent(
-    `Comprovante de pagamento — ${r.descricao} — ${formatBRL(r.valorCentavos)} (${formatDataBR(new Date(r.paidEm))}).`
-  );
-  const waUrl = `https://wa.me/?text=${waText}`;
-
-  const Icon = r.tipo === "show" ? Ticket : Box;
+  const Icon = r.kind === "cache" ? Music2 : Receipt;
 
   return (
-    <li className="flex items-center gap-3 px-5 py-4">
+    <li className="flex items-center gap-3 px-5 py-3">
       <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/20 shrink-0">
         <Icon className="size-4 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">{r.descricao}</p>
         <p className="text-xs text-muted-foreground truncate">
-          Para <span className="text-foreground">{r.recipient}</span>
-          {r.showLabel && <> · {r.showLabel}</>}
-          {" · "}
+          {admin && r.memberNome && <>Pra {r.memberNome} · </>}
+          {r.contexto && <>{r.contexto} · </>}
           {formatDataBR(new Date(r.paidEm))}
         </p>
       </div>
-      <span className="font-mono text-sm shrink-0">
-        {formatBRL(r.valorCentavos)}
-      </span>
-      <Button size="sm" variant="ghost" title="Ver comprovante" onClick={onView}>
-        <Eye className="size-4" />
-      </Button>
-      <a
-        href={waUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        title="Compartilhar texto no WhatsApp (anexe o comprovante manualmente)"
-        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50"
-      >
-        <ExternalLink className="size-4" />
-      </a>
-      {admin && (
+      {r.valorCentavos !== null && (
+        <span className="font-mono text-sm shrink-0">
+          {formatBRL(r.valorCentavos)}
+        </span>
+      )}
+      <StatusBadge status={r.status} />
+      {r.hasComprovante && (
+        <Button size="sm" variant="ghost" title="Ver comprovante" onClick={onView}>
+          <Eye className="size-4" />
+        </Button>
+      )}
+      {r.status === "aguardando" && isSelf && (
+        <>
+          <Button size="sm" onClick={confirmar} disabled={pending}>
+            <Check className="size-3.5" />
+            Confirmar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Não recebi"
+            onClick={naoRecebi}
+            disabled={pending}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <X className="size-4" />
+          </Button>
+        </>
+      )}
+      {admin && r.kind === "reembolso" && (
         <Button
           size="sm"
           variant="ghost"
           title="Remover"
-          onClick={onDelete}
+          onClick={remover}
           disabled={pending}
           className="text-muted-foreground hover:text-destructive"
         >
@@ -139,12 +184,32 @@ function PaymentRow({
   );
 }
 
-function ComprovanteViewer({
-  paymentId,
+function StatusBadge({ status }: { status: "aguardando" | "confirmado" }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
+        status === "confirmado"
+          ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/40"
+          : "bg-amber-500/15 text-amber-300 ring-amber-500/40"
+      )}
+    >
+      {status === "confirmado" ? (
+        <Check className="size-3" />
+      ) : (
+        <Clock className="size-3" />
+      )}
+      {status === "confirmado" ? "Confirmado" : "Aguardando"}
+    </span>
+  );
+}
+
+function ComprovanteDialog({
+  row,
   open,
   onOpenChange,
 }: {
-  paymentId: string;
+  row: PagamentoRow;
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
@@ -154,7 +219,11 @@ function ComprovanteViewer({
   useEffect(() => {
     let active = true;
     setLoading(true);
-    getPaymentComprovanteAction(paymentId).then((r) => {
+    const p =
+      row.kind === "cache"
+        ? getCacheComprovanteAction(row.showId!, row.memberId)
+        : getReembolsoComprovanteAction(row.id);
+    p.then((r) => {
       if (!active) return;
       setUrl(r.url);
       setLoading(false);
@@ -162,7 +231,7 @@ function ComprovanteViewer({
     return () => {
       active = false;
     };
-  }, [paymentId]);
+  }, [row]);
 
   const isPdf = url?.startsWith("data:application/pdf");
 
@@ -171,17 +240,15 @@ function ComprovanteViewer({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Comprovante PIX</DialogTitle>
-          <DialogDescription>
-            Anexado no registro do pagamento.
-          </DialogDescription>
+          <DialogDescription>{row.descricao}</DialogDescription>
         </DialogHeader>
         {loading ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            <Wallet className="size-5 mx-auto mb-2 opacity-50" /> Carregando…
+            Carregando…
           </p>
         ) : !url ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            Sem comprovante.
+            Sem comprovante (ou sem acesso).
           </p>
         ) : isPdf ? (
           <iframe

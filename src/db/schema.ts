@@ -615,22 +615,48 @@ export const contractsRelations = relations(contracts, ({ one }) => ({
   }),
 }));
 
-// ---------------- PAGAMENTOS (LOG GERAL) ----------------
+// ---------------- GASTOS (DESPESAS DA BANDA) ----------------
 
-// Registro de pagamentos efetuados pela banda (cachê a músico, equipamento, etc.).
-// Comprovante (PIX) é obrigatório. Usado pra histórico/auditoria;
-// a confirmação do músico continua no fluxo de show_member_paid.
-export const payments = sqliteTable("payments", {
+// Investimentos/gastos da banda: equipamento, transporte, divulgação, etc.
+// O dinheiro saiu do caixa da banda (ou via PIX direto). Comprovante opcional
+// na real, mas mantido como obrigatório pra auditoria.
+export const gastos = sqliteTable("gastos", {
   id: id(),
   tipo: text("tipo", { enum: ["show", "extra"] }).notNull(),
   showId: text("show_id").references(() => shows.id, { onDelete: "set null" }),
   descricao: text("descricao").notNull(),
-  recipient: text("recipient").notNull(), // pra quem foi (músico, fornecedor...)
+  recipient: text("recipient").notNull(), // pra quem foi (loja, fornecedor...)
   valorCentavos: integer("valor_centavos").notNull(),
   comprovante: text("comprovante").notNull(), // data URL — obrigatório
   paidEm: integer("paid_em", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date()),
+  createdAt: createdAt(),
+  createdBy: text("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+});
+
+// ---------------- REEMBOLSOS (BANDA -> MÚSICO) ----------------
+
+// Quando um músico bancou um gasto e a banda reembolsa. Tem o mesmo
+// ciclo de confirmação do cachê: aguardando -> confirmado.
+export const reembolsos = sqliteTable("reembolsos", {
+  id: id(),
+  memberId: text("member_id")
+    .notNull()
+    .references(() => members.id, { onDelete: "cascade" }),
+  gastoId: text("gasto_id").references(() => gastos.id, { onDelete: "set null" }),
+  descricao: text("descricao").notNull(),
+  valorCentavos: integer("valor_centavos").notNull(),
+  comprovante: text("comprovante").notNull(),
+  status: text("status", { enum: ["aguardando", "confirmado"] })
+    .notNull()
+    .default("aguardando"),
+  paidEm: integer("paid_em", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  confirmadoEm: integer("confirmado_em", { mode: "timestamp_ms" }),
   createdAt: createdAt(),
   createdBy: text("created_by").references(() => users.id, {
     onDelete: "set null",
@@ -680,5 +706,6 @@ export type SpotifyAuth = typeof spotifyAuth.$inferSelect;
 export type SongMemberReadiness = typeof songMemberReadiness.$inferSelect;
 export type ShowMemberPayment = typeof showMemberPayment.$inferSelect;
 export type ShowMemberPaid = typeof showMemberPaid.$inferSelect;
-export type Payment = typeof payments.$inferSelect;
+export type Gasto = typeof gastos.$inferSelect;
+export type Reembolso = typeof reembolsos.$inferSelect;
 export type PromoItem = typeof promoItems.$inferSelect;

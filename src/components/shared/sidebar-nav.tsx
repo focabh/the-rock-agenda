@@ -11,6 +11,7 @@ import {
   Building2,
   Users,
   Wallet,
+  Receipt,
   Megaphone,
   UserPlus,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/casas", label: "Casas", icon: Building2 },
   { href: "/banda", label: "Banda", icon: Users },
   { href: "/pagamentos", label: "Pagamentos", icon: Wallet },
+  { href: "/gastos", label: "Gastos", icon: Receipt, adminOnly: true },
   { href: "/divulgacao", label: "Divulgação", icon: Megaphone },
   { href: "/cadastros", label: "Cadastros", icon: UserPlus, adminOnly: true },
 ];

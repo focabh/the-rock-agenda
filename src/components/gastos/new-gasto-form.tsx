@@ -9,18 +9,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
 import { toast } from "sonner";
 import { fileToDataUrl } from "@/lib/upload-helpers";
-import { createPaymentAction } from "@/app/(app)/pagamentos/actions";
+import { createGastoAction } from "@/app/(app)/gastos/actions";
 import { toBRDatetimeLocal } from "@/lib/formatters";
 
 const selectCls =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-export function NewPaymentForm({
+export function NewGastoForm({
   shows,
 }: {
   shows: { id: string; label: string }[];
 }) {
-  const [state, formAction, pending] = useActionState(createPaymentAction, null);
+  const [state, formAction, pending] = useActionState(createGastoAction, null);
   const [tipo, setTipo] = useState<"show" | "extra">("show");
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
@@ -49,12 +49,12 @@ export function NewPaymentForm({
       <CardContent className="py-6">
         <form action={formAction} className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Tipo do pagamento *</Label>
+            <Label>Tipo do gasto *</Label>
             <div className="grid grid-cols-2 gap-2">
               <RadioPill
                 name="tipo"
                 value="show"
-                label="Cachê de show"
+                label="Ligado a um show"
                 checked={tipo === "show"}
                 onChange={() => setTipo("show")}
               />
@@ -100,8 +100,8 @@ export function NewPaymentForm({
                 name="descricao"
                 placeholder={
                   tipo === "show"
-                    ? "Cachê do baterista"
-                    : "Locação do amplificador"
+                    ? "Locação de PA para o show"
+                    : "Compra de pedal / aluguel de van / impressão de banner"
                 }
                 required
               />
@@ -121,17 +121,17 @@ export function NewPaymentForm({
 
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="cacheReais">Valor (R$) *</Label>
+              <Label htmlFor="valorReais">Valor (R$) *</Label>
               <Input
-                id="cacheReais"
-                name="cacheReais"
+                id="valorReais"
+                name="valorReais"
                 type="number"
                 min={0}
                 step={0.01}
                 required
                 className="font-mono"
               />
-              <FieldError state={state} name="cacheReais" />
+              <FieldError state={state} name="valorReais" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="paidEm">Pago em *</Label>
@@ -182,10 +182,10 @@ export function NewPaymentForm({
           <div className="flex items-center justify-end gap-2 pt-2">
             <Button type="button" variant="outline" disabled={pending}>
               {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-              <a href="/pagamentos">Cancelar</a>
+              <a href="/gastos">Cancelar</a>
             </Button>
             <Button type="submit" disabled={pending || !dataUrl || busy}>
-              {pending ? "Salvando..." : "Registrar pagamento"}
+              {pending ? "Salvando..." : "Registrar gasto"}
             </Button>
           </div>
         </form>

@@ -11,6 +11,7 @@ import {
   MapPin,
   UserPlus,
   Wallet,
+  Receipt,
   Megaphone,
 } from "lucide-react";
 import { db } from "@/db";
@@ -290,6 +291,9 @@ export default async function DashboardPage() {
             <QuickLink href="/casas" icon={Building2} title="Casas" />
             <QuickLink href="/banda" icon={Users} title="Banda" />
             <QuickLink href="/pagamentos" icon={Wallet} title="Pagamentos" />
+            {admin && (
+              <QuickLink href="/gastos" icon={Receipt} title="Gastos" />
+            )}
             <QuickLink href="/divulgacao" icon={Megaphone} title="Divulgação" />
           </div>
         </section>
