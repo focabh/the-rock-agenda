@@ -672,7 +672,7 @@ export const reembolsos = sqliteTable("reembolsos", {
 export const promoItems = sqliteTable("promo_items", {
   id: id(),
   tipo: text("tipo", {
-    enum: ["video", "foto", "logo", "presskit"],
+    enum: ["video", "foto", "logo", "presskit", "rider"],
   }).notNull(),
   titulo: text("titulo").notNull(),
   url: text("url").notNull(),
