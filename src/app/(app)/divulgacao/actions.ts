@@ -41,6 +41,16 @@ const schema = z.object({
   titulo: z.string().trim().min(2, "Informe um título").max(120),
   url: z.string().trim().min(1, "Informe o link ou anexe um arquivo").max(7_000_000),
   descricao: z.string().trim().max(500).optional(),
+  cover: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (v) => !v || v.startsWith("data:image/"),
+      "Capa inválida (use uma imagem)"
+    )
+    .refine((v) => !v || v.length < 2_000_000, "Capa muito grande (~1.5MB)"),
+  removerCover: z.string().optional(),
 });
 
 function validateUrl(tipo: Tipo, url: string): string | null {
@@ -63,7 +73,7 @@ export async function createPromoAction(
   await requireAdmin();
   const parsed = parseForm(schema, formData);
   if (!parsed.ok) return parsed.state;
-  const { tipo, titulo, url, descricao } = parsed.data;
+  const { tipo, titulo, url, descricao, cover } = parsed.data;
 
   const urlErr = validateUrl(tipo, url);
   if (urlErr) return { fieldErrors: { url: [urlErr] }, error: urlErr };
@@ -87,7 +97,13 @@ export async function createPromoAction(
     };
   }
 
-  await db.insert(promoItems).values({ tipo, titulo, url, descricao });
+  await db.insert(promoItems).values({
+    tipo,
+    titulo,
+    url,
+    descricao,
+    cover: cover || null,
+  });
   revalidatePath("/divulgacao");
   return null;
 }
@@ -100,7 +116,7 @@ export async function updatePromoAction(
   await requireAdmin();
   const parsed = parseForm(schema, formData);
   if (!parsed.ok) return parsed.state;
-  const { tipo, titulo, url, descricao } = parsed.data;
+  const { tipo, titulo, url, descricao, cover, removerCover } = parsed.data;
 
   const urlErr = validateUrl(tipo, url);
   if (urlErr) return { fieldErrors: { url: [urlErr] }, error: urlErr };
@@ -112,9 +128,14 @@ export async function updatePromoAction(
       .where(and(eq(promoItems.tipo, tipo), ne(promoItems.id, id)));
   }
 
+  const update: Record<string, unknown> = { tipo, titulo, url, descricao };
+  if (removerCover === "1") update.cover = null;
+  else if (cover) update.cover = cover;
+  // se nem cover nem removerCover, mantém o atual.
+
   await db
     .update(promoItems)
-    .set({ tipo, titulo, url, descricao })
+    .set(update)
     .where(eq(promoItems.id, id));
   revalidatePath("/divulgacao");
   return null;

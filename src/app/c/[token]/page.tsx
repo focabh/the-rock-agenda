@@ -159,7 +159,11 @@ export default async function ContratantePublicPage({
                     className="rounded-lg overflow-hidden border border-border bg-card"
                   >
                     {embed.kind === "embed" ? (
-                      <VideoPlayer url={v.url} title={v.titulo} />
+                      <VideoPlayer
+                        url={v.url}
+                        title={v.titulo}
+                        cover={v.cover}
+                      />
                     ) : (
                       <div className="p-4 text-sm text-muted-foreground">
                         Vídeo externo — abra pelo link abaixo.

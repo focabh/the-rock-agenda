@@ -695,6 +695,8 @@ export const promoItems = sqliteTable("promo_items", {
   titulo: text("titulo").notNull(),
   url: text("url").notNull(),
   descricao: text("descricao"),
+  // capa custom (data URL) — usada hoje só pra vídeos no card do contratante
+  cover: text("cover"),
   ordem: integer("ordem").notNull().default(0),
   createdAt: createdAt(),
 });

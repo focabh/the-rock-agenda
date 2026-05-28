@@ -46,6 +46,7 @@ export type PromoLite = {
   titulo: string;
   url: string;
   descricao: string | null;
+  cover: string | null;
 };
 
 type TipoMeta = {
@@ -387,6 +388,36 @@ function FormDialog({
   const [busy, setBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Capa custom (só pra vídeo). Pré-fill da existente.
+  const [cover, setCover] = useState<string | null>(item?.cover ?? null);
+  const [coverRemoved, setCoverRemoved] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
+
+  async function onPickCover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    setCoverBusy(true);
+    try {
+      const url = await fileToDataUrl(file, { maxDim: 1280, quality: 0.8 });
+      if (url.length > 2_000_000) {
+        toast.error("Capa muito grande. Tente uma imagem menor.");
+        setCoverBusy(false);
+        return;
+      }
+      setCover(url);
+      setCoverRemoved(false);
+    } catch {
+      toast.error("Não consegui ler a imagem da capa.");
+    } finally {
+      setCoverBusy(false);
+    }
+  }
+
+  function removeCover() {
+    setCover(null);
+    setCoverRemoved(true);
+  }
+
   // Fecha o diálogo só quando a action voltar SEM erro.
   useEffect(() => {
     if (submitting && !pending) {
@@ -433,6 +464,10 @@ function FormDialog({
       mode === "upload" && dataUrl ? dataUrl : urlInput.trim();
     fd.set("url", value);
     fd.set("tipo", tipo);
+    // Capa de vídeo: só envia se trocou ou removeu.
+    if (cover && cover !== item?.cover) fd.set("cover", cover);
+    else fd.set("cover", "");
+    fd.set("removerCover", coverRemoved ? "1" : "");
     setSubmitting(true);
     formAction(fd);
   }
@@ -545,6 +580,60 @@ function FormDialog({
                   />
                 ))}
               <FieldError state={state} name="url" />
+            </div>
+          )}
+
+          {/* Capa custom — só pra vídeo */}
+          {tipo === "video" && (
+            <div className="space-y-1.5">
+              <Label>Capa do vídeo (opcional)</Label>
+              {cover ? (
+                <div className="space-y-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={cover}
+                    alt="Capa"
+                    className="aspect-video w-full rounded-md object-cover border border-border"
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+                      <Paperclip className="size-3.5" />
+                      Trocar
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={onPickCover}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={removeCover}
+                      className="text-sm text-muted-foreground hover:text-destructive"
+                    >
+                      Remover capa
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground hover:bg-muted/40">
+                  <Paperclip className="size-4" />
+                  {coverBusy
+                    ? "Processando..."
+                    : "Subir uma imagem de capa pro vídeo"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={onPickCover}
+                  />
+                </label>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Se não subir, usamos a miniatura padrão (YouTube) ou o player
+                direto (Vimeo/Drive).
+              </p>
+              <FieldError state={state} name="cover" />
             </div>
           )}
 
