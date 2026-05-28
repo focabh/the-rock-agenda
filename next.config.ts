@@ -2,6 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "192.168.18.69"],
+  // O limite padrão de payload de Server Actions é 1MB. Subimos pra acomodar
+  // press kit/rider (PDF até ~5MB), avatares e comprovantes maiores.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "8mb",
+    },
+  },
   async headers() {
     return [
       {
