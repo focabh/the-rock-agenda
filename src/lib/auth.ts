@@ -88,6 +88,22 @@ export function isAdmin(user: CurrentUser | null): boolean {
   return user?.role === "admin";
 }
 
+/**
+ * Nome a ser exibido no app inteiro para um usuário: apelido > nome (+ sobrenome) > username.
+ * Quem se cadastra define nome/sobrenome; o apelido (em Conta) sobrescreve.
+ */
+export function userDisplayName(u: {
+  apelido?: string | null;
+  nome?: string | null;
+  sobrenome?: string | null;
+  username: string;
+}): string {
+  const apelido = u.apelido?.trim();
+  if (apelido) return apelido;
+  const full = [u.nome, u.sobrenome].filter(Boolean).join(" ").trim();
+  return full || u.username;
+}
+
 export async function registrationsAllowed(): Promise<boolean> {
   try {
     const [s] = await db.select().from(appSettings).limit(1);

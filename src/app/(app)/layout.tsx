@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/shared/app-shell";
-import { getLogoUrl, requireCurrentUser } from "@/lib/auth";
+import { getLogoUrl, requireCurrentUser, userDisplayName } from "@/lib/auth";
 
 export default async function AppLayout({
   children,
@@ -12,7 +12,7 @@ export default async function AppLayout({
     <AppShell
       username={user.username}
       role={user.role}
-      memberName={user.member?.nome ?? null}
+      displayName={userDisplayName(user)}
       logoUrl={logoUrl}
     >
       {children}

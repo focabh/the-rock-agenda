@@ -15,6 +15,12 @@ import {
 import { parseForm } from "@/lib/form";
 import { POSICOES, pixValido, telefoneValido } from "@/lib/validators";
 
+const profileSchema = z.object({
+  apelido: z.string().trim().max(60).optional(),
+  nome: z.string().trim().min(1, "Informe seu nome").max(80),
+  sobrenome: z.string().trim().min(1, "Informe seu sobrenome").max(80),
+});
+
 const passwordSchema = z
   .object({
     atual: z.string().min(1, "Informe a senha atual"),
@@ -29,6 +35,41 @@ const passwordSchema = z
 export type AccountState =
   | { error?: string; fieldErrors?: Record<string, string[]>; success?: boolean }
   | null;
+
+export async function updateProfileAction(
+  _prev: AccountState,
+  formData: FormData
+): Promise<AccountState> {
+  const user = await requireCurrentUser();
+  const parsed = parseForm(profileSchema, formData);
+  if (!parsed.ok) return parsed.state;
+  const { apelido, nome, sobrenome } = parsed.data;
+
+  await db
+    .update(users)
+    .set({
+      apelido: apelido && apelido.length > 0 ? apelido : null,
+      nome,
+      sobrenome,
+    })
+    .where(eq(users.id, user.id));
+
+  // Se há músico vinculado, sincroniza o nome dele com o apelido (preferido)
+  // ou com "nome sobrenome", pra que a Banda/Repartição/Presença reflitam tudo.
+  if (user.member) {
+    const memberNome =
+      apelido && apelido.length > 0 ? apelido : `${nome} ${sobrenome}`.trim();
+    await db
+      .update(members)
+      .set({ nome: memberNome })
+      .where(eq(members.id, user.member.id));
+    revalidatePath(`/banda/${user.member.id}`);
+  }
+
+  revalidatePath("/conta");
+  revalidatePath("/");
+  return { success: true };
+}
 
 export async function changePasswordAction(
   _prev: AccountState,

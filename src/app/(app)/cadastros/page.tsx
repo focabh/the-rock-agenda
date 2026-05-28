@@ -13,6 +13,7 @@ export default async function CadastrosPage() {
     db
       .select({
         id: users.id,
+        apelido: users.apelido,
         nome: users.nome,
         sobrenome: users.sobrenome,
         username: users.username,
@@ -26,6 +27,7 @@ export default async function CadastrosPage() {
     db
       .select({
         id: users.id,
+        apelido: users.apelido,
         nome: users.nome,
         sobrenome: users.sobrenome,
         username: users.username,

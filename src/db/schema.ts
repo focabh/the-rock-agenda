@@ -34,6 +34,7 @@ export const users = sqliteTable("users", {
     .default("membro"),
   nome: text("nome"),
   sobrenome: text("sobrenome"),
+  apelido: text("apelido"), // "como gostaria de ser chamado" — usado no app inteiro
   email: text("email"),
   telefone: text("telefone"),
   cpf: text("cpf"),

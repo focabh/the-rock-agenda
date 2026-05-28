@@ -29,12 +29,12 @@ function Brand({ logoUrl }: { logoUrl: string }) {
 type SidebarProps = {
   username?: string;
   role?: string;
-  memberName?: string | null;
+  displayName?: string | null;
   logoUrl: string;
   onNavigate?: () => void;
 };
 
-function SidebarContent({ username, role, memberName, logoUrl, onNavigate }: SidebarProps) {
+function SidebarContent({ username, role, displayName, logoUrl, onNavigate }: SidebarProps) {
   return (
     <div className="flex h-full flex-col">
       <Brand logoUrl={logoUrl} />
@@ -54,9 +54,9 @@ function SidebarContent({ username, role, memberName, logoUrl, onNavigate }: Sid
             {role === "admin" ? "Admin" : "Músico"}
           </span>
           <span className="text-sm truncate font-medium">
-            {memberName ?? username ?? "—"}
+            {displayName ?? username ?? "—"}
           </span>
-          {memberName && username && (
+          {displayName && username && displayName !== username && (
             <span className="text-[10px] text-muted-foreground truncate">
               @{username}
             </span>
@@ -85,13 +85,13 @@ function SidebarContent({ username, role, memberName, logoUrl, onNavigate }: Sid
 export function AppShell({
   username,
   role,
-  memberName,
+  displayName,
   logoUrl,
   children,
 }: {
   username?: string;
   role?: string;
-  memberName?: string | null;
+  displayName?: string | null;
   logoUrl: string;
   children: React.ReactNode;
 }) {
@@ -104,7 +104,7 @@ export function AppShell({
         <SidebarContent
           username={username}
           role={role}
-          memberName={memberName}
+          displayName={displayName}
           logoUrl={logoUrl}
         />
       </aside>
@@ -123,7 +123,7 @@ export function AppShell({
               <SidebarContent
                 username={username}
                 role={role}
-                memberName={memberName}
+                displayName={displayName}
                 logoUrl={logoUrl}
                 onNavigate={() => setOpen(false)}
               />

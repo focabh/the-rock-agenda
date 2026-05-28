@@ -16,6 +16,7 @@ import {
 
 type Pending = {
   id: string;
+  apelido: string | null;
   nome: string | null;
   sobrenome: string | null;
   username: string;
@@ -27,6 +28,7 @@ type Pending = {
 
 type Approved = {
   id: string;
+  apelido: string | null;
   nome: string | null;
   sobrenome: string | null;
   username: string;
@@ -34,8 +36,17 @@ type Approved = {
   posicao: string | null;
 };
 
-function fullName(u: { nome: string | null; sobrenome: string | null; username: string }) {
-  return [u.nome, u.sobrenome].filter(Boolean).join(" ") || u.username;
+function fullName(u: {
+  apelido: string | null;
+  nome: string | null;
+  sobrenome: string | null;
+  username: string;
+}) {
+  return (
+    u.apelido?.trim() ||
+    [u.nome, u.sobrenome].filter(Boolean).join(" ") ||
+    u.username
+  );
 }
 
 export function CadastrosManager({

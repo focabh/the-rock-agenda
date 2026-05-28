@@ -27,8 +27,11 @@ export async function approveUserAction(userId: string) {
 
   await db.update(users).set({ status: "aprovado" }).where(eq(users.id, userId));
 
+  // Apelido (se houver) vira o nome do músico — ele pode trocar depois em Conta.
   const fullName =
-    [user.nome, user.sobrenome].filter(Boolean).join(" ") || user.username;
+    user.apelido?.trim() ||
+    [user.nome, user.sobrenome].filter(Boolean).join(" ") ||
+    user.username;
 
   // Vincula ao músico existente daquela posição (sem login ainda); senão cria
   const candidates = await db
