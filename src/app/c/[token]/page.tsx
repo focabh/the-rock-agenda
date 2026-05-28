@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { eq, sql, asc, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { ExternalLink, FileText, Maximize2 } from "lucide-react";
+import { ChevronLeft, ExternalLink, FileText, Maximize2 } from "lucide-react";
 import { db } from "@/db";
 import { contractorLinks, promoItems, users } from "@/db/schema";
-import { getLogoUrl } from "@/lib/auth";
+import { getCurrentUser, getLogoUrl } from "@/lib/auth";
 import { detectVideoEmbed } from "@/lib/video-embed";
 import { PressKitViewer } from "@/components/contratantes/press-kit-viewer";
 import { VideoPlayer } from "@/components/contratantes/video-player";
@@ -85,6 +86,9 @@ export default async function ContratantePublicPage({
     : `https://wa.me/?text=${waMsg}`;
 
   const logoUrl = await getLogoUrl();
+  // Pra quem tá logado (admin/músico) testando o link, mostra um atalho de
+  // voltar pro app. Visitante externo não vê nada disso.
+  const me = await getCurrentUser();
 
   return (
     <main className="min-h-dvh bg-background text-foreground">
@@ -99,12 +103,21 @@ export default async function ContratantePublicPage({
               className="size-full object-contain"
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="font-bold tracking-wide">The Rock</p>
             <p className="text-xs text-muted-foreground">
               Material da banda · BH
             </p>
           </div>
+          {me && (
+            <Link
+              href={me.role === "admin" ? "/contratantes" : "/"}
+              className="ml-auto inline-flex items-center gap-1.5 text-sm text-primary hover:underline shrink-0"
+            >
+              <ChevronLeft className="size-4" />
+              Voltar pro app
+            </Link>
+          )}
         </div>
       </header>
 
