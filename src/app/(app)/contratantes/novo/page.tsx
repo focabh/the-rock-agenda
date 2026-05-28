@@ -2,11 +2,11 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { requireAdmin } from "@/lib/auth";
+import { requireCurrentUser } from "@/lib/auth";
 import { NewContractorLinkForm } from "@/components/contratantes/new-link-form";
 
 export default async function NewContractorLinkPage() {
-  await requireAdmin();
+  await requireCurrentUser();
   return (
     <div>
       <PageHeader

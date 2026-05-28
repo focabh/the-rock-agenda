@@ -7,11 +7,12 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { requireAdmin } from "@/lib/auth";
+import { isAdmin, requireCurrentUser } from "@/lib/auth";
 import { ContratantesList } from "@/components/contratantes/contratantes-list";
 
 export default async function ContratantesPage() {
-  await requireAdmin();
+  const me = await requireCurrentUser();
+  const admin = isAdmin(me);
 
   // Pega links + nome de quem criou (pra mostrar na lista).
   const links = await db
@@ -24,6 +25,7 @@ export default async function ContratantesPage() {
       viewCount: contractorLinks.viewCount,
       lastViewedEm: contractorLinks.lastViewedEm,
       createdAt: contractorLinks.createdAt,
+      createdBy: contractorLinks.createdBy,
       creatorApelido: users.apelido,
       creatorNome: users.nome,
       creatorUsername: users.username,
@@ -73,12 +75,15 @@ export default async function ContratantesPage() {
                 viewCount: l.viewCount,
                 lastViewedEmISO: l.lastViewedEm?.toISOString() ?? null,
                 createdAtISO: l.createdAt.toISOString(),
+                createdById: l.createdBy ?? null,
                 creator:
                   l.creatorApelido ||
                   l.creatorNome ||
                   l.creatorUsername ||
                   "—",
               }))}
+              currentUserId={me.id}
+              admin={admin}
             />
           </Card>
         )}

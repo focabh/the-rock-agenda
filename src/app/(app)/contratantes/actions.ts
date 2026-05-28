@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { contractorLinks } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth";
+import { requireCurrentUser } from "@/lib/auth";
 
 const MAX_DAYS = 365;
 
@@ -15,11 +15,27 @@ function newToken(): string {
   return a + b;
 }
 
+/** Confere se quem chama pode mexer no link (criou ele ou é admin). */
+async function ensureCanManage(id: string) {
+  const me = await requireCurrentUser();
+  if (me.role === "admin") return me;
+  const [row] = await db
+    .select({ createdBy: contractorLinks.createdBy })
+    .from(contractorLinks)
+    .where(eq(contractorLinks.id, id))
+    .limit(1);
+  if (!row) throw new Error("Link não encontrado.");
+  if (row.createdBy !== me.id) {
+    throw new Error("Você só pode mexer nos links que você criou.");
+  }
+  return me;
+}
+
 export async function createContractorLinkAction(input: {
   label?: string;
   days: number;
 }) {
-  const me = await requireAdmin();
+  const me = await requireCurrentUser();
   const days = Math.max(1, Math.min(MAX_DAYS, Math.floor(input.days || 10)));
   const expiresEm = new Date(Date.now() + days * 86_400_000);
   const token = newToken();
@@ -34,7 +50,7 @@ export async function createContractorLinkAction(input: {
 }
 
 export async function extendContractorLinkAction(id: string, days: number) {
-  await requireAdmin();
+  await ensureCanManage(id);
   const d = Math.max(1, Math.min(MAX_DAYS, Math.floor(days || 10)));
   const expiresEm = new Date(Date.now() + d * 86_400_000);
   await db
@@ -46,7 +62,7 @@ export async function extendContractorLinkAction(id: string, days: number) {
 }
 
 export async function revokeContractorLinkAction(id: string) {
-  await requireAdmin();
+  await ensureCanManage(id);
   await db
     .update(contractorLinks)
     .set({ revokedEm: new Date() })
@@ -56,7 +72,7 @@ export async function revokeContractorLinkAction(id: string) {
 }
 
 export async function deleteContractorLinkAction(id: string) {
-  await requireAdmin();
+  await ensureCanManage(id);
   await db.delete(contractorLinks).where(eq(contractorLinks.id, id));
   revalidatePath("/contratantes");
   return { ok: true };

@@ -30,6 +30,7 @@ type Row = {
   viewCount: number;
   lastViewedEmISO: string | null;
   createdAtISO: string;
+  createdById: string | null;
   creator: string;
 };
 
@@ -39,17 +40,29 @@ function status(r: Row): "ativo" | "expirado" | "revogado" {
   return "ativo";
 }
 
-export function ContratantesList({ links }: { links: Row[] }) {
+export function ContratantesList({
+  links,
+  currentUserId,
+  admin,
+}: {
+  links: Row[];
+  currentUserId: string;
+  admin: boolean;
+}) {
   return (
     <ul className="divide-y divide-border">
       {links.map((r) => (
-        <LinkRow key={r.id} r={r} />
+        <LinkRow
+          key={r.id}
+          r={r}
+          canManage={admin || r.createdById === currentUserId}
+        />
       ))}
     </ul>
   );
 }
 
-function LinkRow({ r }: { r: Row }) {
+function LinkRow({ r, canManage }: { r: Row; canManage: boolean }) {
   const [pending, startTransition] = useTransition();
   const [extending, setExtending] = useState(false);
   const s = status(r);
@@ -167,45 +180,46 @@ function LinkRow({ r }: { r: Row }) {
             <ExternalLink className="size-3.5" />
             Abrir
           </Button>
-          {extending ? (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => extendByDays(7)}
-                disabled={pending}
-              >
-                +7 dias
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => extendByDays(30)}
-                disabled={pending}
-              >
-                +30 dias
-              </Button>
+          {canManage &&
+            (extending ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => extendByDays(7)}
+                  disabled={pending}
+                >
+                  +7 dias
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => extendByDays(30)}
+                  disabled={pending}
+                >
+                  +30 dias
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setExtending(false)}
+                  disabled={pending}
+                >
+                  Cancelar
+                </Button>
+              </>
+            ) : (
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => setExtending(false)}
+                title="Estender"
+                onClick={() => setExtending(true)}
                 disabled={pending}
               >
-                Cancelar
+                <CalendarPlus className="size-3.5" />
               </Button>
-            </>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              title="Estender"
-              onClick={() => setExtending(true)}
-              disabled={pending}
-            >
-              <CalendarPlus className="size-3.5" />
-            </Button>
-          )}
-          {s === "ativo" && (
+            ))}
+          {canManage && s === "ativo" && (
             <Button
               size="sm"
               variant="ghost"
@@ -217,16 +231,18 @@ function LinkRow({ r }: { r: Row }) {
               <Ban className="size-3.5" />
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            title="Apagar"
-            onClick={remove}
-            disabled={pending}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
+          {canManage && (
+            <Button
+              size="sm"
+              variant="ghost"
+              title="Apagar"
+              onClick={remove}
+              disabled={pending}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          )}
         </div>
       </div>
     </li>
