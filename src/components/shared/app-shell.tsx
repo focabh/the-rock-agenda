@@ -19,7 +19,7 @@ function Brand({ logoUrl }: { logoUrl: string }) {
       <div className="flex flex-col leading-tight">
         <span className="text-sm font-semibold tracking-wide">The Rock</span>
         <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
-          Operações
+          Backstage
         </span>
       </div>
     </Link>

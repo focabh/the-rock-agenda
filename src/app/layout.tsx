@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Rock — Operações",
-  description: "Plataforma operacional da banda The Rock",
+  title: "The Rock — Backstage",
+  description: "O backstage digital da banda The Rock.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "The Rock — Operações",
+    name: "The Rock — Backstage",
     short_name: "The Rock",
-    description: "Agenda, ensaios e operações da banda The Rock.",
+    description: "Agenda, ensaios, repertório e bastidores da banda The Rock.",
     start_url: "/",
     scope: "/",
     display: "standalone",
