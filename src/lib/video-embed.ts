@@ -12,10 +12,12 @@ export function detectVideoEmbed(url: string): VideoEmbed {
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/
   );
   if (yt) {
+    // youtube-nocookie.com não solta cookies de tracking até o usuário
+    // interagir com o player. Mesma API, menos exposição pra LGPD.
     return {
       kind: "embed",
       provider: "youtube",
-      src: `https://www.youtube.com/embed/${yt[1]}`,
+      src: `https://www.youtube-nocookie.com/embed/${yt[1]}`,
     };
   }
   // Vimeo

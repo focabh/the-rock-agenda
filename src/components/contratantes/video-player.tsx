@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Play, X } from "lucide-react";
 import { detectVideoEmbed } from "@/lib/video-embed";
 
@@ -34,10 +34,6 @@ export function VideoPlayer({
     embed.provider === "youtube"
       ? (embed.src.match(/embed\/([\w-]{11})/)?.[1] ?? null)
       : null;
-  const fallbackThumb = ytId
-    ? `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`
-    : null;
-  const showCover = cover ?? fallbackThumb;
 
   return (
     <>
@@ -47,7 +43,7 @@ export function VideoPlayer({
         className="block aspect-video w-full bg-black relative group overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary"
         aria-label={`Assistir ${title}`}
       >
-        <CoverInner cover={showCover} title={title} />
+        <CoverInner cover={cover} ytId={ytId} title={title} />
       </button>
       {open && (
         <VideoModal embed={embed} title={title} onClose={() => setOpen(false)} />
@@ -58,31 +54,53 @@ export function VideoPlayer({
 
 function CoverInner({
   cover,
+  ytId,
   title,
 }: {
-  cover: string | null;
+  cover: string | null | undefined;
+  ytId: string | null;
   title: string;
 }) {
-  if (!cover) {
+  // Prioridade: capa custom > thumb do YouTube (com fallback) > nada.
+  if (!cover && !ytId) {
     return (
       <>
         <span className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
           {title}
         </span>
-        <span className="absolute inset-0 flex items-center justify-center">
-          <span className="size-16 rounded-full bg-red-600/95 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <Play className="size-7 text-white fill-white ml-1" />
-          </span>
-        </span>
+        <PlayBadge />
       </>
     );
   }
   return (
     <>
+      {cover ? (
+        <CoverImg src={cover} title={title} />
+      ) : (
+        <YoutubeThumb id={ytId!} title={title} />
+      )}
+      <PlayBadge />
+    </>
+  );
+}
+
+function PlayBadge() {
+  return (
+    <span className="absolute inset-0 flex items-center justify-center">
+      <span className="size-16 rounded-full bg-red-600/95 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+        <Play className="size-7 text-white fill-white ml-1" />
+      </span>
+    </span>
+  );
+}
+
+function CoverImg({ src, title }: { src: string; title: string }) {
+  return (
+    <>
       {/* Fundo desfocado da própria capa */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={cover}
+        src={src}
         alt=""
         aria-hidden
         className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60"
@@ -90,15 +108,51 @@ function CoverInner({
       {/* Imagem principal centralizada */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={cover}
+        src={src}
         alt={title}
         className="relative w-full h-full object-contain opacity-95 group-hover:opacity-100 transition-opacity"
       />
-      <span className="absolute inset-0 flex items-center justify-center">
-        <span className="size-16 rounded-full bg-red-600/95 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-          <Play className="size-7 text-white fill-white ml-1" />
-        </span>
-      </span>
+    </>
+  );
+}
+
+/**
+ * Tenta maxresdefault.jpg (1280x720, 16:9 puro). Se o vídeo não tem
+ * versão HD, o YouTube devolve um placeholder cinza 120x90 — detecto
+ * isso pelo naturalWidth e caio pra hqdefault.jpg (480x360, sempre
+ * existe).
+ */
+function YoutubeThumb({ id, title }: { id: string; title: string }) {
+  const [src, setSrc] = useState(
+    `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
+  );
+  const triedFallback = useRef(false);
+
+  function handleLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    if (triedFallback.current) return;
+    if (e.currentTarget.naturalWidth <= 160) {
+      triedFallback.current = true;
+      setSrc(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`);
+    }
+  }
+
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        onLoad={handleLoad}
+        className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60"
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={title}
+        onLoad={handleLoad}
+        className="relative w-full h-full object-cover opacity-95 group-hover:opacity-100 transition-opacity"
+      />
     </>
   );
 }
