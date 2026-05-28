@@ -26,8 +26,8 @@ export const metadata: Metadata = {
     title: "The Rock",
   },
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/apple-touch-icon.png",
+    icon: "/api/icon/192",
+    apple: "/api/icon/apple",
   },
 };
 

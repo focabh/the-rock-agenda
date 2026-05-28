@@ -615,6 +615,44 @@ export const contractsRelations = relations(contracts, ({ one }) => ({
   }),
 }));
 
+// ---------------- PAGAMENTOS (LOG GERAL) ----------------
+
+// Registro de pagamentos efetuados pela banda (cachê a músico, equipamento, etc.).
+// Comprovante (PIX) é obrigatório. Usado pra histórico/auditoria;
+// a confirmação do músico continua no fluxo de show_member_paid.
+export const payments = sqliteTable("payments", {
+  id: id(),
+  tipo: text("tipo", { enum: ["show", "extra"] }).notNull(),
+  showId: text("show_id").references(() => shows.id, { onDelete: "set null" }),
+  descricao: text("descricao").notNull(),
+  recipient: text("recipient").notNull(), // pra quem foi (músico, fornecedor...)
+  valorCentavos: integer("valor_centavos").notNull(),
+  comprovante: text("comprovante").notNull(), // data URL — obrigatório
+  paidEm: integer("paid_em", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  createdAt: createdAt(),
+  createdBy: text("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+});
+
+// ---------------- DIVULGAÇÃO / PRESS KIT ----------------
+
+// Materiais de divulgação: vídeos, fotos, logo e press kit. Apenas links
+// externos (Drive, Instagram, YouTube, PDF público).
+export const promoItems = sqliteTable("promo_items", {
+  id: id(),
+  tipo: text("tipo", {
+    enum: ["video", "foto", "logo", "presskit"],
+  }).notNull(),
+  titulo: text("titulo").notNull(),
+  url: text("url").notNull(),
+  descricao: text("descricao"),
+  ordem: integer("ordem").notNull().default(0),
+  createdAt: createdAt(),
+});
+
 // ---------------- TYPES ----------------
 
 export type User = typeof users.$inferSelect;
@@ -642,3 +680,5 @@ export type SpotifyAuth = typeof spotifyAuth.$inferSelect;
 export type SongMemberReadiness = typeof songMemberReadiness.$inferSelect;
 export type ShowMemberPayment = typeof showMemberPayment.$inferSelect;
 export type ShowMemberPaid = typeof showMemberPaid.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
+export type PromoItem = typeof promoItems.$inferSelect;

@@ -10,7 +10,8 @@ import {
   Music2,
   Building2,
   Users,
-  ClipboardCheck,
+  Wallet,
+  Megaphone,
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/repertorio", label: "Repertório", icon: Music2 },
   { href: "/casas", label: "Casas", icon: Building2 },
   { href: "/banda", label: "Banda", icon: Users },
-  { href: "/checklists", label: "Checklists", icon: ClipboardCheck },
+  { href: "/pagamentos", label: "Pagamentos", icon: Wallet },
+  { href: "/divulgacao", label: "Divulgação", icon: Megaphone },
   { href: "/cadastros", label: "Cadastros", icon: UserPlus, adminOnly: true },
 ];
 

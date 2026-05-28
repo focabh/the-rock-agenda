@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { fileToDataUrl } from "@/lib/upload-helpers";
 import {
   markMemberPaidAction,
   confirmMemberPaymentAction,
@@ -21,41 +22,6 @@ import {
 } from "@/app/(app)/shows/[id]/actions-payment";
 
 export type PaidStatus = "none" | "aguardando" | "confirmado";
-
-/** Lê um arquivo como data URL, comprimindo imagens grandes via canvas. */
-async function fileToDataUrl(file: File): Promise<string> {
-  const readRaw = () =>
-    new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result as string);
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
-
-  if (!file.type.startsWith("image/")) return readRaw(); // PDF etc.
-
-  const dataUrl = await readRaw();
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const i = new Image();
-    i.onload = () => resolve(i);
-    i.onerror = reject;
-    i.src = dataUrl;
-  });
-  const maxDim = 1400;
-  let { width, height } = img;
-  if (Math.max(width, height) > maxDim) {
-    const scale = maxDim / Math.max(width, height);
-    width = Math.round(width * scale);
-    height = Math.round(height * scale);
-  }
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return dataUrl;
-  ctx.drawImage(img, 0, 0, width, height);
-  return canvas.toDataURL("image/jpeg", 0.75);
-}
 
 export function MemberPaidControls({
   showId,

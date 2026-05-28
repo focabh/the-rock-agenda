@@ -64,6 +64,9 @@ export function RegisterForm({
 
   return (
     <form action={handle} className="space-y-4" noValidate>
+      <p className="text-xs text-muted-foreground">
+        Todos os campos são obrigatórios.
+      </p>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label htmlFor="nome">Nome</Label>
@@ -140,13 +143,16 @@ export function RegisterForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="chavePix">Chave PIX</Label>
+        <Label htmlFor="chavePix">Chave PIX (para receber pagamentos) *</Label>
         <Input
           id="chavePix"
           name="chavePix"
-          placeholder="email, telefone ou chave aleatória"
+          placeholder="CPF, telefone, email ou chave aleatória"
           required
         />
+        <p className="text-xs text-muted-foreground">
+          Usamos pra te repassar o cachê dos shows.
+        </p>
         <Err name="chavePix" />
       </div>
 

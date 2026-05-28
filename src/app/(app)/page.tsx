@@ -1,29 +1,22 @@
 import Link from "next/link";
-import { asc, gte, sql, eq, and, ne } from "drizzle-orm";
+import { asc, gte, eq, and, ne } from "drizzle-orm";
 import {
   CalendarDays,
   CalendarClock,
   Music2,
   Plus,
   ChevronRight,
-  Clock,
-  AlertCircle,
-  TrendingUp,
   Users,
   Building2,
-  ClipboardCheck,
   MapPin,
+  UserPlus,
+  Wallet,
+  Megaphone,
 } from "lucide-react";
 import { db } from "@/db";
-import {
-  shows,
-  songs,
-  members,
-  songMemberReadiness,
-  rehearsals,
-} from "@/db/schema";
+import { shows, rehearsals, users } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShowStatusBadge } from "@/components/shared/status-badge";
 import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
@@ -36,69 +29,59 @@ import {
 } from "@/lib/formatters";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
+const TOP = 3; // mostra os 3 primeiros e "Ver todos (N)"
+
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   const admin = isAdmin(user);
   const now = new Date();
 
-  const proximos = await db.query.shows.findMany({
-    where: gte(shows.data, now),
-    with: { casa: true },
-    orderBy: (s, { asc }) => [asc(s.data)],
-    limit: 4,
-  });
+  // Carrega tudo em paralelo (sem cache curto pra evitar dado velho no painel).
+  const [proximosShows, proximosEnsaios, cacheReceber, pendentes] =
+    await Promise.all([
+      db.query.shows.findMany({
+        where: gte(shows.data, now),
+        with: { casa: true },
+        orderBy: (s, { asc }) => [asc(s.data)],
+      }),
+      db
+        .select()
+        .from(rehearsals)
+        .where(gte(rehearsals.data, now))
+        .orderBy(asc(rehearsals.data)),
+      db.query.shows.findMany({
+        where: and(
+          eq(shows.status, "concluido"),
+          ne(shows.pagamentoStatus, "pago")
+        ),
+        with: { casa: true },
+        orderBy: (s, { asc }) => [asc(s.data)],
+      }),
+      admin
+        ? db
+            .select({
+              id: users.id,
+              nome: users.nome,
+              sobrenome: users.sobrenome,
+              username: users.username,
+              posicao: users.posicao,
+            })
+            .from(users)
+            .where(eq(users.status, "pendente"))
+            .orderBy(asc(users.createdAt))
+        : Promise.resolve([] as Array<{
+            id: string;
+            nome: string | null;
+            sobrenome: string | null;
+            username: string;
+            posicao: string | null;
+          }>),
+    ]);
 
-  const proximosEnsaios = await db
-    .select()
-    .from(rehearsals)
-    .where(gte(rehearsals.data, now))
-    .orderBy(asc(rehearsals.data))
-    .limit(4);
-
-  const planejadosNaoConfirmados = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(shows)
-    .where(and(gte(shows.data, now), eq(shows.status, "planejado")));
-
-  const pagamentosPendentes = await db
-    .select({
-      count: sql<number>`count(*)`,
-      total: sql<number>`coalesce(sum(${shows.cacheCentavos}), 0)`,
-    })
-    .from(shows)
-    .where(
-      and(
-        eq(shows.status, "concluido"),
-        ne(shows.pagamentoStatus, "pago")
-      )
-    );
-
-  // Repertório pronto = músicas onde TODOS os músicos não-manager ativos estão prontos
-  // (ignora aposentada/ideia_futura). Default 'aprendendo' se sem registro.
-  const allSongs = await db.select().from(songs);
-  const playableSongs = allSongs.filter(
-    (s) => s.status !== "aposentada" && s.status !== "ideia_futura"
+  const cacheTotalCent = cacheReceber.reduce(
+    (s, r) => s + (r.cacheCentavos ?? 0),
+    0
   );
-  const playableMembers = await db.query.members.findMany({
-    where: (m, { and, eq }) => and(eq(m.ativo, true)),
-  });
-  const playableMembersFiltered = playableMembers.filter((m) => !m.isManager);
-  const readinessRows = await db.select().from(songMemberReadiness);
-  const readinessBySong = new Map<string, Map<string, string>>();
-  for (const r of readinessRows) {
-    if (!readinessBySong.has(r.songId))
-      readinessBySong.set(r.songId, new Map());
-    readinessBySong.get(r.songId)!.set(r.memberId, r.status);
-  }
-  const totalSongs = playableSongs.length;
-  const prontas = playableSongs.filter((s) =>
-    playableMembersFiltered.every(
-      (m) =>
-        (readinessBySong.get(s.id)?.get(m.id) ?? "aprendendo") === "pronta"
-    )
-  ).length;
-
-  const proximoShow = proximos[0];
 
   return (
     <div>
@@ -116,68 +99,58 @@ export default async function DashboardPage() {
       />
 
       <div className="p-6 space-y-6">
-        {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            icon={CalendarDays}
-            label="Próximos shows"
-            value={proximos.length.toString()}
-            hint={
-              proximoShow
-                ? `Próximo em ${formatDataBR(proximoShow.data)}`
-                : "Sem shows agendados"
-            }
-          />
-          <StatCard
-            icon={AlertCircle}
-            label="A confirmar"
-            value={String(Number(planejadosNaoConfirmados[0]?.count ?? 0))}
-            hint="Shows planejados não confirmados"
-            tone={
-              Number(planejadosNaoConfirmados[0]?.count ?? 0) > 0
-                ? "amber"
-                : "default"
-            }
-          />
-          <StatCard
-            icon={Clock}
-            label="Cachê a receber"
-            value={formatBRL(Number(pagamentosPendentes[0]?.total ?? 0))}
-            hint={`${Number(pagamentosPendentes[0]?.count ?? 0)} show(s) concluídos sem pagamento`}
-            tone={
-              Number(pagamentosPendentes[0]?.count ?? 0) > 0 ? "amber" : "default"
-            }
-          />
-          <StatCard
-            icon={TrendingUp}
-            label="Repertório pronto"
-            value={`${prontas} / ${totalSongs}`}
-            hint={
-              totalSongs > 0
-                ? `${Math.round((prontas / totalSongs) * 100)}% todos prontos`
-                : "Sem músicas"
-            }
-          />
-        </div>
+        {/* Aprovações pendentes (admin) */}
+        {admin && pendentes.length > 0 && (
+          <Section
+            title="Aprovações pendentes"
+            count={pendentes.length}
+            href="/cadastros"
+            tone="amber"
+          >
+            <ul className="divide-y divide-border">
+              {pendentes.slice(0, TOP).map((u) => {
+                const nome =
+                  [u.nome, u.sobrenome].filter(Boolean).join(" ") || u.username;
+                return (
+                  <li key={u.id}>
+                    <Link
+                      href="/cadastros"
+                      className="flex items-center gap-4 px-5 py-4 hover:bg-accent/30"
+                    >
+                      <div className="flex size-10 items-center justify-center rounded-md bg-amber-500/10 ring-1 ring-amber-500/30 shrink-0">
+                        <UserPlus className="size-4 text-amber-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{nome}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {u.posicao || "Posição a definir"} ·{" "}
+                          <span className="font-mono">@{u.username}</span>
+                        </p>
+                      </div>
+                      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        )}
 
         {/* Próximos shows */}
-        <section className="space-y-3">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              Próximos shows
-            </h2>
-            <Link
-              href="/shows"
-              className="text-sm text-primary hover:underline"
-            >
-              Ver todos →
-            </Link>
-          </div>
-          {proximos.length === 0 ? (
+        <Section
+          title="Próximos shows"
+          count={proximosShows.length}
+          href="/shows"
+        >
+          {proximosShows.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
               title="Nenhum show agendado"
-              description={admin ? "Que tal cadastrar o próximo?" : "Sem shows futuros no momento."}
+              description={
+                admin
+                  ? "Que tal cadastrar o próximo?"
+                  : "Sem shows futuros no momento."
+              }
               action={
                 admin && (
                   <Button render={<Link href="/shows/novo" />}>
@@ -187,55 +160,44 @@ export default async function DashboardPage() {
               }
             />
           ) : (
-            <Card className="overflow-hidden p-0">
-              <ul className="divide-y divide-border">
-                {proximos.map((s) => (
-                  <li key={s.id}>
-                    <Link
-                      href={`/shows/${s.id}`}
-                      className="flex items-center gap-4 px-5 py-4 hover:bg-accent/30"
-                    >
-                      <div className="flex flex-col items-center text-center w-14 shrink-0">
-                        <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
-                          {dataPartesBR(s.data).mes}
-                        </span>
-                        <span className="text-2xl font-bold leading-none">
-                          {dataPartesBR(s.data).dia}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{s.casa.nome}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDataBR(s.data, true)}
-                          {s.termino && ` até ${s.termino}`}
-                        </p>
-                      </div>
-                      <ShowStatusBadge status={s.status} />
-                      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+            <ul className="divide-y divide-border">
+              {proximosShows.slice(0, TOP).map((s) => (
+                <li key={s.id}>
+                  <Link
+                    href={`/shows/${s.id}`}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-accent/30"
+                  >
+                    <DateBlock data={s.data} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{s.casa.nome}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDataBR(s.data, true)}
+                        {s.termino && ` até ${s.termino}`}
+                      </p>
+                    </div>
+                    <ShowStatusBadge status={s.status} />
+                    <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
           )}
-        </section>
+        </Section>
 
         {/* Próximos ensaios */}
-        <section className="space-y-3">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              Próximos ensaios
-            </h2>
-            <Link href="/ensaios" className="text-sm text-primary hover:underline">
-              Ver todos →
-            </Link>
-          </div>
+        <Section
+          title="Próximos ensaios"
+          count={proximosEnsaios.length}
+          href="/ensaios"
+        >
           {proximosEnsaios.length === 0 ? (
             <EmptyState
               icon={CalendarClock}
               title="Nenhum ensaio agendado"
               description={
-                admin ? "Marque o próximo ensaio da banda." : "Sem ensaios futuros no momento."
+                admin
+                  ? "Marque o próximo ensaio da banda."
+                  : "Sem ensaios futuros no momento."
               }
               action={
                 admin && (
@@ -246,50 +208,79 @@ export default async function DashboardPage() {
               }
             />
           ) : (
-            <Card className="overflow-hidden p-0">
-              <ul className="divide-y divide-border">
-                {proximosEnsaios.map((r) => (
-                  <li key={r.id}>
-                    <Link
-                      href={`/ensaios/${r.id}`}
-                      className="flex items-center gap-4 px-5 py-4 hover:bg-accent/30"
-                    >
-                      <div className="flex flex-col items-center text-center w-14 shrink-0">
-                        <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
-                          {dataPartesBR(r.data).mes}
-                        </span>
-                        <span className="text-2xl font-bold leading-none">
-                          {dataPartesBR(r.data).dia}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">
-                          {r.foco || "Ensaio"}
-                          {r.inicio && (
-                            <span className="font-mono text-muted-foreground ml-2 text-sm">
-                              {r.inicio}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
-                          {(r.local || r.endereco) && (
-                            <MapPin className="size-3.5 shrink-0" />
-                          )}
-                          {[r.local, r.endereco].filter(Boolean).join(" · ") ||
-                            formatDataBR(r.data)}
-                        </p>
-                      </div>
-                      <EnsaioStatusBadge status={r.status} />
-                      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+            <ul className="divide-y divide-border">
+              {proximosEnsaios.slice(0, TOP).map((r) => (
+                <li key={r.id}>
+                  <Link
+                    href={`/ensaios/${r.id}`}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-accent/30"
+                  >
+                    <DateBlock data={r.data} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {r.foco || "Ensaio"}
+                        {r.inicio && (
+                          <span className="font-mono text-muted-foreground ml-2 text-sm">
+                            {r.inicio}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
+                        {(r.local || r.endereco) && (
+                          <MapPin className="size-3.5 shrink-0" />
+                        )}
+                        {[r.local, r.endereco].filter(Boolean).join(" · ") ||
+                          formatDataBR(r.data)}
+                      </p>
+                    </div>
+                    <EnsaioStatusBadge status={r.status} />
+                    <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
           )}
-        </section>
+        </Section>
 
-        {/* Atalhos */}
+        {/* Cachê a receber */}
+        {cacheReceber.length > 0 && (
+          <Section
+            title="Cachê a receber"
+            count={cacheReceber.length}
+            href="/shows"
+            tone="amber"
+            extra={
+              <span className="font-mono text-sm text-amber-300">
+                {formatBRL(cacheTotalCent)}
+              </span>
+            }
+          >
+            <ul className="divide-y divide-border">
+              {cacheReceber.slice(0, TOP).map((s) => (
+                <li key={s.id}>
+                  <Link
+                    href={`/shows/${s.id}`}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-accent/30"
+                  >
+                    <DateBlock data={s.data} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{s.casa.nome}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDataBR(s.data)} · status {s.pagamentoStatus}
+                      </p>
+                    </div>
+                    <span className="font-mono text-sm">
+                      {formatBRL(s.cacheCentavos ?? 0)}
+                    </span>
+                    <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {/* Acesso rápido */}
         <section className="space-y-3">
           <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Acesso rápido
@@ -298,7 +289,8 @@ export default async function DashboardPage() {
             <QuickLink href="/repertorio" icon={Music2} title="Repertório" />
             <QuickLink href="/casas" icon={Building2} title="Casas" />
             <QuickLink href="/banda" icon={Users} title="Banda" />
-            <QuickLink href="/checklists" icon={ClipboardCheck} title="Checklists" />
+            <QuickLink href="/pagamentos" icon={Wallet} title="Pagamentos" />
+            <QuickLink href="/divulgacao" icon={Megaphone} title="Divulgação" />
           </div>
         </section>
       </div>
@@ -306,46 +298,54 @@ export default async function DashboardPage() {
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
+function Section({
+  title,
+  count,
+  href,
   tone = "default",
+  extra,
+  children,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  hint?: string;
+  title: string;
+  count: number;
+  href: string;
   tone?: "default" | "amber";
+  extra?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardContent className="py-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              {label}
-            </p>
-            <p
-              className={
-                tone === "amber"
-                  ? "text-2xl font-bold mt-1 text-amber-400"
-                  : "text-2xl font-bold mt-1"
-              }
-            >
-              {value}
-            </p>
-            {hint && (
-              <p className="text-xs text-muted-foreground mt-1">{hint}</p>
-            )}
-          </div>
-          <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/20 shrink-0">
-            <Icon className="size-4 text-primary" />
-          </div>
+    <section className="space-y-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2
+          className={
+            tone === "amber"
+              ? "text-sm font-medium uppercase tracking-wider text-amber-300"
+              : "text-sm font-medium uppercase tracking-wider text-muted-foreground"
+          }
+        >
+          {title}
+        </h2>
+        <div className="flex items-center gap-3">
+          {extra}
+          <Link href={href} className="text-sm text-primary hover:underline">
+            Ver todos ({count}) →
+          </Link>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      <Card className="overflow-hidden p-0">{children}</Card>
+    </section>
+  );
+}
+
+function DateBlock({ data }: { data: Date | number }) {
+  const p = dataPartesBR(data);
+  return (
+    <div className="flex flex-col items-center text-center w-14 shrink-0">
+      <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
+        {p.mes}
+      </span>
+      <span className="text-2xl font-bold leading-none">{p.dia}</span>
+    </div>
   );
 }
 
@@ -361,12 +361,12 @@ function QuickLink({
   return (
     <Link href={href}>
       <Card className="transition-colors hover:border-primary/40 hover:bg-accent/40">
-        <CardContent className="py-4 flex items-center gap-3">
+        <div className="py-4 px-5 flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/20">
             <Icon className="size-5 text-primary" />
           </div>
           <span className="font-medium">{title}</span>
-        </CardContent>
+        </div>
       </Card>
     </Link>
   );
