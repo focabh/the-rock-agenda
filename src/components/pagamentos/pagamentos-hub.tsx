@@ -150,7 +150,6 @@ export function PagamentosHub({
           items={groups.caches_aPagar}
           admin
           currentMemberId={currentMemberId}
-          defaultOpen
         />
       )}
 
@@ -163,7 +162,6 @@ export function PagamentosHub({
           items={groups.caches_aPagar}
           admin={false}
           currentMemberId={currentMemberId}
-          defaultOpen
         />
       )}
 
@@ -182,7 +180,6 @@ export function PagamentosHub({
           items={groups.caches_aguardando}
           admin={admin}
           currentMemberId={currentMemberId}
-          defaultOpen={!admin}
         />
       )}
 
