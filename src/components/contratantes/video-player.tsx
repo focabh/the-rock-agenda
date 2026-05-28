@@ -44,10 +44,13 @@ export function VideoPlayer({
       );
     }
     if (active) {
+      // controls=0: sem barra de play/seek; modestbranding+rel=0+iv_load=3:
+      // sem sugestões nem branding; playsinline pra iOS não abrir fullscreen.
+      const src = `${embed.src}?autoplay=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1`;
       return (
         <div className="aspect-video bg-black">
           <iframe
-            src={`${embed.src}?autoplay=1`}
+            src={src}
             title={title}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -59,11 +62,21 @@ export function VideoPlayer({
     }
   }
 
-  // Vimeo / Drive (com ou sem capa após clique → iframe normal)
+  // Vimeo: parâmetros equivalentes pra esconder UI.
+  // Drive: o player do Drive não suporta esses params; segue padrão.
+  let src = embed.src;
+  if (active) {
+    if (embed.provider === "vimeo") {
+      src = `${embed.src}?autoplay=1&title=0&byline=0&portrait=0&controls=0`;
+    } else {
+      src = `${embed.src}?autoplay=1`;
+    }
+  }
+
   return (
     <div className="aspect-video bg-black">
       <iframe
-        src={active ? `${embed.src}?autoplay=1` : embed.src}
+        src={src}
         title={title}
         className="w-full h-full"
         loading="lazy"
