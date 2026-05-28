@@ -683,6 +683,23 @@ export const contractorLinks = sqliteTable("contractor_links", {
   createdAt: createdAt(),
 });
 
+// Visitas registradas pra cada link. Cada visita é uma linha (IP + UA +
+// cidade aproximada). Não conta acessos do criador/admin (filtrados antes
+// de gravar). Permite ver "X visitas, 3 dispositivos, última de BH".
+export const contractorLinkVisits = sqliteTable("contractor_link_visits", {
+  id: id(),
+  linkId: text("link_id")
+    .notNull()
+    .references(() => contractorLinks.id, { onDelete: "cascade" }),
+  ip: text("ip"),
+  userAgent: text("user_agent"),
+  city: text("city"),
+  country: text("country"),
+  visitedAt: integer("visited_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // ---------------- DIVULGAÇÃO / PRESS KIT ----------------
 
 // Materiais de divulgação: vídeos, fotos, logo e press kit. Apenas links
@@ -731,4 +748,5 @@ export type ShowMemberPaid = typeof showMemberPaid.$inferSelect;
 export type Gasto = typeof gastos.$inferSelect;
 export type Reembolso = typeof reembolsos.$inferSelect;
 export type ContractorLink = typeof contractorLinks.$inferSelect;
+export type ContractorLinkVisit = typeof contractorLinkVisits.$inferSelect;
 export type PromoItem = typeof promoItems.$inferSelect;

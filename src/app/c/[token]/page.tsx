@@ -1,13 +1,17 @@
 import Link from "next/link";
-import { eq, sql, asc, inArray } from "drizzle-orm";
+import { eq, asc, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ExternalLink } from "lucide-react";
+import { headers } from "next/headers";
+import { ChevronLeft } from "lucide-react";
 import { db } from "@/db";
 import { contractorLinks, promoItems, users } from "@/db/schema";
 import { getCurrentUser, getLogoUrl } from "@/lib/auth";
-import { detectVideoEmbed } from "@/lib/video-embed";
 import { PressKitSection } from "@/components/contratantes/press-kit-section";
 import { VideoPlayer } from "@/components/contratantes/video-player";
+import {
+  ipFromHeaders,
+  logContractorLinkVisit,
+} from "@/lib/visit-logger";
 
 export const dynamic = "force-dynamic";
 
@@ -48,15 +52,20 @@ export default async function ContratantePublicPage({
     );
   }
 
-  // Conta a visita (fire-and-forget, não bloqueia render).
-  db
-    .update(contractorLinks)
-    .set({
-      viewCount: sql`${contractorLinks.viewCount} + 1`,
-      lastViewedEm: new Date(),
-    })
-    .where(eq(contractorLinks.id, link.id))
-    .catch(() => {});
+  // Pra quem está logado (admin/músico) testando o link, mostra atalho de
+  // voltar. Visitante externo não vê nada disso.
+  const me = await getCurrentUser();
+  const isCreatorOrAdmin =
+    me?.role === "admin" || (me && link.createdBy === me.id);
+
+  // Loga a visita (fire-and-forget) só quando é visitante externo —
+  // pré-visualizações do admin/criador não contam.
+  if (!isCreatorOrAdmin) {
+    const h = await headers();
+    const ip = ipFromHeaders(h);
+    const ua = h.get("user-agent") ?? "";
+    logContractorLinkVisit(link.id, ip, ua).catch(() => {});
+  }
 
   // Material: press kit (1) + vídeos (todos).
   const items = await db
@@ -86,9 +95,6 @@ export default async function ContratantePublicPage({
     : `https://wa.me/?text=${waMsg}`;
 
   const logoUrl = await getLogoUrl();
-  // Pra quem tá logado (admin/músico) testando o link, mostra um atalho de
-  // voltar pro app. Visitante externo não vê nada disso.
-  const me = await getCurrentUser();
 
   return (
     <main className="min-h-dvh bg-background text-foreground">
@@ -145,39 +151,21 @@ export default async function ContratantePublicPage({
             </p>
           ) : (
             <div className="space-y-4">
-              {videos.map((v) => {
-                const embed = detectVideoEmbed(v.url);
-                return (
-                  <div
-                    key={v.id}
-                    className="rounded-lg overflow-hidden border border-border bg-card"
-                  >
-                    {embed.kind === "embed" ? (
-                      <VideoPlayer
-                        url={v.url}
-                        title={v.titulo}
-                        cover={v.cover}
-                      />
-                    ) : (
-                      <div className="p-4 text-sm text-muted-foreground">
-                        Vídeo externo — abra pelo link abaixo.
-                      </div>
-                    )}
-                    <div className="px-4 py-3 flex items-center justify-between gap-2">
-                      <p className="font-medium truncate">{v.titulo}</p>
-                      <a
-                        href={v.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline inline-flex items-center gap-1.5 shrink-0"
-                      >
-                        Abrir
-                        <ExternalLink className="size-3.5" />
-                      </a>
-                    </div>
+              {videos.map((v) => (
+                <div
+                  key={v.id}
+                  className="rounded-lg overflow-hidden border border-border bg-card"
+                >
+                  <VideoPlayer
+                    url={v.url}
+                    title={v.titulo}
+                    cover={v.cover}
+                  />
+                  <div className="px-4 py-3">
+                    <p className="font-medium truncate">{v.titulo}</p>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -198,8 +186,12 @@ export default async function ContratantePublicPage({
           </a>
         </section>
 
-        <footer className="text-center text-xs text-muted-foreground py-6">
-          The Rock — BH · {new Date().getFullYear()}
+        <footer className="text-center text-xs text-muted-foreground py-6 space-y-1">
+          <p>The Rock — BH · {new Date().getFullYear()}</p>
+          <p className="opacity-70">
+            Pra controle, registramos a data, hora e cidade aproximada do
+            acesso. Sem dados pessoais.
+          </p>
         </footer>
       </div>
     </main>

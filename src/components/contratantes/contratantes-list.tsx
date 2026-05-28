@@ -27,8 +27,10 @@ type Row = {
   label: string | null;
   expiresEmISO: string;
   revokedEmISO: string | null;
-  viewCount: number;
-  lastViewedEmISO: string | null;
+  visitCount: number;
+  uniqueDevices: number;
+  lastVisitISO: string | null;
+  lastVisitCity: string | null;
   createdAtISO: string;
   createdById: string | null;
   creator: string;
@@ -138,11 +140,15 @@ function LinkRow({ r, canManage }: { r: Row; canManage: boolean }) {
               <>Revogado em {formatDataBR(new Date(r.revokedEmISO!))}</>
             )}
             {" · "}
-            {r.viewCount} visita{r.viewCount === 1 ? "" : "s"}
-            {r.lastViewedEmISO && (
+            {r.visitCount} visita{r.visitCount === 1 ? "" : "s"}
+            {r.uniqueDevices > 1 && (
+              <> ({r.uniqueDevices} dispositivos)</>
+            )}
+            {r.lastVisitISO && (
               <>
-                {" · última em "}
-                {formatDataBR(new Date(r.lastViewedEmISO))}
+                {" · última "}
+                {formatDataBR(new Date(r.lastVisitISO))}
+                {r.lastVisitCity && <> de {r.lastVisitCity}</>}
               </>
             )}
             {r.creator && <> · por {r.creator}</>}

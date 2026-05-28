@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { ChevronLeft, Plus, Share2 } from "lucide-react";
 import { db } from "@/db";
-import { contractorLinks, users } from "@/db/schema";
+import { contractorLinks, contractorLinkVisits, users } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -33,6 +33,50 @@ export default async function ContratantesPage() {
     .from(contractorLinks)
     .leftJoin(users, eq(contractorLinks.createdBy, users.id))
     .orderBy(desc(contractorLinks.createdAt));
+
+  // Visitas reais (excluindo prévias do criador/admin, já filtradas no log).
+  const linkIds = links.map((l) => l.id);
+  const visits =
+    linkIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(contractorLinkVisits)
+          .where(inArray(contractorLinkVisits.linkId, linkIds))
+          .orderBy(desc(contractorLinkVisits.visitedAt));
+
+  const statsByLink = new Map<
+    string,
+    {
+      total: number;
+      uniqueIps: number;
+      lastAt: string | null;
+      lastCity: string | null;
+    }
+  >();
+  for (const l of links) statsByLink.set(l.id, {
+    total: 0,
+    uniqueIps: 0,
+    lastAt: null,
+    lastCity: null,
+  });
+  const ipsByLink = new Map<string, Set<string>>();
+  for (const v of visits) {
+    const s = statsByLink.get(v.linkId);
+    if (!s) continue;
+    s.total++;
+    if (!ipsByLink.has(v.linkId)) ipsByLink.set(v.linkId, new Set());
+    if (v.ip) ipsByLink.get(v.linkId)!.add(v.ip);
+    // Visits estão em ordem desc; primeiro visto = mais recente.
+    if (s.lastAt === null) {
+      s.lastAt = v.visitedAt.toISOString();
+      s.lastCity = v.city ?? null;
+    }
+  }
+  for (const [id, set] of ipsByLink) {
+    const s = statsByLink.get(id);
+    if (s) s.uniqueIps = set.size;
+  }
 
   return (
     <div>
@@ -66,22 +110,27 @@ export default async function ContratantesPage() {
         ) : (
           <Card className="overflow-hidden p-0">
             <ContratantesList
-              links={links.map((l) => ({
-                id: l.id,
-                token: l.token,
-                label: l.label,
-                expiresEmISO: l.expiresEm.toISOString(),
-                revokedEmISO: l.revokedEm?.toISOString() ?? null,
-                viewCount: l.viewCount,
-                lastViewedEmISO: l.lastViewedEm?.toISOString() ?? null,
-                createdAtISO: l.createdAt.toISOString(),
-                createdById: l.createdBy ?? null,
-                creator:
-                  l.creatorApelido ||
-                  l.creatorNome ||
-                  l.creatorUsername ||
-                  "—",
-              }))}
+              links={links.map((l) => {
+                const s = statsByLink.get(l.id);
+                return {
+                  id: l.id,
+                  token: l.token,
+                  label: l.label,
+                  expiresEmISO: l.expiresEm.toISOString(),
+                  revokedEmISO: l.revokedEm?.toISOString() ?? null,
+                  visitCount: s?.total ?? 0,
+                  uniqueDevices: s?.uniqueIps ?? 0,
+                  lastVisitISO: s?.lastAt ?? null,
+                  lastVisitCity: s?.lastCity ?? null,
+                  createdAtISO: l.createdAt.toISOString(),
+                  createdById: l.createdBy ?? null,
+                  creator:
+                    l.creatorApelido ||
+                    l.creatorNome ||
+                    l.creatorUsername ||
+                    "—",
+                };
+              })}
               currentUserId={me.id}
               admin={admin}
             />
