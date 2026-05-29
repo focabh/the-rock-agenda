@@ -32,7 +32,20 @@ function onlyDigits(s: string): string {
   return s.replace(/\D+/g, "");
 }
 
-export default async function ShowPublicPage() {
+export default async function ShowPublicPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ v?: string }>;
+}) {
+  const sp = await searchParams;
+  // ?v=N: contratante vê só os N primeiros vídeos. Press kit e IG seguem
+  // sempre. N fora do range razoável é ignorado (mostra tudo).
+  const limitRaw = Number.parseInt(sp.v ?? "", 10);
+  const videoLimit =
+    Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 50
+      ? limitRaw
+      : null;
+
   // Visitante = qualquer um não-logado. Pré-visualização de admin/músico
   // logado NÃO conta no tracking.
   const me = await getCurrentUser();
@@ -44,14 +57,21 @@ export default async function ShowPublicPage() {
   }
 
   // Material: press kit + vídeos + instagram.
+  // Ordena por tipo, ordem (campo manual, default 0) e criação.
   const items = await db
     .select()
     .from(promoItems)
     .where(inArray(promoItems.tipo, ["presskit", "video", "instagram"]))
-    .orderBy(asc(promoItems.tipo), asc(promoItems.createdAt));
+    .orderBy(
+      asc(promoItems.tipo),
+      asc(promoItems.ordem),
+      asc(promoItems.createdAt)
+    );
 
   const presskit = items.find((i) => i.tipo === "presskit") ?? null;
-  const videos = items.filter((i) => i.tipo === "video");
+  const allVideos = items.filter((i) => i.tipo === "video");
+  const videos =
+    videoLimit !== null ? allVideos.slice(0, videoLimit) : allVideos;
   const instagram = items.find((i) => i.tipo === "instagram") ?? null;
   const igHandle = instagram ? extractIgHandle(instagram.url) : "";
 
