@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/db";
-import { contractorLinkVisits } from "@/db/schema";
+import { contractorLinkVisits, siteVisits } from "@/db/schema";
 
 /** Pega o IP do visitante a partir dos headers (Vercel/x-forwarded-for). */
 export function ipFromHeaders(h: Headers): string {
@@ -45,6 +45,17 @@ export async function logContractorLinkVisit(
   const loc = await geolocate(ip);
   await db.insert(contractorLinkVisits).values({
     linkId,
+    ip: ip || null,
+    userAgent: userAgent ? userAgent.slice(0, 500) : null,
+    city: loc.city,
+    country: loc.country,
+  });
+}
+
+/** Grava uma visita à página fixa /show (fire-and-forget). */
+export async function logSiteVisit(ip: string, userAgent: string) {
+  const loc = await geolocate(ip);
+  await db.insert(siteVisits).values({
     ip: ip || null,
     userAgent: userAgent ? userAgent.slice(0, 500) : null,
     city: loc.city,

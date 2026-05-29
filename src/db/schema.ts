@@ -700,6 +700,20 @@ export const contractorLinkVisits = sqliteTable("contractor_link_visits", {
     .$defaultFn(() => new Date()),
 });
 
+// Visitas à página pública fixa /show. Sem token, sem expiração — link
+// único pra todos os contratantes. Cada linha é uma visita anônima
+// (admin/músico logado NÃO conta).
+export const siteVisits = sqliteTable("site_visits", {
+  id: id(),
+  ip: text("ip"),
+  userAgent: text("user_agent"),
+  city: text("city"),
+  country: text("country"),
+  visitedAt: integer("visited_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // ---------------- DIVULGAÇÃO / PRESS KIT ----------------
 
 // Materiais de divulgação: vídeos, fotos, logo e press kit. Apenas links
@@ -749,4 +763,5 @@ export type Gasto = typeof gastos.$inferSelect;
 export type Reembolso = typeof reembolsos.$inferSelect;
 export type ContractorLink = typeof contractorLinks.$inferSelect;
 export type ContractorLinkVisit = typeof contractorLinkVisits.$inferSelect;
+export type SiteVisit = typeof siteVisits.$inferSelect;
 export type PromoItem = typeof promoItems.$inferSelect;
