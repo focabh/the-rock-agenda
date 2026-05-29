@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { desc } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { ChevronLeft, Eye, Calendar, MapPin } from "lucide-react";
 import { db } from "@/db";
-import { siteVisits } from "@/db/schema";
+import { promoItems, siteVisits } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,13 @@ import { formatDataBR } from "@/lib/formatters";
 
 export default async function ContratantesPage() {
   await requireCurrentUser();
+
+  // Vídeos disponíveis (pra checkbox-list de seleção no SharePanel).
+  const videosRaw = await db
+    .select({ id: promoItems.id, titulo: promoItems.titulo })
+    .from(promoItems)
+    .where(eq(promoItems.tipo, "video"))
+    .orderBy(asc(promoItems.ordem), asc(promoItems.createdAt));
 
   // Estatísticas de visitas à página fixa /show.
   const visits = await db
@@ -41,7 +48,7 @@ export default async function ContratantesPage() {
       />
 
       <div className="p-6 space-y-6">
-        <SharePanel />
+        <SharePanel videos={videosRaw} />
 
         {/* Stats agregadas */}
         <Card className="p-5 space-y-4">

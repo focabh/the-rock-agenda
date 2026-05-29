@@ -38,13 +38,25 @@ export default async function ShowPublicPage({
   searchParams: Promise<{ v?: string }>;
 }) {
   const sp = await searchParams;
-  // ?v=N: contratante vê só os N primeiros vídeos. Press kit e IG seguem
-  // sempre. N fora do range razoável é ignorado (mostra tudo).
-  const limitRaw = Number.parseInt(sp.v ?? "", 10);
-  const videoLimit =
-    Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 50
-      ? limitRaw
-      : null;
+  // ?v=id1,id2,id3: contratante vê só esses vídeos, na ordem dada na URL.
+  // ?v= (vazio): mostra ZERO vídeos (só press kit + IG).
+  // Sem ?v: mostra todos.
+  let videoFilter: { mode: "all" | "none" | "ids"; ids: string[] } = {
+    mode: "all",
+    ids: [],
+  };
+  if (typeof sp.v === "string") {
+    const trimmed = sp.v.trim();
+    if (trimmed === "") {
+      videoFilter = { mode: "none", ids: [] };
+    } else {
+      const ids = trimmed
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (ids.length > 0) videoFilter = { mode: "ids", ids };
+    }
+  }
 
   // Visitante = qualquer um não-logado. Pré-visualização de admin/músico
   // logado NÃO conta no tracking.
@@ -70,8 +82,16 @@ export default async function ShowPublicPage({
 
   const presskit = items.find((i) => i.tipo === "presskit") ?? null;
   const allVideos = items.filter((i) => i.tipo === "video");
-  const videos =
-    videoLimit !== null ? allVideos.slice(0, videoLimit) : allVideos;
+  let videos = allVideos;
+  if (videoFilter.mode === "none") {
+    videos = [];
+  } else if (videoFilter.mode === "ids") {
+    // Preserva a ordem dos IDs como vieram na URL (assim admin decide).
+    const map = new Map(allVideos.map((v) => [v.id, v] as const));
+    videos = videoFilter.ids
+      .map((id) => map.get(id))
+      .filter((v): v is (typeof allVideos)[number] => Boolean(v));
+  }
   const instagram = items.find((i) => i.tipo === "instagram") ?? null;
   const igHandle = instagram ? extractIgHandle(instagram.url) : "";
 
