@@ -1,10 +1,8 @@
-import Link from "next/link";
 import { asc } from "drizzle-orm";
-import { ChevronLeft, Megaphone } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import { db } from "@/db";
 import { promoItems } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { DivulgacaoManager } from "@/components/divulgacao/divulgacao-manager";
 
@@ -22,11 +20,6 @@ export default async function DivulgacaoPage() {
       <PageHeader
         title="Material da banda"
         description="Vídeos, fotos, logo, press kit e rider técnico. Tudo que é usado pra divulgar a banda."
-        actions={
-          <Button variant="outline" size="sm" render={<Link href="/" />}>
-            <ChevronLeft className="size-4" /> Painel
-          </Button>
-        }
       />
       <div className="p-6">
         <DivulgacaoManager

@@ -1,10 +1,8 @@
-import Link from "next/link";
 import { asc, desc, eq } from "drizzle-orm";
-import { ChevronLeft, Eye, Calendar, MapPin } from "lucide-react";
+import { Eye, Calendar, MapPin } from "lucide-react";
 import { db } from "@/db";
 import { promoItems, siteVisits } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { requireCurrentUser } from "@/lib/auth";
 import { SharePanel } from "@/components/contratantes/share-panel";
@@ -40,11 +38,6 @@ export default async function ContratantesPage() {
       <PageHeader
         title="Divulgação"
         description="Link único da banda pra mandar pra contratantes. Envie por WhatsApp e acompanhe quantas pessoas abriram."
-        actions={
-          <Button variant="outline" size="sm" render={<Link href="/" />}>
-            <ChevronLeft className="size-4" /> Painel
-          </Button>
-        }
       />
 
       <div className="p-6 space-y-6">

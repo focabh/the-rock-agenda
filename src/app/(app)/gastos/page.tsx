@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { desc } from "drizzle-orm";
-import { Plus, Wallet, ChevronLeft } from "lucide-react";
+import { Plus, Wallet } from "lucide-react";
 import { db } from "@/db";
 import { gastos } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
@@ -33,9 +33,6 @@ export default async function GastosPage() {
         description="Investimentos e despesas da banda (equipamento, divulgação, transporte). Cachê pago a músicos fica em Pagamentos."
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" render={<Link href="/" />}>
-              <ChevronLeft className="size-4" /> Painel
-            </Button>
             {admin && (
               <Button size="sm" render={<Link href="/gastos/novo" />}>
                 <Plus className="size-4" /> Novo gasto

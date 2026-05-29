@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { and, desc, eq, gt, inArray, ne } from "drizzle-orm";
-import { Plus, ChevronLeft } from "lucide-react";
+import { Plus } from "lucide-react";
 import { db } from "@/db";
 import {
   shows,
@@ -184,9 +184,6 @@ export default async function PagamentosPage() {
         }
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" render={<Link href="/" />}>
-              <ChevronLeft className="size-4" /> Painel
-            </Button>
             {admin && (
               <Button size="sm" render={<Link href="/pagamentos/novo" />}>
                 <Plus className="size-4" /> Novo reembolso

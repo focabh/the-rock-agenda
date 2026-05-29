@@ -193,6 +193,7 @@ export default async function DashboardPage() {
       <PageHeader
         title="Painel"
         description={`Hoje é ${formatDataExtensa(now)}`}
+        hideBackButton
         actions={
           admin && (
             <Button render={<Link href="/shows/novo" />}>
