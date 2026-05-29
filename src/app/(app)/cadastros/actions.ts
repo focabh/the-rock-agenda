@@ -1,85 +1,44 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { users, members, appSettings } from "@/db/schema";
+import { users, inviteTokens } from "@/db/schema";
 import { hashPassword, requireAdmin } from "@/lib/auth";
+import { generateInviteToken, INVITE_TTL_MS } from "@/lib/invites";
+import { telefoneValido, maskPhone } from "@/lib/validators";
 
-export async function toggleRegistrationsAction(enabled: boolean) {
-  await requireAdmin();
-  const [row] = await db.select().from(appSettings).limit(1);
-  if (row) {
-    await db
-      .update(appSettings)
-      .set({ allowRegistrations: enabled })
-      .where(eq(appSettings.id, row.id));
-  } else {
-    await db.insert(appSettings).values({ allowRegistrations: enabled });
-  }
-  revalidatePath("/cadastros");
-}
+/**
+ * Gera um convite amarrado a um telefone. Retorna o token — o link
+ * (/cadastro?invite=TOKEN) é montado no cliente com a origin correta.
+ */
+export async function createInviteAction(nome: string, telefone: string) {
+  const me = await requireAdmin();
 
-export async function approveUserAction(userId: string) {
-  await requireAdmin();
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  if (!user) return { error: "Usuário não encontrado." };
-
-  await db.update(users).set({ status: "aprovado" }).where(eq(users.id, userId));
-
-  // Apelido (se houver) vira o nome do músico — ele pode trocar depois em Conta.
-  const fullName =
-    user.apelido?.trim() ||
-    [user.nome, user.sobrenome].filter(Boolean).join(" ") ||
-    user.username;
-
-  // Vincula ao músico existente daquela posição (sem login ainda); senão cria
-  const candidates = await db
-    .select()
-    .from(members)
-    .where(and(eq(members.ativo, true), isNull(members.userId)));
-  const match = user.posicao
-    ? candidates.find(
-        (m) => m.funcao.toLowerCase() === user.posicao!.toLowerCase()
-      )
-    : undefined;
-
-  if (match) {
-    await db
-      .update(members)
-      .set({
-        userId: user.id,
-        nome: fullName,
-        telefone: user.telefone ?? match.telefone,
-        chavePix: user.chavePix ?? match.chavePix,
-      })
-      .where(eq(members.id, match.id));
-  } else {
-    const [already] = await db
-      .select({ id: members.id })
-      .from(members)
-      .where(eq(members.userId, userId))
-      .limit(1);
-    if (!already) {
-      await db.insert(members).values({
-        nome: fullName,
-        funcao: user.posicao ?? "A definir",
-        telefone: user.telefone,
-        chavePix: user.chavePix,
-        userId: user.id,
-        ativo: true,
-      });
-    }
+  const tel = maskPhone(telefone);
+  if (!telefoneValido(tel)) {
+    return { error: "Telefone inválido — use DDD + número, ex: (31) 99999-9999." };
   }
 
+  const token = generateInviteToken();
+  await db.insert(inviteTokens).values({
+    token,
+    telefone: tel,
+    nome: nome.trim() || null,
+    expiresEm: new Date(Date.now() + INVITE_TTL_MS),
+    createdBy: me.id,
+  });
+
   revalidatePath("/cadastros");
-  revalidatePath("/banda");
-  return { ok: true };
+  return { ok: true, token, telefone: tel, nome: nome.trim() || null };
 }
 
-export async function rejectUserAction(userId: string) {
+export async function revokeInviteAction(inviteId: string) {
   await requireAdmin();
-  await db.update(users).set({ status: "recusado" }).where(eq(users.id, userId));
+  await db
+    .update(inviteTokens)
+    .set({ revokedEm: new Date() })
+    .where(eq(inviteTokens.id, inviteId));
   revalidatePath("/cadastros");
   return { ok: true };
 }

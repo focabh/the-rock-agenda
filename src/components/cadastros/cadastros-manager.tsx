@@ -1,29 +1,39 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, X, UserPlus, ShieldCheck, Shield, KeyRound } from "lucide-react";
+import {
+  Copy,
+  Link2,
+  MessageCircle,
+  ShieldCheck,
+  Shield,
+  KeyRound,
+  Ticket,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/shared/empty-state";
 import { toast } from "sonner";
+import { maskPhone, onlyDigits } from "@/lib/validators";
 import {
-  approveUserAction,
-  rejectUserAction,
+  createInviteAction,
+  revokeInviteAction,
   resetUserPasswordAction,
   setUserRoleAction,
-  toggleRegistrationsAction,
 } from "@/app/(app)/cadastros/actions";
 
-type Pending = {
+type InviteStatus = "valido" | "usado" | "revogado" | "expirado";
+
+type Invite = {
   id: string;
-  apelido: string | null;
+  token: string;
+  telefone: string;
   nome: string | null;
-  sobrenome: string | null;
-  username: string;
-  email: string | null;
-  telefone: string | null;
-  chavePix: string | null;
-  posicao: string | null;
+  status: InviteStatus;
+  expiresEm: number; // epoch ms
 };
 
 type Approved = {
@@ -49,122 +59,166 @@ function fullName(u: {
   );
 }
 
+function inviteUrl(token: string) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/cadastro?invite=${token}`;
+}
+
+function inviteMessage(nome: string | null, token: string) {
+  const saud = nome?.trim() ? `Oi, ${nome.trim()}!` : "Oi!";
+  return `${saud} Você foi convidado para entrar no app da The Rock 🎸\n\nFaça seu cadastro por aqui:\n${inviteUrl(token)}`;
+}
+
+const STATUS_LABEL: Record<InviteStatus, { text: string; cls: string }> = {
+  valido: { text: "Ativo", cls: "text-emerald-400" },
+  usado: { text: "Usado", cls: "text-muted-foreground" },
+  revogado: { text: "Revogado", cls: "text-muted-foreground" },
+  expirado: { text: "Expirado", cls: "text-amber-400" },
+};
+
 export function CadastrosManager({
-  allowRegistrations,
-  pending,
+  invites,
   approved,
   currentUserId,
 }: {
-  allowRegistrations: boolean;
-  pending: Pending[];
+  invites: Invite[];
   approved: Approved[];
   currentUserId: string;
 }) {
-  const [allowed, setAllowed] = useState(allowRegistrations);
-  const [, startTransition] = useTransition();
+  const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [isPending, startTransition] = useTransition();
 
-  function toggle() {
-    const next = !allowed;
-    setAllowed(next);
+  const ativos = invites.filter((i) => i.status === "valido");
+  const historico = invites.filter((i) => i.status !== "valido");
+
+  function copyLink(token: string) {
+    navigator.clipboard
+      .writeText(inviteUrl(token))
+      .then(() => toast.success("Link copiado!"))
+      .catch(() => toast.error("Não consegui copiar — copie manualmente."));
+  }
+
+  function openWhatsApp(inv: Invite) {
+    const num = onlyDigits(inv.telefone);
+    const text = encodeURIComponent(inviteMessage(inv.nome, inv.token));
+    const url = num
+      ? `https://wa.me/55${num}?text=${text}`
+      : `https://wa.me/?text=${text}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function gerar() {
+    const tel = telefone.trim();
+    if (onlyDigits(tel).length < 10) {
+      toast.error("Informe um telefone válido (DDD + número).");
+      return;
+    }
     startTransition(async () => {
-      await toggleRegistrationsAction(next);
-      toast.success(next ? "Cadastros liberados." : "Cadastros fechados.");
+      const r = await createInviteAction(nome, tel);
+      if (r?.error) {
+        toast.error(r.error);
+        return;
+      }
+      setNome("");
+      setTelefone("");
+      toast.success("Convite gerado! Envie o link pelo WhatsApp.");
+    });
+  }
+
+  function revogar(inv: Invite) {
+    if (!confirm(`Revogar o convite de ${inv.nome || inv.telefone}?`)) return;
+    startTransition(async () => {
+      await revokeInviteAction(inv.id);
+      toast.success("Convite revogado.");
     });
   }
 
   return (
     <div className="space-y-8">
+      {/* Gerar convite */}
       <Card>
-        <CardContent className="py-5 flex items-center justify-between gap-4">
+        <CardContent className="py-5 space-y-4">
           <div>
-            <h3 className="font-semibold">Permitir novos cadastros</h3>
+            <h3 className="font-semibold">Convidar alguém</h3>
             <p className="text-sm text-muted-foreground">
-              Quando ligado, qualquer pessoa pode se cadastrar pela tela de
-              login (entra como pendente até você aprovar).
+              O cadastro é só por convite. Gere um link amarrado ao telefone da
+              pessoa e mande pelo WhatsApp. O telefone fica travado no cadastro.
             </p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={allowed}
-            onClick={toggle}
-            className={
-              "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors " +
-              (allowed ? "bg-primary" : "bg-muted")
-            }
-          >
-            <span
-              className={
-                "inline-block size-4 transform rounded-full bg-white transition-transform " +
-                (allowed ? "translate-x-6" : "translate-x-1")
-              }
-            />
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="inv-nome">Nome (opcional)</Label>
+              <Input
+                id="inv-nome"
+                placeholder="João"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inv-tel">Telefone (WhatsApp) *</Label>
+              <Input
+                id="inv-tel"
+                type="tel"
+                inputMode="tel"
+                placeholder="(31) 99999-9999"
+                value={telefone}
+                onChange={(e) => setTelefone(maskPhone(e.target.value))}
+              />
+            </div>
+          </div>
+          <Button onClick={gerar} disabled={isPending}>
+            <Ticket className="size-4" />
+            Gerar convite
+          </Button>
         </CardContent>
       </Card>
 
+      {/* Convites ativos */}
       <div>
         <h3 className="font-semibold mb-3">
-          Cadastros pendentes{" "}
-          {pending.length > 0 && (
-            <span className="text-sm text-amber-400">({pending.length})</span>
+          Convites ativos{" "}
+          {ativos.length > 0 && (
+            <span className="text-sm text-emerald-400">({ativos.length})</span>
           )}
         </h3>
-        {pending.length === 0 ? (
+        {ativos.length === 0 ? (
           <EmptyState
-            icon={UserPlus}
-            title="Nenhum cadastro pendente"
-            description="Quando alguém se cadastrar, aparece aqui para você aprovar."
+            icon={Ticket}
+            title="Nenhum convite ativo"
+            description="Gere um convite acima para liberar o cadastro de alguém."
           />
         ) : (
           <ul className="divide-y divide-border border border-border rounded-md">
-            {pending.map((u) => (
-              <li key={u.id} className="flex items-center gap-3 px-4 py-3">
+            {ativos.map((inv) => (
+              <li key={inv.id} className="flex flex-wrap items-center gap-2 px-4 py-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">
-                    {fullName(u)}{" "}
-                    {u.posicao && (
-                      <span className="text-xs text-primary">· {u.posicao}</span>
-                    )}{" "}
+                  <p className="text-sm font-medium truncate">
+                    {inv.nome || "Sem nome"}{" "}
                     <span className="text-xs text-muted-foreground font-mono">
-                      @{u.username}
+                      {inv.telefone}
                     </span>
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {[u.email, u.telefone, u.chavePix && `PIX: ${u.chavePix}`]
-                      .filter(Boolean)
-                      .join(" · ")}
+                  <p className="text-xs text-muted-foreground">
+                    Expira em {new Date(inv.expiresEm).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-emerald-400"
-                  onClick={() =>
-                    startTransition(async () => {
-                      const r = await approveUserAction(u.id);
-                      if (r?.error) toast.error(r.error);
-                      else toast.success(`${fullName(u)} aprovado.`);
-                    })
-                  }
-                >
-                  <Check className="size-4" />
-                  Aprovar
+                <Button size="sm" variant="default" onClick={() => openWhatsApp(inv)}>
+                  <MessageCircle className="size-4" />
+                  WhatsApp
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => copyLink(inv.token)}>
+                  <Copy className="size-4" />
+                  Copiar link
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   className="text-muted-foreground hover:text-destructive"
-                  onClick={() => {
-                    if (!confirm(`Recusar o cadastro de ${fullName(u)}?`)) return;
-                    startTransition(async () => {
-                      await rejectUserAction(u.id);
-                      toast.success("Cadastro recusado.");
-                    });
-                  }}
+                  onClick={() => revogar(inv)}
                 >
-                  <X className="size-4" />
-                  Recusar
+                  <Trash2 className="size-4" />
                 </Button>
               </li>
             ))}
@@ -172,13 +226,44 @@ export function CadastrosManager({
         )}
       </div>
 
+      {/* Histórico de convites */}
+      {historico.length > 0 && (
+        <div>
+          <h3 className="font-semibold mb-3 text-muted-foreground">
+            Histórico de convites
+          </h3>
+          <ul className="divide-y divide-border border border-border rounded-md">
+            {historico.map((inv) => {
+              const st = STATUS_LABEL[inv.status];
+              return (
+                <li key={inv.id} className="flex items-center gap-3 px-4 py-3">
+                  <Link2 className="size-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">
+                      {inv.nome || "Sem nome"}{" "}
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {inv.telefone}
+                      </span>
+                    </p>
+                  </div>
+                  <span className={"text-xs uppercase tracking-wider " + st.cls}>
+                    {st.text}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Usuários com acesso */}
       <div>
         <h3 className="font-semibold mb-3">Usuários com acesso</h3>
         {approved.length === 0 ? (
           <EmptyState
             icon={ShieldCheck}
             title="Nenhum usuário ainda"
-            description="Usuários aprovados aparecem aqui. Você pode torná-los admin."
+            description="Quem se cadastrar por convite aparece aqui. Você pode torná-los admin."
           />
         ) : (
           <ul className="divide-y divide-border border border-border rounded-md">

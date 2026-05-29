@@ -46,6 +46,27 @@ export const users = sqliteTable("users", {
   createdAt: createdAt(),
 });
 
+// Convites de cadastro. O único jeito de criar conta: um admin gera um
+// convite amarrado a um telefone e manda o link. Quem abrir o link cadastra
+// (sem aprovação) e o telefone já vem travado no valor do convite.
+// Single-use: redeemedEm marca consumo; expiresEm/revokedEm invalidam.
+export const inviteTokens = sqliteTable("invite_tokens", {
+  id: id(),
+  token: text("token").notNull().unique(),
+  telefone: text("telefone").notNull(), // amarrado — só este telefone pode usar
+  nome: text("nome"), // opcional — pré-preenche o cadastro
+  expiresEm: integer("expires_em", { mode: "timestamp_ms" }).notNull(),
+  redeemedEm: integer("redeemed_em", { mode: "timestamp_ms" }),
+  redeemedUserId: text("redeemed_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  revokedEm: integer("revoked_em", { mode: "timestamp_ms" }),
+  createdBy: text("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: createdAt(),
+});
+
 // Configuração global (singleton) — controla cadastro aberto, etc.
 export const appSettings = sqliteTable("app_settings", {
   id: id(),
@@ -754,6 +775,7 @@ export type MemberUnavailability = typeof memberUnavailability.$inferSelect;
 export type Rehearsal = typeof rehearsals.$inferSelect;
 export type RehearsalMemberPresence = typeof rehearsalMemberPresence.$inferSelect;
 export type AppSettings = typeof appSettings.$inferSelect;
+export type InviteToken = typeof inviteTokens.$inferSelect;
 export type ShowMemberPresence = typeof showMemberPresence.$inferSelect;
 export type SpotifyAuth = typeof spotifyAuth.$inferSelect;
 export type SongMemberReadiness = typeof songMemberReadiness.$inferSelect;

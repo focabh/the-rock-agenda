@@ -3,15 +3,22 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RegisterForm } from "@/components/auth/register-form";
-import { getAvailablePositions, getLogoUrl, registrationsAllowed } from "@/lib/auth";
+import { getAvailablePositions, getLogoUrl } from "@/lib/auth";
+import { getValidInvite } from "@/lib/invites";
 
-export default async function CadastroPage() {
-  const [allowed, positions, logo] = await Promise.all([
-    registrationsAllowed(),
+export default async function CadastroPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string }>;
+}) {
+  const { invite: inviteToken } = await searchParams;
+
+  const [invite, positions, logo] = await Promise.all([
+    getValidInvite(inviteToken),
     getAvailablePositions(),
     getLogoUrl(),
   ]);
-  const canRegister = allowed && positions.length > 0;
+  const canRegister = Boolean(invite) && positions.length > 0;
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden bg-background py-10">
@@ -39,12 +46,17 @@ export default async function CadastroPage() {
         </CardHeader>
         <CardContent>
           {canRegister ? (
-            <RegisterForm availablePositions={positions} />
+            <RegisterForm
+              availablePositions={positions}
+              inviteToken={invite!.token}
+              lockedTelefone={invite!.telefone}
+              defaultNome={invite!.nome ?? ""}
+            />
           ) : (
             <div className="space-y-4 text-center">
               <p className="text-sm text-muted-foreground">
-                {!allowed
-                  ? "Os cadastros estão fechados no momento. Fale com o administrador da banda."
+                {!invite
+                  ? "O cadastro na The Rock é só por convite. Peça um link ao administrador da banda — o convite pode ter expirado ou já ter sido usado."
                   : "Todas as posições da banda já têm cadastro. Fale com o administrador."}
               </p>
               <Button render={<Link href="/login" />} className="w-full">

@@ -1,19 +1,18 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq, or, sql } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, members, inviteTokens } from "@/db/schema";
 import {
   getAvailablePositions,
   getSession,
   hashPassword,
-  registrationsAllowed,
   verifyPassword,
 } from "@/lib/auth";
 import { parseForm } from "@/lib/form";
-import { sendRegistrationNotification } from "@/lib/email";
+import { getValidInvite, samePhone } from "@/lib/invites";
 import { sendPushToAdmins } from "@/lib/push";
 import { POSICOES, pixValido, telefoneValido } from "@/lib/validators";
 
@@ -78,6 +77,7 @@ const registerSchema = z.object({
     .max(200)
     .refine(pixValido, "Chave PIX inválida — pode ser CPF, telefone, email ou chave aleatória"),
   posicao: z.enum(POSICOES, { message: "Escolha sua posição na banda" }),
+  inviteToken: z.string().trim().min(1, "Convite ausente"),
 });
 
 /** Checagem leve usada no blur do campo "usuário" — não consome login. */
@@ -102,13 +102,25 @@ export async function registerAction(
   _prev: RegisterState,
   formData: FormData
 ): Promise<RegisterState> {
-  if (!(await registrationsAllowed())) {
-    return { error: "Os cadastros estão fechados no momento." };
-  }
-
   const parsed = parseForm(registerSchema, formData);
   if (!parsed.ok) return parsed.state;
   const data = parsed.data;
+
+  // Cadastro só por convite válido de um admin.
+  const invite = await getValidInvite(data.inviteToken);
+  if (!invite) {
+    return {
+      error:
+        "Convite inválido ou expirado. Peça um novo link ao administrador da banda.",
+    };
+  }
+  // O telefone é travado no convite — confere no servidor de qualquer forma.
+  if (!samePhone(data.telefone, invite.telefone)) {
+    return {
+      fieldErrors: { telefone: ["Telefone diferente do convite"] },
+      error: "Este convite é para outro telefone.",
+    };
+  }
 
   const existing = await db
     .select({ id: users.id, username: users.username, email: users.email })
@@ -130,39 +142,91 @@ export async function registerAction(
   }
 
   const passwordHash = await hashPassword(data.password);
-  await db.insert(users).values({
-    username: data.username,
-    passwordHash,
-    role: "membro",
-    status: "pendente",
-    nome: data.nome,
-    sobrenome: data.sobrenome,
-    email: data.email,
+  const [created] = await db
+    .insert(users)
+    .values({
+      username: data.username,
+      passwordHash,
+      role: "membro",
+      status: "aprovado", // convite já é a aprovação — entra direto
+      nome: data.nome,
+      sobrenome: data.sobrenome,
+      email: data.email,
+      telefone: data.telefone,
+      chavePix: data.chavePix,
+      posicao: data.posicao,
+    })
+    .returning({ id: users.id });
+
+  // Consome o convite (single-use), amarrando ao usuário criado.
+  await db
+    .update(inviteTokens)
+    .set({ redeemedEm: new Date(), redeemedUserId: created.id })
+    .where(eq(inviteTokens.id, invite.id));
+
+  // Cria/vincula o músico correspondente (antes feito na aprovação do admin).
+  await linkOrCreateMember(created.id, {
+    nome: `${data.nome} ${data.sobrenome}`.trim(),
+    posicao: data.posicao,
     telefone: data.telefone,
     chavePix: data.chavePix,
-    posicao: data.posicao,
   });
 
-  await sendRegistrationNotification({
-    nome: `${data.nome} ${data.sobrenome}`,
-    username: data.username,
-    email: data.email,
-    telefone: data.telefone,
-    chavePix: data.chavePix,
-    posicao: data.posicao,
-  });
-
-  // Avisa os admins por push (não bloqueia se falhar).
+  // Avisa os admins por push que entrou gente nova (não bloqueia se falhar).
   try {
     await sendPushToAdmins({
-      title: "Novo cadastro 👥",
-      body: `${data.nome} ${data.sobrenome} (${data.posicao}) está aguardando aprovação.`,
+      title: "Novo membro entrou 🎸",
+      body: `${data.nome} ${data.sobrenome} (${data.posicao}) se cadastrou pelo convite.`,
       url: "/cadastros",
       tag: `cadastro-${data.username}`,
     });
   } catch (e) {
-    console.error("push (novo cadastro) falhou:", e);
+    console.error("push (novo membro) falhou:", e);
   }
 
   return { success: true };
+}
+
+/** Liga o usuário recém-criado a um músico existente (mesma posição, sem
+ * login) ou cria um novo registro de músico. */
+async function linkOrCreateMember(
+  userId: string,
+  data: { nome: string; posicao: string; telefone: string; chavePix: string }
+) {
+  const candidates = await db
+    .select()
+    .from(members)
+    .where(and(eq(members.ativo, true), isNull(members.userId)));
+  const match = candidates.find(
+    (m) => m.funcao.toLowerCase() === data.posicao.toLowerCase()
+  );
+
+  if (match) {
+    await db
+      .update(members)
+      .set({
+        userId,
+        nome: data.nome || match.nome,
+        telefone: data.telefone ?? match.telefone,
+        chavePix: data.chavePix ?? match.chavePix,
+      })
+      .where(eq(members.id, match.id));
+    return;
+  }
+
+  const [already] = await db
+    .select({ id: members.id })
+    .from(members)
+    .where(eq(members.userId, userId))
+    .limit(1);
+  if (!already) {
+    await db.insert(members).values({
+      nome: data.nome || "A definir",
+      funcao: data.posicao,
+      telefone: data.telefone,
+      chavePix: data.chavePix,
+      userId,
+      ativo: true,
+    });
+  }
 }

@@ -9,7 +9,6 @@ import {
   Users,
   Building2,
   MapPin,
-  UserPlus,
   Wallet,
   Receipt,
   Megaphone,
@@ -19,7 +18,6 @@ import { db } from "@/db";
 import {
   shows,
   rehearsals,
-  users,
   members,
   showMemberPresence,
   showMemberPayment,
@@ -48,46 +46,26 @@ export default async function DashboardPage() {
   const now = new Date();
 
   // Carrega tudo em paralelo (sem cache curto pra evitar dado velho no painel).
-  const [proximosShows, proximosEnsaios, cacheReceber, pendentes] =
-    await Promise.all([
-      db.query.shows.findMany({
-        where: gte(shows.data, now),
-        with: { casa: true },
-        orderBy: (s, { asc }) => [asc(s.data)],
-      }),
-      db
-        .select()
-        .from(rehearsals)
-        .where(gte(rehearsals.data, now))
-        .orderBy(asc(rehearsals.data)),
-      db.query.shows.findMany({
-        where: and(
-          eq(shows.status, "concluido"),
-          ne(shows.pagamentoStatus, "pago")
-        ),
-        with: { casa: true },
-        orderBy: (s, { asc }) => [asc(s.data)],
-      }),
-      admin
-        ? db
-            .select({
-              id: users.id,
-              nome: users.nome,
-              sobrenome: users.sobrenome,
-              username: users.username,
-              posicao: users.posicao,
-            })
-            .from(users)
-            .where(eq(users.status, "pendente"))
-            .orderBy(asc(users.createdAt))
-        : Promise.resolve([] as Array<{
-            id: string;
-            nome: string | null;
-            sobrenome: string | null;
-            username: string;
-            posicao: string | null;
-          }>),
-    ]);
+  const [proximosShows, proximosEnsaios, cacheReceber] = await Promise.all([
+    db.query.shows.findMany({
+      where: gte(shows.data, now),
+      with: { casa: true },
+      orderBy: (s, { asc }) => [asc(s.data)],
+    }),
+    db
+      .select()
+      .from(rehearsals)
+      .where(gte(rehearsals.data, now))
+      .orderBy(asc(rehearsals.data)),
+    db.query.shows.findMany({
+      where: and(
+        eq(shows.status, "concluido"),
+        ne(shows.pagamentoStatus, "pago")
+      ),
+      with: { casa: true },
+      orderBy: (s, { asc }) => [asc(s.data)],
+    }),
+  ]);
 
   const totalDasCasas = cacheReceber.reduce(
     (s, r) => s + (r.cacheCentavos ?? 0),
@@ -205,43 +183,6 @@ export default async function DashboardPage() {
       />
 
       <div className="p-6 space-y-6">
-        {/* Aprovações pendentes (admin) */}
-        {admin && pendentes.length > 0 && (
-          <Section
-            title="Aprovações pendentes"
-            count={pendentes.length}
-            href="/cadastros"
-            tone="amber"
-          >
-            <ul className="divide-y divide-border">
-              {pendentes.slice(0, TOP).map((u) => {
-                const nome =
-                  [u.nome, u.sobrenome].filter(Boolean).join(" ") || u.username;
-                return (
-                  <li key={u.id}>
-                    <Link
-                      href="/cadastros"
-                      className="flex items-center gap-4 px-5 py-4 hover:bg-accent/30"
-                    >
-                      <div className="flex size-10 items-center justify-center rounded-md bg-amber-500/10 ring-1 ring-amber-500/30 shrink-0">
-                        <UserPlus className="size-4 text-amber-300" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{nome}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {u.posicao || "Posição a definir"} ·{" "}
-                          <span className="font-mono">@{u.username}</span>
-                        </p>
-                      </div>
-                      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </Section>
-        )}
-
         {/* Próximos shows */}
         <Section
           title="Próximos shows"

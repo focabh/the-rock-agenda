@@ -14,7 +14,7 @@ import {
   Receipt,
   Megaphone,
   Share2,
-  UserPlus,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/gastos", label: "Gastos", icon: Receipt, adminOnly: true },
   { href: "/divulgacao", label: "Material da banda", icon: Megaphone },
   { href: "/contratantes", label: "Divulgação", icon: Share2 },
-  { href: "/cadastros", label: "Cadastros", icon: UserPlus, adminOnly: true },
+  { href: "/cadastros", label: "Convites", icon: Ticket, adminOnly: true },
 ];
 
 export function SidebarNav({

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { checkUsernameAction, registerAction } from "@/app/(auth)/actions";
-import { maskPhone, telefoneValido, pixValido } from "@/lib/validators";
+import { telefoneValido, pixValido } from "@/lib/validators";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
 const selectCls =
@@ -28,18 +28,26 @@ type Fields = {
 
 export function RegisterForm({
   availablePositions,
+  inviteToken,
+  lockedTelefone,
+  defaultNome = "",
 }: {
   availablePositions: string[];
+  inviteToken: string;
+  /** Telefone amarrado ao convite — travado no form. */
+  lockedTelefone: string;
+  /** Nome opcional pré-preenchido pelo convite. */
+  defaultNome?: string;
 }) {
   const [state, formAction, pending] = useActionState(registerAction, null);
   const [fields, setFields] = useState<Fields>({
-    nome: "",
+    nome: defaultNome,
     sobrenome: "",
     posicao: "",
     email: "",
     username: "",
     password: "",
-    telefone: "",
+    telefone: lockedTelefone,
     chavePix: "",
   });
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
@@ -117,6 +125,7 @@ export function RegisterForm({
     // Monta o FormData a partir do estado (preserva valores no re-render).
     const fd = new FormData();
     for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    fd.append("inviteToken", inviteToken);
     formAction(fd);
   }
 
@@ -125,13 +134,13 @@ export function RegisterForm({
       <div className="space-y-4 text-center">
         <CheckCircle2 className="size-12 text-emerald-400 mx-auto" />
         <div className="space-y-1">
-          <h2 className="font-semibold text-lg">Cadastro enviado!</h2>
+          <h2 className="font-semibold text-lg">Cadastro concluído!</h2>
           <p className="text-sm text-muted-foreground">
-            Seu acesso ficará disponível assim que o administrador aprovar.
+            Sua conta já está ativa. É só entrar com seu usuário e senha.
           </p>
         </div>
         <Button render={<Link href="/login" />} className="w-full">
-          Voltar para o login
+          Entrar agora
         </Button>
       </div>
     );
@@ -266,11 +275,15 @@ export function RegisterForm({
           name="telefone"
           type="tel"
           inputMode="tel"
-          placeholder="(31) 99999-9999"
           value={fields.telefone}
-          onChange={(e) => set("telefone", maskPhone(e.target.value))}
-          autoComplete="tel"
+          readOnly
+          aria-readonly="true"
+          tabIndex={-1}
+          className="bg-muted/50 text-muted-foreground cursor-not-allowed"
         />
+        <p className="text-xs text-muted-foreground">
+          Definido no convite — fale com o admin se estiver errado.
+        </p>
         <Err name="telefone" />
       </div>
 

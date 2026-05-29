@@ -1,29 +1,16 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { users, appSettings } from "@/db/schema";
+import { users, inviteTokens } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { CadastrosManager } from "@/components/cadastros/cadastros-manager";
 import { requireAdmin } from "@/lib/auth";
+import { inviteStatus } from "@/lib/invites";
 
 export default async function CadastrosPage() {
   const me = await requireAdmin();
 
-  const [settings, pending, approved] = await Promise.all([
-    db.select().from(appSettings).limit(1),
-    db
-      .select({
-        id: users.id,
-        apelido: users.apelido,
-        nome: users.nome,
-        sobrenome: users.sobrenome,
-        username: users.username,
-        email: users.email,
-        telefone: users.telefone,
-        chavePix: users.chavePix,
-        posicao: users.posicao,
-      })
-      .from(users)
-      .where(eq(users.status, "pendente")),
+  const [inviteRows, approved] = await Promise.all([
+    db.select().from(inviteTokens).orderBy(desc(inviteTokens.createdAt)),
     db
       .select({
         id: users.id,
@@ -38,16 +25,24 @@ export default async function CadastrosPage() {
       .where(eq(users.status, "aprovado")),
   ]);
 
+  const invites = inviteRows.map((i) => ({
+    id: i.id,
+    token: i.token,
+    telefone: i.telefone,
+    nome: i.nome,
+    status: inviteStatus(i),
+    expiresEm: i.expiresEm.getTime(),
+  }));
+
   return (
     <div>
       <PageHeader
-        title="Cadastros"
-        description="Libere ou feche novos cadastros, aprove acessos e gerencie quem é admin."
+        title="Convites"
+        description="Convide novos membros por link, revogue convites e gerencie quem tem acesso e quem é admin."
       />
       <div className="p-6 max-w-3xl">
         <CadastrosManager
-          allowRegistrations={settings[0]?.allowRegistrations ?? true}
-          pending={pending}
+          invites={invites}
           approved={approved}
           currentUserId={me.id}
         />
