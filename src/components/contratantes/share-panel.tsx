@@ -58,15 +58,19 @@ export function SharePanel({ videos }: { videos: VideoLite[] }) {
   }, [videos]);
 
   // URL final, sensível ao estado atual da seleção.
+  // Usa índices 1-based pra deixar a URL curta no WhatsApp.
+  // (Risco de drift se mexer no cadastro entre enviar e o contratante
+  // abrir é minúsculo no fluxo real.)
   const url = useMemo(() => {
     if (!origin) return "";
     const base = `${origin}/show`;
     const total = videos.length;
     if (selected.size === total) return base; // todos: omite ?v
     if (selected.size === 0) return `${base}?v=`; // nenhum: ?v vazio
-    // Preserva a ordem dos vídeos (não a de toque do admin).
-    const ids = videos.filter((v) => selected.has(v.id)).map((v) => v.id);
-    return `${base}?v=${ids.join(",")}`;
+    const indices = videos
+      .map((v, i) => (selected.has(v.id) ? i + 1 : null))
+      .filter((x): x is number => x !== null);
+    return `${base}?v=${indices.join(",")}`;
   }, [origin, videos, selected]);
 
   const resolved = msg.replace(/\{link\}/g, url);

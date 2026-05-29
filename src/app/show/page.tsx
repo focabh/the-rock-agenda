@@ -38,23 +38,37 @@ export default async function ShowPublicPage({
   searchParams: Promise<{ v?: string }>;
 }) {
   const sp = await searchParams;
-  // ?v=id1,id2,id3: contratante vê só esses vídeos, na ordem dada na URL.
+  // ?v=1,3,5: contratante vê só esses vídeos por POSIÇÃO (1-based) na
+  //           lista ordenada. Formato curto, ideal pra link via WhatsApp.
+  // ?v=id1,id2: legacy — IDs UUID completos. Mantido por compatibilidade
+  //             temporária com links antigos.
   // ?v= (vazio): mostra ZERO vídeos (só press kit + IG).
   // Sem ?v: mostra todos.
-  let videoFilter: { mode: "all" | "none" | "ids"; ids: string[] } = {
-    mode: "all",
-    ids: [],
-  };
+  let videoFilter:
+    | { mode: "all" }
+    | { mode: "none" }
+    | { mode: "indices"; indices: number[] }
+    | { mode: "ids"; ids: string[] } = { mode: "all" };
   if (typeof sp.v === "string") {
     const trimmed = sp.v.trim();
     if (trimmed === "") {
-      videoFilter = { mode: "none", ids: [] };
+      videoFilter = { mode: "none" };
     } else {
-      const ids = trimmed
+      const parts = trimmed
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      if (ids.length > 0) videoFilter = { mode: "ids", ids };
+      if (parts.length > 0) {
+        const allNumeric = parts.every((p) => /^\d+$/.test(p));
+        if (allNumeric) {
+          videoFilter = {
+            mode: "indices",
+            indices: parts.map((p) => Number.parseInt(p, 10)),
+          };
+        } else {
+          videoFilter = { mode: "ids", ids: parts };
+        }
+      }
     }
   }
 
@@ -85,8 +99,13 @@ export default async function ShowPublicPage({
   let videos = allVideos;
   if (videoFilter.mode === "none") {
     videos = [];
+  } else if (videoFilter.mode === "indices") {
+    // Índices 1-based na ordem da lista cadastrada.
+    videos = videoFilter.indices
+      .map((i) => allVideos[i - 1])
+      .filter((v): v is (typeof allVideos)[number] => Boolean(v));
   } else if (videoFilter.mode === "ids") {
-    // Preserva a ordem dos IDs como vieram na URL (assim admin decide).
+    // Legacy: preserva a ordem dos IDs como vieram na URL.
     const map = new Map(allVideos.map((v) => [v.id, v] as const));
     videos = videoFilter.ids
       .map((id) => map.get(id))
