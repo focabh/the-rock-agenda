@@ -1,46 +1,53 @@
 "use client";
 
-import { useTransition } from "react";
-import { BellRing } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { notifyBandAction } from "@/app/(app)/notify-actions";
 
+/**
+ * Botão "Avisar a banda".
+ *
+ * Antes mandava Web Push (que basicamente ninguém ativou). Agora abre o
+ * WhatsApp com uma mensagem pronta — o admin escolhe o grupo da banda e
+ * aperta enviar. Sem fricção, sem dependência de permissão de push.
+ *
+ * - `title` vira o header em negrito da mensagem.
+ * - `body` é o corpo (data/hora/local + chamada).
+ * - `url` (opcional) é convertido em URL absoluta e anexado no final
+ *   pra que o link fique clicável no WhatsApp e leve direto pro item.
+ */
 export function NotifyBandButton({
   title,
   body,
   url,
-  tag,
-  label = "Notificar banda",
+  label = "Avisar a banda",
   variant = "outline",
 }: {
   title: string;
   body: string;
   url?: string;
+  /** Mantido por compat com call sites antigos — não usado. */
   tag?: string;
   label?: string;
   variant?: "outline" | "default" | "ghost";
 }) {
-  const [pending, startTransition] = useTransition();
-
   function go() {
-    if (!confirm("Enviar uma notificação push para toda a banda?")) return;
-    startTransition(async () => {
-      const r = await notifyBandAction({ title, body, url, tag });
-      if (r?.error) {
-        toast.error(r.error);
-      } else if ((r?.sent ?? 0) === 0) {
-        toast.info("Ninguém ativou notificações ainda.");
-      } else {
-        toast.success(`Notificação enviada para ${r.sent} dispositivo(s).`);
-      }
-    });
+    const fullUrl = url
+      ? `${window.location.origin}${url.startsWith("/") ? url : "/" + url}`
+      : "";
+    const lines = [`🎸 *${title}*`, "", body];
+    if (fullUrl) lines.push("", fullUrl);
+    const text = encodeURIComponent(lines.join("\n"));
+    window.open(
+      `https://wa.me/?text=${text}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   return (
-    <Button variant={variant} size="sm" onClick={go} disabled={pending}>
-      <BellRing className="size-4" />
-      {pending ? "Enviando..." : label}
+    <Button variant={variant} size="sm" onClick={go}>
+      <MessageCircle className="size-4" />
+      {label}
     </Button>
   );
 }
