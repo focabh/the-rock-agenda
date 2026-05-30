@@ -2,7 +2,15 @@
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { Plus, X, GripVertical, Printer, Music2, Download } from "lucide-react";
+import {
+  Plus,
+  X,
+  GripVertical,
+  Printer,
+  Music2,
+  Download,
+  FileText,
+} from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import {
   DndContext,
@@ -124,6 +132,17 @@ export function SetlistTab({
                 }
               />
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link href={`/shows/${showId}/letras`} target="_blank" />
+              }
+              title="Letras na ordem do setlist — exportar PDF/Word"
+            >
+              <FileText className="size-4" />
+              Letras
+            </Button>
             <Button
               variant="outline"
               size="sm"
