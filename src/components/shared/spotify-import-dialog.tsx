@@ -232,11 +232,11 @@ export function SpotifyImportDialog(props: Props) {
 
           <TabsContent value="spotify" className="space-y-4">
             <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200/90 space-y-1">
-              <p className="font-medium">⚠ Funciona só em alguns casos</p>
+              <p className="font-medium">Só playlists públicas</p>
               <p>
-                Spotify exige conta conectada via OAuth + o usuário ser test
-                user no app da Spotify Dashboard. Se der erro, use a aba{" "}
-                <strong>Colar lista</strong>.
+                Lê direto da página pública do Spotify — não precisa conectar
+                conta. Se a playlist for privada, deixe-a pública no Spotify ou
+                use a aba <strong>Colar lista</strong>.
               </p>
             </div>
             <div className="space-y-2">
@@ -276,7 +276,7 @@ export function SpotifyImportDialog(props: Props) {
                 className={cn(buttonVariants({ variant: "default" }))}
               >
                 {pending && <Loader2 className="size-4 animate-spin" />}
-                {pending ? "Tentando..." : "Tentar via API"}
+                {pending ? "Importando..." : "Importar do Spotify"}
               </button>
             </div>
           </TabsContent>

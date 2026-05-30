@@ -75,45 +75,6 @@ export async function exchangeCodeForTokens(code: string): Promise<TokenResponse
   return res.json();
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
-  const { id, secret } = getClientCreds();
-  const basic = Buffer.from(`${id}:${secret}`).toString("base64");
-  const res = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${basic}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Spotify refresh falhou (${res.status}): ${text}`);
-  }
-  return res.json();
-}
-
-async function getAccessToken(): Promise<string> {
-  const [auth] = await db.select().from(spotifyAuth).limit(1);
-  if (!auth) {
-    throw new SpotifyNotConnectedError(
-      "Conta Spotify não conectada. Vá em Repertório → Conectar Spotify."
-    );
-  }
-  const tokens = await refreshAccessToken(auth.refreshToken);
-  // Spotify pode emitir um novo refresh_token — guardar se vier
-  if (tokens.refresh_token && tokens.refresh_token !== auth.refreshToken) {
-    await db
-      .update(spotifyAuth)
-      .set({ refreshToken: tokens.refresh_token })
-      .where(eq(spotifyAuth.id, auth.id));
-  }
-  return tokens.access_token;
-}
-
 export async function isSpotifyConnected(): Promise<{
   connected: boolean;
   ownerName?: string | null;
@@ -181,53 +142,91 @@ export type SpotifyTrack = {
   duracaoSeg: number;
 };
 
-type SpotifyPlaylistResponse = {
-  next: string | null;
-  items: Array<{
-    track: {
-      id: string | null;
-      name: string;
-      duration_ms: number;
-      artists: Array<{ name: string }>;
-    } | null;
-  }>;
+const TRACK_URI_PREFIX = "spotify:track:";
+
+type EmbedTrack = {
+  uri?: string;
+  uid?: string;
+  title?: string;
+  subtitle?: string;
+  duration?: number;
 };
 
+// Busca recursiva por um array `trackList` em qualquer profundidade do JSON
+// do __NEXT_DATA__ (o caminho exato pode mudar entre versões da página).
+function findTrackList(node: unknown): EmbedTrack[] | null {
+  if (!node || typeof node !== "object") return null;
+  const obj = node as Record<string, unknown>;
+  if (Array.isArray(obj.trackList)) return obj.trackList as EmbedTrack[];
+  for (const value of Object.values(obj)) {
+    const found = findTrackList(value);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Lê as faixas de uma playlist PÚBLICA pela página de embed do Spotify
+ * (open.spotify.com/embed/playlist/{id}), que expõe a tracklist no
+ * <script id="__NEXT_DATA__">.
+ *
+ * NÃO usa a Web API oficial: o endpoint GET /playlists/{id}/tracks foi
+ * bloqueado para apps em Development Mode (retorna 403 mesmo com client
+ * credentials, desde a mudança de nov/2024). O embed público não tem essa
+ * restrição. Playlists privadas não aparecem aqui — nesse caso, "Colar lista".
+ */
 export async function fetchPlaylistTracks(
   playlistId: string
 ): Promise<SpotifyTrack[]> {
-  const token = await getAccessToken();
-  const tracks: SpotifyTrack[] = [];
-  let url: string | null =
-    `${API_BASE}/playlists/${playlistId}/tracks?market=BR&limit=100`;
+  const res = await fetch(
+    `https://open.spotify.com/embed/playlist/${playlistId}`,
+    {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; TheRock/1.0)" },
+      cache: "no-store",
+    }
+  );
+  if (!res.ok) {
+    if (res.status === 404) throw new Error("Playlist não encontrada.");
+    throw new Error(`Erro ao buscar playlist (${res.status}).`);
+  }
 
-  while (url) {
-    const res: Response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+  const html = await res.text();
+  const match = html.match(
+    /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/
+  );
+  if (!match) {
+    throw new Error(
+      "Não consegui ler a playlist. Confirme que ela é pública — se for privada, use a aba “Colar lista”."
+    );
+  }
+
+  let data: unknown;
+  try {
+    data = JSON.parse(match[1]);
+  } catch {
+    throw new Error("Resposta inesperada do Spotify. Use a aba “Colar lista”.");
+  }
+
+  const list = findTrackList(data);
+  if (!list || list.length === 0) {
+    throw new Error(
+      "Nenhuma faixa encontrada. A playlist pode estar vazia ou ser privada — use a aba “Colar lista”."
+    );
+  }
+
+  const tracks: SpotifyTrack[] = [];
+  for (const t of list) {
+    if (!t?.title) continue;
+    const uri = typeof t.uri === "string" ? t.uri : "";
+    const spotifyId = uri.startsWith(TRACK_URI_PREFIX)
+      ? uri.slice(TRACK_URI_PREFIX.length)
+      : (t.uid ?? "");
+    tracks.push({
+      spotifyId,
+      titulo: t.title,
+      artista: t.subtitle?.trim() || "Desconhecido",
+      duracaoSeg: Math.round((t.duration ?? 0) / 1000),
     });
-    if (!res.ok) {
-      if (res.status === 404) {
-        throw new Error("Playlist não encontrada.");
-      }
-      if (res.status === 403) {
-        throw new Error(
-          "Spotify negou acesso. Verifique se a conta conectada tem acesso a essa playlist."
-        );
-      }
-      throw new Error(`Erro ao buscar playlist (${res.status})`);
-    }
-    const data = (await res.json()) as SpotifyPlaylistResponse;
-    for (const item of data.items ?? []) {
-      const t = item?.track;
-      if (!t || !t.id) continue;
-      tracks.push({
-        spotifyId: t.id,
-        titulo: t.name,
-        artista: t.artists?.[0]?.name ?? "Desconhecido",
-        duracaoSeg: Math.round((t.duration_ms ?? 0) / 1000),
-      });
-    }
-    url = data.next;
   }
   return tracks;
 }
