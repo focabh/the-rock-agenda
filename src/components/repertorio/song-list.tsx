@@ -12,6 +12,7 @@ import {
   Trash2,
   X,
   Play,
+  ExternalLink,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -518,6 +519,18 @@ export function SongList({
                           <Play className="size-4 fill-current" />
                         )}
                       </button>
+                    )}
+
+                    {s.spotifyTrackId && (
+                      <a
+                        href={`https://open.spotify.com/track/${s.spotifyTrackId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 inline-flex size-8 items-center justify-center rounded-full text-emerald-400 transition-colors hover:bg-emerald-500/15"
+                        title="Abrir no Spotify (toca inteira no app, ideal no celular)"
+                      >
+                        <ExternalLink className="size-4" />
+                      </a>
                     )}
 
                     <SongStatusBadge status={s.status} />
