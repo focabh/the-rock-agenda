@@ -38,6 +38,9 @@ export function AddressAutocomplete({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const skip = useRef(false);
+  // Não dispara busca na montagem (endereço pré-preenchido na edição) — só
+  // quando o usuário realmente digitar. Evita request/abertura ao abrir a tela.
+  const firstRun = useRef(true);
   const coords = useRef<{ lat: number; lon: number } | null>(null);
 
   // Pede a localização do device pra priorizar resultados perto de quem usa.
@@ -57,6 +60,10 @@ export function AddressAutocomplete({
   }, []);
 
   useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
     if (skip.current) {
       skip.current = false;
       return;

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
 import { AddressAutocomplete } from "@/components/shared/address-autocomplete";
+import { PhoneInput } from "@/components/shared/phone-input";
 import type { ActionState } from "@/lib/form";
 import type { Venue } from "@/db/schema";
 
@@ -66,11 +67,10 @@ export function CasaForm({ casa, action, submitLabel = "Salvar" }: Props) {
 
           <div className="space-y-2">
             <Label htmlFor="telefone">Telefone / WhatsApp</Label>
-            <Input
+            <PhoneInput
               id="telefone"
               name="telefone"
               defaultValue={casa?.telefone ?? ""}
-              placeholder="(31) 99999-9999"
             />
             <FieldError state={state} name="telefone" />
           </div>

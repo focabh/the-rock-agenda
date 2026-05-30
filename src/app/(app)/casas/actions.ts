@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { venues } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin } from "@/lib/auth";
+import { maskPhone, telefoneValido } from "@/lib/validators";
 
 const casaSchema = z.object({
   nome: z.string().min(1, "Obrigatório").max(120),
@@ -18,9 +19,22 @@ const casaSchema = z.object({
   latitude: z.coerce.number().optional(),
   longitude: z.coerce.number().optional(),
   contatoPrincipal: z.string().max(80).optional(),
-  telefone: z.string().max(40).optional(),
+  telefone: z
+    .string()
+    .max(40)
+    .optional()
+    .refine(
+      (v) => !v || !v.trim() || telefoneValido(v),
+      "Telefone inválido — use DDD + número, ex: (31) 99999-9999"
+    ),
   observacoes: z.string().max(2000).optional(),
 });
+
+/** Normaliza o telefone pra máscara padrão (ou null se vazio). */
+function normalizeTelefone(tel?: string): string | null {
+  const t = (tel ?? "").trim();
+  return t ? maskPhone(t) : null;
+}
 
 export async function createCasaAction(
   _prev: ActionState,
@@ -30,7 +44,9 @@ export async function createCasaAction(
   const parsed = parseForm(casaSchema, formData);
   if (!parsed.ok) return parsed.state;
 
-  await db.insert(venues).values(parsed.data);
+  await db
+    .insert(venues)
+    .values({ ...parsed.data, telefone: normalizeTelefone(parsed.data.telefone) });
   revalidatePath("/casas");
   redirect("/casas");
 }
@@ -44,7 +60,10 @@ export async function updateCasaAction(
   const parsed = parseForm(casaSchema, formData);
   if (!parsed.ok) return parsed.state;
 
-  await db.update(venues).set(parsed.data).where(eq(venues.id, id));
+  await db
+    .update(venues)
+    .set({ ...parsed.data, telefone: normalizeTelefone(parsed.data.telefone) })
+    .where(eq(venues.id, id));
   revalidatePath("/casas");
   revalidatePath(`/casas/${id}`);
   redirect("/casas");
