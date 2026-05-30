@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { InstagramIcon } from "@/components/shared/icons";
 import { db } from "@/db";
-import { venues, shows, venueContacts } from "@/db/schema";
+import { venues, shows, venueContacts, promoItems } from "@/db/schema";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ export default async function CasaDetailPage({
   const [casa] = await db.select().from(venues).where(eq(venues.id, id)).limit(1);
   if (!casa) notFound();
 
-  const [casaShows, contatos] = await Promise.all([
+  const [casaShows, contatos, obrigatorios] = await Promise.all([
     db.select().from(shows).where(eq(shows.casaId, id)).orderBy(desc(shows.data)),
     db
       .select()
@@ -46,7 +46,19 @@ export default async function CasaDetailPage({
       .where(eq(venueContacts.venueId, id))
       .orderBy(desc(venueContacts.createdAt))
       .limit(20),
+    db.select().from(promoItems).where(eq(promoItems.obrigatorio, true)),
   ]);
+
+  // Links de material que vão SEMPRE na divulgação: itens "enviar sempre" +
+  // a página pública. Press kit usa a rota que serve o PDF; uploads (data:)
+  // não são compartilháveis, então só entram links http.
+  const materialLinks: string[] = [];
+  for (const p of obrigatorios) {
+    if (p.tipo === "presskit") materialLinks.push("/show/presskit");
+    else if (/^https?:\/\//.test(p.url)) materialLinks.push(p.url);
+  }
+  materialLinks.push("/show");
+  const materialLinksUnicos = [...new Set(materialLinks)];
 
   const now = new Date();
   const pastShows = casaShows.filter((s) => s.data.getTime() <= now.getTime());
@@ -183,7 +195,7 @@ export default async function CasaDetailPage({
             jaTocou: casa.jaTocou,
             naoContatar: casa.naoContatar,
           }}
-          materialLinks={["/show"]}
+          materialLinks={materialLinksUnicos}
           materialDate={materialDate}
           apresentacaoDate={aprDate}
           admin={admin}

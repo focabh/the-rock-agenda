@@ -30,6 +30,7 @@ export default async function DivulgacaoPage() {
             url: i.url,
             descricao: i.descricao,
             cover: i.cover,
+            obrigatorio: i.obrigatorio,
           }))}
           admin={admin}
         />

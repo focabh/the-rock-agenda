@@ -794,6 +794,11 @@ export const promoItems = sqliteTable("promo_items", {
   // capa custom (data URL) — usada hoje só pra vídeos no card do contratante
   cover: text("cover"),
   ordem: integer("ordem").notNull().default(0),
+  // "Enviar sempre": material incluído automaticamente em toda divulgação
+  // pras casas (ex.: teaser principal, press kit), mesmo sem seleção manual.
+  obrigatorio: integer("obrigatorio", { mode: "boolean" })
+    .notNull()
+    .default(false),
   createdAt: createdAt(),
 });
 

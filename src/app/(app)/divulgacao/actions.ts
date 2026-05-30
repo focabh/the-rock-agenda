@@ -161,3 +161,18 @@ export async function deletePromoAction(id: string) {
   await db.delete(promoItems).where(eq(promoItems.id, id));
   revalidatePath("/divulgacao");
 }
+
+/** Marca/desmarca o material como "enviar sempre" (incluído em toda divulgação). */
+export async function togglePromoObrigatorioAction(
+  id: string,
+  obrigatorio: boolean
+) {
+  await requireAdmin();
+  await db
+    .update(promoItems)
+    .set({ obrigatorio })
+    .where(eq(promoItems.id, id));
+  revalidatePath("/divulgacao");
+  revalidatePath("/casas");
+  return { ok: true };
+}

@@ -14,6 +14,7 @@ import {
   Link2,
   Wrench,
   RefreshCw,
+  Star,
 } from "lucide-react";
 import { InstagramIcon } from "@/components/shared/icons";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import {
   createPromoAction,
   updatePromoAction,
   deletePromoAction,
+  togglePromoObrigatorioAction,
 } from "@/app/(app)/divulgacao/actions";
 import { toast } from "sonner";
 
@@ -48,6 +50,7 @@ export type PromoLite = {
   url: string;
   descricao: string | null;
   cover: string | null;
+  obrigatorio: boolean;
 };
 
 type TipoMeta = {
@@ -273,6 +276,7 @@ function InstagramCard({
         >
           Abrir <ExternalLink className="size-3.5" />
         </a>
+        <ObrigatorioToggle id={item.id} on={item.obrigatorio} admin={admin} />
         {admin && (
           <>
             <Button
@@ -321,6 +325,7 @@ function ItemList({
                 </p>
               )}
             </div>
+            <ObrigatorioToggle id={i.id} on={i.obrigatorio} admin={admin} />
             {admin && (
               <>
                 <Button
@@ -433,6 +438,63 @@ function DeleteBtn({ id, compact = false }: { id: string; compact?: boolean }) {
     >
       <Trash2 className="size-4" />
     </Button>
+  );
+}
+
+function ObrigatorioToggle({
+  id,
+  on,
+  admin,
+}: {
+  id: string;
+  on: boolean;
+  admin: boolean;
+}) {
+  const [optimistic, setOptimistic] = useState(on);
+  const [pending, startTransition] = useTransition();
+  useEffect(() => setOptimistic(on), [on]);
+
+  if (!admin) {
+    return on ? (
+      <span
+        title="Sempre incluído na divulgação às casas"
+        className="text-amber-400"
+      >
+        <Star className="size-4 fill-current" />
+      </span>
+    ) : null;
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() => {
+        const next = !optimistic;
+        setOptimistic(next);
+        startTransition(async () => {
+          await togglePromoObrigatorioAction(id, next);
+          toast.success(
+            next
+              ? "Marcado: enviado sempre na divulgação."
+              : "Removido do envio automático."
+          );
+        });
+      }}
+      title={
+        optimistic
+          ? "Enviado sempre na divulgação — clique pra desativar"
+          : "Enviar sempre na divulgação (teaser/PDF principal)"
+      }
+      className={cn(
+        "p-1",
+        optimistic
+          ? "text-amber-400"
+          : "text-muted-foreground hover:text-amber-400"
+      )}
+    >
+      <Star className={cn("size-4", optimistic && "fill-current")} />
+    </button>
   );
 }
 
