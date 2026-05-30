@@ -372,7 +372,7 @@ export function SetlistTab({
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
-            <Card className="max-h-[600px] overflow-y-auto overflow-hidden p-0">
+            <Card className="max-h-[70vh] overflow-y-auto p-0">
               {available.length === 0 ? (
                 <p className="p-6 text-sm text-center text-muted-foreground">
                   {q
