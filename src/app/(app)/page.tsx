@@ -23,11 +23,17 @@ import {
   showMemberPayment,
   showMemberPaid,
   announcements,
+  venues,
 } from "@/db/schema";
 import {
   AnnouncementsSection,
   type AnnouncementView,
 } from "@/components/announcements/announcements-section";
+import { VenueRemindersSection } from "@/components/casas/venue-reminders";
+import {
+  computeVenueReminders,
+  type VenueReminder,
+} from "@/lib/venue-reminders";
 import { computePaymentBreakdown } from "@/lib/payment";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card } from "@/components/ui/card";
@@ -107,6 +113,7 @@ export default async function DashboardPage() {
   };
   let bandaPraMusicos: BandaPagar[] = [];
   let totalDaBanda = 0;
+  let venueReminders: VenueReminder[] = [];
   if (admin) {
     const payableShows = await db.query.shows.findMany({
       where: and(
@@ -188,6 +195,20 @@ export default async function DashboardPage() {
       }
     }
     totalDaBanda = bandaPraMusicos.reduce((s, x) => s + x.total, 0);
+
+    // Lembretes de relacionamento com as casas (a partir das ações registradas)
+    const [allVenues, allShowRows] = await Promise.all([
+      db.select().from(venues),
+      db.select({ casaId: shows.casaId, data: shows.data }).from(shows),
+    ]);
+    const lastShowByVenue = new Map<string, Date>();
+    for (const s of allShowRows) {
+      if (s.data.getTime() > now.getTime()) continue;
+      const cur = lastShowByVenue.get(s.casaId);
+      if (!cur || s.data.getTime() > cur.getTime())
+        lastShowByVenue.set(s.casaId, s.data);
+    }
+    venueReminders = computeVenueReminders(allVenues, lastShowByVenue, now);
   }
 
   return (
@@ -209,6 +230,9 @@ export default async function DashboardPage() {
       <div className="p-6 space-y-6">
         {/* Anúncios — mural da banda, em destaque no topo */}
         <AnnouncementsSection announcements={anuncios} admin={admin} />
+
+        {/* Lembretes das casas (admin) — agradecer, follow-up, marcar data… */}
+        {admin && <VenueRemindersSection reminders={venueReminders} />}
 
         {/* Próximos shows */}
         <Section
