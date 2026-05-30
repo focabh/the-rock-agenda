@@ -96,8 +96,6 @@ export default async function ShowDetailPage({
   const managerMember = allMembers.find((m) => m.isManager) ?? null;
 
   const conflitos = membersUnavailableOn(show.data, dayBlocks, allMembers);
-  const setlist = show.setlists[0];
-  const setlistItems = setlist?.items ?? [];
 
   return (
     <div>
@@ -178,7 +176,7 @@ export default async function ShowDetailPage({
           setlist={
             <SetlistTab
               showId={show.id}
-              items={setlistItems}
+              setlists={show.setlists}
               allSongs={allSongs}
               canEdit={admin}
             />

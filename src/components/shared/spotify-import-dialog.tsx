@@ -38,7 +38,12 @@ import { toast } from "sonner";
 
 type Props =
   | { mode: "repertorio"; trigger: React.ReactNode }
-  | { mode: "setlist"; showId: string; trigger: React.ReactNode };
+  | {
+      mode: "setlist";
+      showId: string;
+      setlistId: string;
+      trigger: React.ReactNode;
+    };
 
 export function SpotifyImportDialog(props: Props) {
   const [open, setOpen] = useState(false);
@@ -78,7 +83,12 @@ export function SpotifyImportDialog(props: Props) {
       const result =
         props.mode === "repertorio"
           ? await importPastedToRepertorioAction(text)
-          : await importPastedToSetlistAction(props.showId, text, replace);
+          : await importPastedToSetlistAction(
+              props.showId,
+              props.setlistId,
+              text,
+              replace
+            );
       if (showResult(result)) {
         setText("");
         setOpen(false);
@@ -92,7 +102,12 @@ export function SpotifyImportDialog(props: Props) {
       const result =
         props.mode === "repertorio"
           ? await importFromSpotifyAction(url)
-          : await importPlaylistToSetlistAction(props.showId, url, replace);
+          : await importPlaylistToSetlistAction(
+              props.showId,
+              props.setlistId,
+              url,
+              replace
+            );
       if (showResult(result)) setOpen(false);
     });
   }

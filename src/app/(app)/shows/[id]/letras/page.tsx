@@ -7,10 +7,13 @@ import { LyricsBooklet } from "./lyrics-booklet";
 
 export default async function LetrasPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ sl?: string }>;
 }) {
   const { id } = await params;
+  const { sl } = await searchParams;
   const show = await db.query.shows.findFirst({
     where: eq(shows.id, id),
     with: {
@@ -20,7 +23,8 @@ export default async function LetrasPage({
   });
   if (!show) notFound();
 
-  const setlist = show.setlists[0];
+  const setlist =
+    (sl && show.setlists.find((s) => s.id === sl)) || show.setlists[0];
   const items = (setlist?.items ?? []).sort((a, b) => a.ordem - b.ordem);
   const songs = items.map((it, i) => ({
     n: i + 1,
@@ -33,8 +37,11 @@ export default async function LetrasPage({
   return (
     <LyricsBooklet
       showId={id}
+      setlistId={setlist?.id ?? null}
       titulo={show.casa.nome}
-      subtitulo={formatDataBR(show.data, true)}
+      subtitulo={`${formatDataBR(show.data, true)}${
+        setlist?.nome ? ` · ${setlist.nome}` : ""
+      }`}
       songs={songs}
     />
   );

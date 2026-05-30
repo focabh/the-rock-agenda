@@ -12,29 +12,53 @@ import {
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
 
-async function ensureSetlistForShow(showId: string) {
-  const existing = await db.query.setlists.findFirst({
-    where: eq(setlists.showId, showId),
-  });
-  if (existing) return existing;
+// ---------------- SETLISTS (vários por show) ----------------
+
+export async function createSetlistAction(showId: string, nome: string) {
+  await requireAdmin();
   const [created] = await db
     .insert(setlists)
-    .values({ showId, nome: `Setlist` })
+    .values({ showId, nome: nome.trim() || "Setlist" })
     .returning();
-  return created;
+  revalidatePath(`/shows/${showId}`);
+  return { id: created.id, nome: created.nome };
 }
 
-export async function addSongToSetlistAction(showId: string, songId: string) {
+export async function renameSetlistAction(
+  showId: string,
+  setlistId: string,
+  nome: string
+) {
   await requireAdmin();
-  const sl = await ensureSetlistForShow(showId);
+  await db
+    .update(setlists)
+    .set({ nome: nome.trim() || "Setlist" })
+    .where(eq(setlists.id, setlistId));
+  revalidatePath(`/shows/${showId}`);
+}
+
+export async function deleteSetlistAction(showId: string, setlistId: string) {
+  await requireAdmin();
+  await db.delete(setlists).where(eq(setlists.id, setlistId));
+  revalidatePath(`/shows/${showId}`);
+}
+
+// ---------------- ITENS DO SETLIST ----------------
+
+export async function addSongToSetlistAction(
+  showId: string,
+  setlistId: string,
+  songId: string
+) {
+  await requireAdmin();
   const last = await db
     .select({ max: sql<number>`coalesce(max(${setlistItems.ordem}), -1)` })
     .from(setlistItems)
-    .where(eq(setlistItems.setlistId, sl.id));
+    .where(eq(setlistItems.setlistId, setlistId));
   const nextOrdem = (last[0]?.max ?? -1) + 1;
   await db
     .insert(setlistItems)
-    .values({ setlistId: sl.id, songId, ordem: nextOrdem });
+    .values({ setlistId, songId, ordem: nextOrdem });
   revalidatePath(`/shows/${showId}`);
 }
 
@@ -81,6 +105,7 @@ export type SpotifyToSetlistResult = {
 
 export async function importPlaylistToSetlistAction(
   showId: string,
+  setlistId: string,
   playlistUrl: string,
   replace: boolean
 ): Promise<SpotifyToSetlistResult> {
@@ -92,10 +117,9 @@ export async function importPlaylistToSetlistAction(
 
   try {
     const tracks = await fetchPlaylistTracks(playlistId);
-    const sl = await ensureSetlistForShow(showId);
 
     if (replace) {
-      await db.delete(setlistItems).where(eq(setlistItems.setlistId, sl.id));
+      await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
     }
 
     const allSongs = await db.select().from(songs);
@@ -111,7 +135,7 @@ export async function importPlaylistToSetlistAction(
       : await db
           .select()
           .from(setlistItems)
-          .where(eq(setlistItems.setlistId, sl.id));
+          .where(eq(setlistItems.setlistId, setlistId));
     const usedSongIds = new Set(currentItems.map((i) => i.songId));
     let nextOrdem =
       currentItems.length > 0
@@ -139,7 +163,6 @@ export async function importPlaylistToSetlistAction(
         song = created;
         songsCriadas++;
       } else if (!song.spotifyTrackId && t.spotifyId) {
-        // Backfill do ID do Spotify em música pré-existente.
         await db
           .update(songs)
           .set({ spotifyTrackId: t.spotifyId })
@@ -150,7 +173,7 @@ export async function importPlaylistToSetlistAction(
         continue;
       }
       await db.insert(setlistItems).values({
-        setlistId: sl.id,
+        setlistId,
         songId: song.id,
         ordem: nextOrdem++,
         duracaoSeg: t.duracaoSeg,
@@ -181,6 +204,7 @@ export async function importPlaylistToSetlistAction(
 
 export async function importPastedToSetlistAction(
   showId: string,
+  setlistId: string,
   text: string,
   replace: boolean
 ): Promise<SpotifyToSetlistResult> {
@@ -190,9 +214,8 @@ export async function importPastedToSetlistAction(
     return { ok: false, error: "Nenhuma música encontrada no texto." };
   }
 
-  const sl = await ensureSetlistForShow(showId);
   if (replace) {
-    await db.delete(setlistItems).where(eq(setlistItems.setlistId, sl.id));
+    await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
   }
 
   const allSongs = await db.select().from(songs);
@@ -208,7 +231,7 @@ export async function importPastedToSetlistAction(
     : await db
         .select()
         .from(setlistItems)
-        .where(eq(setlistItems.setlistId, sl.id));
+        .where(eq(setlistItems.setlistId, setlistId));
   const usedSongIds = new Set(currentItems.map((i) => i.songId));
   let nextOrdem =
     currentItems.length > 0
@@ -240,7 +263,7 @@ export async function importPastedToSetlistAction(
       continue;
     }
     await db.insert(setlistItems).values({
-      setlistId: sl.id,
+      setlistId,
       songId: song.id,
       ordem: nextOrdem++,
     });

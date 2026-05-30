@@ -18,13 +18,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const { id } = await params;
+  const sl = new URL(req.url).searchParams.get("sl");
   const show = await db.query.shows.findFirst({
     where: eq(shows.id, id),
     with: {
@@ -34,7 +35,8 @@ export async function GET(
   });
   if (!show) return new Response("Show não encontrado", { status: 404 });
 
-  const setlist = show.setlists[0];
+  const setlist =
+    (sl && show.setlists.find((s) => s.id === sl)) || show.setlists[0];
   const items = (setlist?.items ?? []).sort((a, b) => a.ordem - b.ordem);
 
   const children: Paragraph[] = [
