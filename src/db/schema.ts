@@ -166,6 +166,9 @@ export const songs = sqliteTable("songs", {
     .default("aprendendo"),
   favorita: integer("favorita", { mode: "boolean" }).notNull().default(false),
   observacoes: text("observacoes"),
+  // ID da faixa no Spotify (ex.: "1wrhhPzd2ncJPNgUcGgBGg"), preenchido no
+  // import via embed. Usado pro player embutido na lista. Null = música manual.
+  spotifyTrackId: text("spotify_track_id"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

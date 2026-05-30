@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Trash2,
   X,
+  Play,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,8 @@ export function SongList({
   const [memberStatusFilter, setMemberStatusFilter] =
     useState<string>("nao_pronta"); // "nao_pronta" | readiness
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Player do Spotify aberto (um por vez)
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   // Modo seleção / ações em massa (só admin)
@@ -494,6 +497,29 @@ export function SongList({
                       </button>
                     )}
 
+                    {s.spotifyTrackId && (
+                      <button
+                        onClick={() =>
+                          setPlayingId(playingId === s.id ? null : s.id)
+                        }
+                        className={cn(
+                          "shrink-0 inline-flex size-8 items-center justify-center rounded-full transition-colors",
+                          playingId === s.id
+                            ? "bg-primary text-primary-foreground"
+                            : "text-primary hover:bg-primary/15"
+                        )}
+                        title={
+                          playingId === s.id ? "Fechar player" : "Tocar no Spotify"
+                        }
+                      >
+                        {playingId === s.id ? (
+                          <X className="size-4" />
+                        ) : (
+                          <Play className="size-4 fill-current" />
+                        )}
+                      </button>
+                    )}
+
                     <SongStatusBadge status={s.status} />
 
                     {admin && (
@@ -513,6 +539,21 @@ export function SongList({
                       </div>
                     )}
                   </div>
+
+                  {playingId === s.id && s.spotifyTrackId && (
+                    <div className="border-t border-border bg-muted/20 px-4 pb-3">
+                      <iframe
+                        src={`https://open.spotify.com/embed/track/${s.spotifyTrackId}?utm_source=generator`}
+                        width="100%"
+                        height={152}
+                        loading="lazy"
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        style={{ border: 0 }}
+                        className="mt-3 rounded-xl"
+                        title={`Spotify: ${s.titulo}`}
+                      />
+                    </div>
+                  )}
 
                   {isExpanded && total > 0 && (
                     <div className="px-4 py-2 bg-muted/30 border-t border-border">

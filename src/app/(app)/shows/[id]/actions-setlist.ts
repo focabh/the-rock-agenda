@@ -132,11 +132,18 @@ export async function importPlaylistToSetlistAction(
             titulo: t.titulo,
             artista: t.artista,
             status: "aprendendo",
+            spotifyTrackId: t.spotifyId || null,
           })
           .returning();
         songByKey.set(key, created);
         song = created;
         songsCriadas++;
+      } else if (!song.spotifyTrackId && t.spotifyId) {
+        // Backfill do ID do Spotify em música pré-existente.
+        await db
+          .update(songs)
+          .set({ spotifyTrackId: t.spotifyId })
+          .where(eq(songs.id, song.id));
       }
       if (usedSongIds.has(song.id)) {
         duplicados++;

@@ -83,24 +83,39 @@ export async function importFromSpotifyAction(
   try {
     const tracks = await fetchPlaylistTracks(playlistId);
     const all = await db.select().from(songs);
-    const existingKeys = new Set(
-      all.map((s) => `${s.titulo.toLowerCase()}|${s.artista.toLowerCase()}`)
+    const byKey = new Map(
+      all.map((s) => [
+        `${s.titulo.toLowerCase()}|${s.artista.toLowerCase()}`,
+        s,
+      ])
     );
 
     let added = 0;
     let existing = 0;
     for (const t of tracks) {
       const key = `${t.titulo.toLowerCase()}|${t.artista.toLowerCase()}`;
-      if (existingKeys.has(key)) {
+      const found = byKey.get(key);
+      if (found) {
         existing++;
+        // Backfill: música já existia sem o ID do Spotify → preenche agora.
+        if (!found.spotifyTrackId && t.spotifyId) {
+          await db
+            .update(songs)
+            .set({ spotifyTrackId: t.spotifyId })
+            .where(eq(songs.id, found.id));
+        }
         continue;
       }
-      await db.insert(songs).values({
-        titulo: t.titulo,
-        artista: t.artista,
-        status: "aprendendo",
-      });
-      existingKeys.add(key);
+      const [created] = await db
+        .insert(songs)
+        .values({
+          titulo: t.titulo,
+          artista: t.artista,
+          status: "aprendendo",
+          spotifyTrackId: t.spotifyId || null,
+        })
+        .returning();
+      byKey.set(key, created);
       added++;
     }
     revalidatePath("/repertorio");
