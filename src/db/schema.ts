@@ -754,6 +754,28 @@ export const promoItems = sqliteTable("promo_items", {
   createdAt: createdAt(),
 });
 
+// ---------------- ANÚNCIOS (MURAL DA BANDA) ----------------
+
+// Avisos internos da banda, mostrados em destaque no painel pra todos.
+// Ex.: "5 músicas novas no repertório", "ensaio extra sábado". Admin cria/apaga.
+// O disparo no WhatsApp é opcional e feito na hora (não persiste aqui).
+export const announcements = sqliteTable("announcements", {
+  id: id(),
+  titulo: text("titulo").notNull(),
+  corpo: text("corpo"),
+  createdById: text("created_by_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: createdAt(),
+});
+
+export const announcementsRelations = relations(announcements, ({ one }) => ({
+  autor: one(users, {
+    fields: [announcements.createdById],
+    references: [users.id],
+  }),
+}));
+
 // ---------------- TYPES ----------------
 
 export type User = typeof users.$inferSelect;
@@ -788,3 +810,4 @@ export type ContractorLink = typeof contractorLinks.$inferSelect;
 export type ContractorLinkVisit = typeof contractorLinkVisits.$inferSelect;
 export type SiteVisit = typeof siteVisits.$inferSelect;
 export type PromoItem = typeof promoItems.$inferSelect;
+export type Announcement = typeof announcements.$inferSelect;

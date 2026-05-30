@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { songs, songMemberReadiness } from "@/db/schema";
@@ -146,6 +146,45 @@ export async function importPastedToRepertorioAction(
   }
   revalidatePath("/repertorio");
   return { ok: true, added, existing, total: parsed.length };
+}
+
+// ---------------- AÇÕES EM MASSA ----------------
+
+export type BulkResult = { ok: boolean; count?: number; error?: string };
+
+export async function bulkDeleteSongsAction(
+  ids: string[]
+): Promise<BulkResult> {
+  await requireAdmin();
+  if (ids.length === 0) return { ok: false, error: "Nada selecionado." };
+  await db.delete(songs).where(inArray(songs.id, ids));
+  revalidatePath("/repertorio");
+  return { ok: true, count: ids.length };
+}
+
+export async function bulkSetStatusAction(
+  ids: string[],
+  status: (typeof SONG_STATUSES)[number]
+): Promise<BulkResult> {
+  await requireAdmin();
+  if (ids.length === 0) return { ok: false, error: "Nada selecionado." };
+  if (!SONG_STATUSES.includes(status)) {
+    return { ok: false, error: "Status inválido." };
+  }
+  await db.update(songs).set({ status }).where(inArray(songs.id, ids));
+  revalidatePath("/repertorio");
+  return { ok: true, count: ids.length };
+}
+
+export async function bulkSetFavoritaAction(
+  ids: string[],
+  favorita: boolean
+): Promise<BulkResult> {
+  await requireAdmin();
+  if (ids.length === 0) return { ok: false, error: "Nada selecionado." };
+  await db.update(songs).set({ favorita }).where(inArray(songs.id, ids));
+  revalidatePath("/repertorio");
+  return { ok: true, count: ids.length };
 }
 
 export async function setMemberReadinessAction(

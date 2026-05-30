@@ -22,7 +22,12 @@ import {
   showMemberPresence,
   showMemberPayment,
   showMemberPaid,
+  announcements,
 } from "@/db/schema";
+import {
+  AnnouncementsSection,
+  type AnnouncementView,
+} from "@/components/announcements/announcements-section";
 import { computePaymentBreakdown } from "@/lib/payment";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card } from "@/components/ui/card";
@@ -35,6 +40,7 @@ import {
   formatDataBR,
   formatDataExtensa,
   dataPartesBR,
+  formatRelativeBR,
 } from "@/lib/formatters";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
@@ -46,26 +52,44 @@ export default async function DashboardPage() {
   const now = new Date();
 
   // Carrega tudo em paralelo (sem cache curto pra evitar dado velho no painel).
-  const [proximosShows, proximosEnsaios, cacheReceber] = await Promise.all([
-    db.query.shows.findMany({
-      where: gte(shows.data, now),
-      with: { casa: true },
-      orderBy: (s, { asc }) => [asc(s.data)],
-    }),
-    db
-      .select()
-      .from(rehearsals)
-      .where(gte(rehearsals.data, now))
-      .orderBy(asc(rehearsals.data)),
-    db.query.shows.findMany({
-      where: and(
-        eq(shows.status, "concluido"),
-        ne(shows.pagamentoStatus, "pago")
-      ),
-      with: { casa: true },
-      orderBy: (s, { asc }) => [asc(s.data)],
-    }),
-  ]);
+  const [proximosShows, proximosEnsaios, cacheReceber, announcementRows] =
+    await Promise.all([
+      db.query.shows.findMany({
+        where: gte(shows.data, now),
+        with: { casa: true },
+        orderBy: (s, { asc }) => [asc(s.data)],
+      }),
+      db
+        .select()
+        .from(rehearsals)
+        .where(gte(rehearsals.data, now))
+        .orderBy(asc(rehearsals.data)),
+      db.query.shows.findMany({
+        where: and(
+          eq(shows.status, "concluido"),
+          ne(shows.pagamentoStatus, "pago")
+        ),
+        with: { casa: true },
+        orderBy: (s, { asc }) => [asc(s.data)],
+      }),
+      db.query.announcements.findMany({
+        with: { autor: true },
+        orderBy: (a, { desc }) => [desc(a.createdAt)],
+        limit: 10,
+      }),
+    ]);
+
+  const TWO_DAYS_MS = 48 * 60 * 60 * 1000;
+  const anuncios: AnnouncementView[] = announcementRows.map((a) => ({
+    id: a.id,
+    titulo: a.titulo,
+    corpo: a.corpo,
+    autorNome: a.autor
+      ? a.autor.apelido || a.autor.nome || a.autor.username
+      : null,
+    quando: formatRelativeBR(a.createdAt, now),
+    recente: now.getTime() - a.createdAt.getTime() < TWO_DAYS_MS,
+  }));
 
   const totalDasCasas = cacheReceber.reduce(
     (s, r) => s + (r.cacheCentavos ?? 0),
@@ -183,6 +207,9 @@ export default async function DashboardPage() {
       />
 
       <div className="p-6 space-y-6">
+        {/* Anúncios — mural da banda, em destaque no topo */}
+        <AnnouncementsSection announcements={anuncios} admin={admin} />
+
         {/* Próximos shows */}
         <Section
           title="Próximos shows"

@@ -2,10 +2,29 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Star, Pencil, Music2, Users, ChevronDown } from "lucide-react";
+import {
+  Star,
+  Pencil,
+  Music2,
+  Users,
+  ChevronDown,
+  CheckSquare,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   SongStatusBadge,
   SONG_STATUS_OPTIONS,
@@ -13,10 +32,14 @@ import {
 import { DeleteButton } from "@/components/shared/delete-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { Song, Member } from "@/db/schema";
 import {
   deleteSongAction,
   toggleFavoritaAction,
+  bulkDeleteSongsAction,
+  bulkSetStatusAction,
+  bulkSetFavoritaAction,
 } from "@/app/(app)/repertorio/actions";
 
 type ReadinessMap = Record<string, Record<string, string>>;
@@ -57,6 +80,12 @@ export function SongList({
     useState<string>("nao_pronta"); // "nao_pronta" | readiness
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
+
+  // Modo seleção / ações em massa (só admin)
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkPending, startBulk] = useTransition();
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   function toggleStatus(status: string) {
     setSelectedStatuses((prev) => {
@@ -114,6 +143,74 @@ export function SongList({
     });
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((s) => selectedIds.has(s.id));
+
+  function toggleSelectAll() {
+    setSelectedIds(
+      allFilteredSelected ? new Set() : new Set(filtered.map((s) => s.id))
+    );
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function handleBulkDelete() {
+    const target = [...selectedIds];
+    startBulk(async () => {
+      const r = await bulkDeleteSongsAction(target);
+      if (!r.ok) {
+        toast.error(r.error ?? "Erro ao remover.");
+        return;
+      }
+      toast.success(`${r.count} música(s) removida(s).`);
+      setConfirmDeleteOpen(false);
+      exitSelectMode();
+    });
+  }
+
+  function handleBulkStatus(status: string) {
+    if (!status) return;
+    const target = [...selectedIds];
+    startBulk(async () => {
+      const r = await bulkSetStatusAction(target, status as Song["status"]);
+      if (!r.ok) {
+        toast.error(r.error ?? "Erro ao mudar status.");
+        return;
+      }
+      toast.success(`Status atualizado em ${r.count} música(s).`);
+      exitSelectMode();
+    });
+  }
+
+  function handleBulkFav(favorita: boolean) {
+    const target = [...selectedIds];
+    startBulk(async () => {
+      const r = await bulkSetFavoritaAction(target, favorita);
+      if (!r.ok) {
+        toast.error(r.error ?? "Erro.");
+        return;
+      }
+      toast.success(
+        favorita
+          ? `${r.count} música(s) favoritada(s).`
+          : `${r.count} desfavoritada(s).`
+      );
+      exitSelectMode();
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -131,6 +228,21 @@ export function SongList({
             <Star className={cn("size-4", onlyFav && "fill-current")} />
             Favoritas
           </Button>
+          {admin && (
+            <Button
+              variant={selectMode ? "default" : "outline"}
+              onClick={() =>
+                selectMode ? exitSelectMode() : setSelectMode(true)
+              }
+            >
+              {selectMode ? (
+                <X className="size-4" />
+              ) : (
+                <CheckSquare className="size-4" />
+              )}
+              {selectMode ? "Sair" : "Selecionar"}
+            </Button>
+          )}
           <div className="ml-auto self-center text-sm text-muted-foreground">
             {filtered.length} / {songs.length}
           </div>
@@ -206,6 +318,89 @@ export function SongList({
         )}
       </div>
 
+      {selectMode && (
+        <div className="sticky top-2 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-primary/40 bg-card/95 px-3 py-2 shadow-sm backdrop-blur">
+          <button
+            type="button"
+            onClick={toggleSelectAll}
+            className="text-xs text-primary hover:underline"
+          >
+            {allFilteredSelected
+              ? "Limpar seleção"
+              : `Selecionar todas (${filtered.length})`}
+          </button>
+          <span className="text-sm font-medium">
+            {selectedIds.size} selecionada{selectedIds.size === 1 ? "" : "s"}
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <select
+              value=""
+              onChange={(e) => handleBulkStatus(e.target.value)}
+              disabled={selectedIds.size === 0 || bulkPending}
+              className="h-8 rounded-md border border-input bg-transparent px-2 text-xs disabled:opacity-50"
+            >
+              <option value="">Mudar status…</option>
+              {SONG_STATUS_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleBulkFav(true)}
+              disabled={selectedIds.size === 0 || bulkPending}
+            >
+              <Star className="size-4" />
+              Favoritar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleBulkFav(false)}
+              disabled={selectedIds.size === 0 || bulkPending}
+            >
+              Desfavoritar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={selectedIds.size === 0 || bulkPending}
+            >
+              <Trash2 className="size-4" />
+              Remover
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Apagar {selectedIds.size} música
+              {selectedIds.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel render={<Button variant="outline" />}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              render={<Button variant="destructive" disabled={bulkPending} />}
+              onClick={handleBulkDelete}
+            >
+              {bulkPending ? "Apagando…" : "Apagar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {filtered.length === 0 ? (
         <EmptyState
           icon={Music2}
@@ -223,7 +418,23 @@ export function SongList({
 
               return (
                 <li key={s.id}>
-                  <div className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30">
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 hover:bg-accent/30",
+                      selectMode &&
+                        selectedIds.has(s.id) &&
+                        "bg-primary/10 hover:bg-primary/15"
+                    )}
+                  >
+                    {selectMode && admin && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(s.id)}
+                        onChange={() => toggleSelect(s.id)}
+                        className="size-4 shrink-0 accent-primary"
+                        aria-label={`Selecionar ${s.titulo}`}
+                      />
+                    )}
                     {admin ? (
                       <button
                         onClick={() => handleToggleFav(s.id, s.favorita)}

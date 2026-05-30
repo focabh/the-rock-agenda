@@ -135,6 +135,25 @@ export function dataPartesBR(date: Date | number): {
   };
 }
 
+/**
+ * Tempo relativo curto em pt-BR: "agora", "há 5 min", "há 3 h", "há 2 d".
+ * Acima de 7 dias cai pra data absoluta. Calcule no servidor e passe a string
+ * pro cliente pra evitar mismatch de hidratação (o "now" difere).
+ */
+export function formatRelativeBR(date: Date | number, now: Date | number = new Date()): string {
+  const then = typeof date === "number" ? date : date.getTime();
+  const ref = typeof now === "number" ? now : now.getTime();
+  const diffMs = ref - then;
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d <= 7) return `há ${d} d`;
+  return formatDataBR(then);
+}
+
 export function formatDuracao(segundos: number): string {
   const h = Math.floor(segundos / 3600);
   const m = Math.floor((segundos % 3600) / 60);
