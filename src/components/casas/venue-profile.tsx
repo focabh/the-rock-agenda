@@ -6,6 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ALL_VENUE_TAGS } from "@/lib/venue-tags";
@@ -30,6 +40,7 @@ export function VenueProfile({
   const [custom, setCustom] = useState("");
   const [saving, startSave] = useTransition();
   const [analyzing, startAnalyze] = useTransition();
+  const [confirmIA, setConfirmIA] = useState(false);
 
   // Visão do músico (não-admin): só leitura.
   if (!admin) {
@@ -94,9 +105,9 @@ export function VenueProfile({
         <Button
           variant="outline"
           size="sm"
-          onClick={analyze}
+          onClick={() => setConfirmIA(true)}
           disabled={analyzing}
-          title="Analisar perfil da casa com IA (busca na web)"
+          title="Analisar perfil da casa com IA — busca na web (pode gerar custo)"
         >
           {analyzing ? (
             <Loader2 className="size-4 animate-spin" />
@@ -105,6 +116,33 @@ export function VenueProfile({
           )}
           {analyzing ? "Analisando…" : "Analisar com IA"}
         </Button>
+
+        <AlertDialog open={confirmIA} onOpenChange={setConfirmIA}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Analisar com IA (busca na web)?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Isso usa a IA com <strong>pesquisa na web</strong> pra montar o
+                perfil da casa — consome créditos da Anthropic (poucos centavos
+                por análise). Confirmar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel render={<Button variant="outline" />}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                render={<Button />}
+                onClick={() => {
+                  setConfirmIA(false);
+                  analyze();
+                }}
+              >
+                Analisar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {/* Tags selecionadas */}
