@@ -205,6 +205,7 @@ export default async function ShowDetailPage({
               setlists={show.setlists}
               allSongs={allSongs}
               canEdit={admin}
+              defaultDuracaoMin={show.duracaoMin ?? 60}
             />
           }
           checklist={

@@ -1,5 +1,16 @@
 import Link from "next/link";
-import { Pencil, MapPin, Phone, Clock, Users, Volume2, AlertTriangle } from "lucide-react";
+import {
+  Pencil,
+  MapPin,
+  Phone,
+  Clock,
+  Users,
+  Volume2,
+  AlertTriangle,
+  Timer,
+  Beer,
+  UserPlus,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/shared/delete-button";
@@ -109,11 +120,32 @@ export function ShowResumo({
                 <span className="font-mono">{show.passagemSom}</span>
               </p>
             )}
+            {show.duracaoMin != null && show.duracaoMin > 0 && (
+              <p className="flex items-center gap-2">
+                <Timer className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Duração:</span>
+                <span>{show.duracaoMin} min</span>
+              </p>
+            )}
             {show.publicoEsperado != null && show.publicoEsperado > 0 && (
               <p className="flex items-center gap-2">
                 <Users className="size-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Público esperado:</span>
                 <span>{show.publicoEsperado}</span>
+              </p>
+            )}
+            {show.consumacao && (
+              <p className="flex items-center gap-2">
+                <Beer className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Consumação:</span>
+                <span>{show.consumacao}</span>
+              </p>
+            )}
+            {show.acompanhantes && (
+              <p className="flex items-center gap-2">
+                <UserPlus className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Acompanhantes:</span>
+                <span>{show.acompanhantes}</span>
               </p>
             )}
             {show.contatoNome && (

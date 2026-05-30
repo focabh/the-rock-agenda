@@ -3,9 +3,9 @@
 import { useEffect, useState, useTransition } from "react";
 import { Wand2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { NumberStepper } from "@/components/shared/number-stepper";
 import {
   Dialog,
   DialogContent,
@@ -43,13 +43,15 @@ export function SetlistGenerateDialog({
   showId,
   setlistId,
   hasItems,
+  defaultMin = 60,
 }: {
   showId: string;
   setlistId: string;
   hasItems: boolean;
+  defaultMin?: number;
 }) {
   const [open, setOpen] = useState(false);
-  const [min, setMin] = useState(60);
+  const [min, setMin] = useState(defaultMin);
   const [ordem, setOrdem] = useState<"equilibrada" | "aleatoria">("equilibrada");
   const [perfil, setPerfil] = useState("equilibrado");
   const [opts, setOpts] = useState<Opts>({
@@ -113,14 +115,13 @@ export function SetlistGenerateDialog({
           <div className="flex items-end gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="gen-min">Duração do show (min)</Label>
-              <Input
+              <NumberStepper
                 id="gen-min"
-                type="number"
+                value={min}
+                onChange={setMin}
                 min={5}
                 max={300}
-                value={min}
-                onChange={(e) => setMin(Number(e.target.value) || 60)}
-                className="w-28"
+                step={5}
               />
             </div>
             <div className="space-y-1.5">

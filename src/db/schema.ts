@@ -283,6 +283,9 @@ export const shows = sqliteTable("shows", {
     .default("pendente"),
   passagemSom: text("passagem_som"), // HH:mm
   publicoEsperado: integer("publico_esperado"),
+  duracaoMin: integer("duracao_min"), // duração planejada do show (minutos)
+  consumacao: text("consumacao"), // couvert/consumação mínima
+  acompanhantes: text("acompanhantes"), // política de acompanhantes/lista
   observacoes: text("observacoes"),
   status: text("status", {
     enum: ["planejado", "confirmado", "concluido", "cancelado"],

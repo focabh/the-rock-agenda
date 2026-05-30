@@ -40,6 +40,9 @@ const showSchema = z.object({
   cacheReais: z.coerce.number().min(0).optional(),
   pagamentoStatus: z.enum(PAGAMENTO_STATUSES),
   publicoEsperado: z.coerce.number().int().min(0).optional(),
+  duracaoMin: z.coerce.number().int().min(0).max(600).optional(),
+  consumacao: z.string().max(300).optional(),
+  acompanhantes: z.string().max(300).optional(),
   observacoes: z.string().max(2000).optional(),
   status: z.enum(SHOW_STATUSES),
 });

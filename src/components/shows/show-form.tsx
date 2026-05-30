@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumberStepper } from "@/components/shared/number-stepper";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
@@ -36,6 +37,7 @@ export function ShowForm({
   defaultDate?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
+  const [duracao, setDuracao] = useState(show?.duracaoMin ?? 60);
   const cacheReais = show?.cacheCentavos ? show.cacheCentavos / 100 : "";
   const dataDefault = show?.data
     ? toBRDatetimeLocal(show.data)
@@ -122,6 +124,23 @@ export function ShowForm({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="duracaoMin">Duração do show</Label>
+            <div className="flex items-center gap-2">
+              <NumberStepper
+                id="duracaoMin"
+                name="duracaoMin"
+                value={duracao}
+                onChange={setDuracao}
+                min={0}
+                max={600}
+                step={15}
+              />
+              <span className="text-sm text-muted-foreground">min</span>
+            </div>
+            <FieldError state={state} name="duracaoMin" />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="passagemSom">Passagem de som</Label>
             <Input
               id="passagemSom"
@@ -195,6 +214,28 @@ export function ShowForm({
               ))}
             </select>
             <FieldError state={state} name="pagamentoStatus" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="consumacao">Consumação / couvert</Label>
+            <Input
+              id="consumacao"
+              name="consumacao"
+              defaultValue={show?.consumacao ?? ""}
+              placeholder="Ex.: couvert R$20, consumação mín. R$30"
+            />
+            <FieldError state={state} name="consumacao" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="acompanhantes">Acompanhantes</Label>
+            <Input
+              id="acompanhantes"
+              name="acompanhantes"
+              defaultValue={show?.acompanhantes ?? ""}
+              placeholder="Ex.: 2 por integrante na lista"
+            />
+            <FieldError state={state} name="acompanhantes" />
           </div>
 
           <div className="space-y-2 sm:col-span-2">

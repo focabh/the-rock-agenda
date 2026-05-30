@@ -74,16 +74,25 @@ import type { Song, SetlistItem, Setlist } from "@/db/schema";
 type Item = SetlistItem & { song: Song };
 type SetlistWithItems = Setlist & { items: Item[] };
 
+function fmtMMSS(sec: number): string {
+  if (!sec || sec <= 0) return "";
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export function SetlistTab({
   showId,
   setlists,
   allSongs,
   canEdit = true,
+  defaultDuracaoMin = 60,
 }: {
   showId: string;
   setlists: SetlistWithItems[];
   allSongs: Song[];
   canEdit?: boolean;
+  defaultDuracaoMin?: number;
 }) {
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -278,6 +287,7 @@ export function SetlistTab({
                   showId={showId}
                   setlistId={selected.id}
                   hasItems={localItems.length > 0}
+                  defaultMin={defaultDuracaoMin}
                 />
               )}
               {selected && localItems.length > 0 && (
@@ -588,6 +598,14 @@ function SortableSetlistItem({
           {item.song.artista}
         </p>
       </div>
+      {(() => {
+        const dur = item.duracaoSeg ?? item.song.duracaoSeg ?? 0;
+        return dur > 0 ? (
+          <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+            {fmtMMSS(dur)}
+          </span>
+        ) : null;
+      })()}
       <Input
         defaultValue={item.tom ?? ""}
         placeholder="Tom"
