@@ -143,8 +143,45 @@ export const venues = sqliteTable("venues", {
   telefone: text("telefone"),
   observacoes: text("observacoes"),
   ativo: integer("ativo", { mode: "boolean" }).notNull().default(true),
+  // --- CRM: relacionamento com a casa ---
+  querTocar: integer("quer_tocar", { mode: "boolean" }).notNull().default(false),
+  jaTocou: integer("ja_tocou", { mode: "boolean" }).notNull().default(false),
+  naoContatar: integer("nao_contatar", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  // --- CRM: campos automáticos (preenchidos por ações no app) ---
+  materialEnviadoEm: integer("material_enviado_em", { mode: "timestamp_ms" }),
+  ultimoContatoEm: integer("ultimo_contato_em", { mode: "timestamp_ms" }),
+  agradecimentoEnviadoEm: integer("agradecimento_enviado_em", {
+    mode: "timestamp_ms",
+  }),
+  // Ajuste manual de histórico antigo (a última apresentação "real" também é
+  // derivada dos shows desta casa — usa-se a mais recente entre as duas).
+  ultimaApresentacaoManual: integer("ultima_apresentacao_manual", {
+    mode: "timestamp_ms",
+  }),
+  // Perfil/características (preenchidas à mão ou sugeridas por IA — fase futura)
+  caracteristicas: text("caracteristicas"), // JSON array de tags
+  instagram: text("instagram"),
+  perfilPublico: text("perfil_publico"), // resumo do público/estilo
   createdAt: createdAt(),
   updatedAt: updatedAt(),
+});
+
+// Histórico simples de contatos feitos com cada casa (pelo app).
+export const venueContacts = sqliteTable("venue_contacts", {
+  id: id(),
+  venueId: text("venue_id")
+    .notNull()
+    .references(() => venues.id, { onDelete: "cascade" }),
+  tipo: text("tipo", {
+    enum: ["divulgacao", "followup", "agradecimento", "nova_data", "contato"],
+  }).notNull(),
+  mensagem: text("mensagem"),
+  createdAt: createdAt(),
+  createdById: text("created_by_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
 });
 
 // ---------------- SONGS (REPERTÓRIO) ----------------
@@ -831,3 +868,4 @@ export type SiteVisit = typeof siteVisits.$inferSelect;
 export type PromoItem = typeof promoItems.$inferSelect;
 export type Announcement = typeof announcements.$inferSelect;
 export type BandPosition = typeof bandPositions.$inferSelect;
+export type VenueContact = typeof venueContacts.$inferSelect;

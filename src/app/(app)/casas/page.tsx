@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { Plus, Building2, MapPin, Phone, ChevronRight } from "lucide-react";
+import { formatRelativeBR } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 import { db } from "@/db";
 import { venues } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
@@ -66,6 +68,26 @@ export default async function CasasPage() {
                       <ChevronRight className="size-4 text-muted-foreground shrink-0" />
                     </div>
 
+                    {(c.querTocar || c.jaTocou || c.naoContatar) && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {c.naoContatar && (
+                          <Tag className="bg-red-500/15 text-red-300 ring-red-500/30">
+                            Não contatar
+                          </Tag>
+                        )}
+                        {c.querTocar && (
+                          <Tag className="bg-primary/20 text-primary ring-primary/40">
+                            Quer tocar
+                          </Tag>
+                        )}
+                        {c.jaTocou && (
+                          <Tag className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">
+                            Já tocou
+                          </Tag>
+                        )}
+                      </div>
+                    )}
+
                     {c.contatoPrincipal && (
                       <p className="text-sm">
                         <span className="text-muted-foreground">Contato:</span>{" "}
@@ -85,6 +107,12 @@ export default async function CasasPage() {
                         {c.observacoes}
                       </p>
                     )}
+
+                    {c.ultimoContatoEm && (
+                      <p className="text-xs text-muted-foreground/70">
+                        Último contato: {formatRelativeBR(c.ultimoContatoEm)}
+                      </p>
+                    )}
                   </CardContent>
                 </Link>
                 {admin && (
@@ -101,5 +129,24 @@ export default async function CasasPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function Tag({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset",
+        className
+      )}
+    >
+      {children}
+    </span>
   );
 }
