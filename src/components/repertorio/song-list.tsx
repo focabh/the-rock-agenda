@@ -32,6 +32,7 @@ import {
   SONG_STATUS_OPTIONS,
 } from "@/components/shared/status-badge";
 import { DeleteButton } from "@/components/shared/delete-button";
+import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -532,6 +533,14 @@ export function SongList({
                         <ExternalLink className="size-4" />
                       </a>
                     )}
+
+                    <LyricsDialog
+                      songId={s.id}
+                      titulo={s.titulo}
+                      artista={s.artista}
+                      spotifyTrackId={s.spotifyTrackId}
+                      admin={admin}
+                    />
 
                     <SongStatusBadge status={s.status} />
 

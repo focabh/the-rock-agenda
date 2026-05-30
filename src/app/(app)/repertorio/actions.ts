@@ -15,6 +15,7 @@ import {
   fetchPlaylistTracks,
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
+import { fetchLyrics } from "@/lib/lyrics";
 
 const SONG_STATUSES = [
   "pronta",
@@ -200,6 +201,51 @@ export async function bulkSetFavoritaAction(
   await db.update(songs).set({ favorita }).where(inArray(songs.id, ids));
   revalidatePath("/repertorio");
   return { ok: true, count: ids.length };
+}
+
+// ---------------- LETRAS ----------------
+
+export type LyricsResult = {
+  ok: boolean;
+  lyrics: string | null;
+  found: boolean;
+  error?: string;
+};
+
+/**
+ * Retorna a letra da música. Se já estiver no banco, usa o cache; senão busca
+ * no LRCLIB e salva. Qualquer usuário logado pode ver (o cantor é membro).
+ */
+export async function getOrFetchLyricsAction(
+  songId: string
+): Promise<LyricsResult> {
+  await requireCurrentUser();
+  const [song] = await db.select().from(songs).where(eq(songs.id, songId)).limit(1);
+  if (!song) return { ok: false, lyrics: null, found: false, error: "Música não encontrada." };
+
+  if (song.lyrics && song.lyrics.trim()) {
+    return { ok: true, lyrics: song.lyrics, found: true };
+  }
+
+  const fetched = await fetchLyrics(song.titulo, song.artista);
+  if (fetched) {
+    await db.update(songs).set({ lyrics: fetched }).where(eq(songs.id, songId));
+    return { ok: true, lyrics: fetched, found: true };
+  }
+  return { ok: true, lyrics: null, found: false };
+}
+
+/** Admin corrige/cola a letra manualmente (ou limpa, passando string vazia). */
+export async function saveLyricsAction(
+  songId: string,
+  lyrics: string
+): Promise<LyricsResult> {
+  await requireAdmin();
+  const value = lyrics.trim() || null;
+  await db.update(songs).set({ lyrics: value }).where(eq(songs.id, songId));
+  revalidatePath("/repertorio");
+  revalidatePath(`/repertorio/${songId}`);
+  return { ok: true, lyrics: value, found: !!value };
 }
 
 export async function setMemberReadinessAction(

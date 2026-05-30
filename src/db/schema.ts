@@ -169,6 +169,9 @@ export const songs = sqliteTable("songs", {
   // ID da faixa no Spotify (ex.: "1wrhhPzd2ncJPNgUcGgBGg"), preenchido no
   // import via embed. Usado pro player embutido na lista. Null = música manual.
   spotifyTrackId: text("spotify_track_id"),
+  // Letra (cache do LRCLIB na 1ª abertura; admin pode corrigir). Null = ainda
+  // não buscada / não encontrada.
+  lyrics: text("lyrics"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
