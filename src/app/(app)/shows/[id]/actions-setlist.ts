@@ -162,6 +162,7 @@ export async function generateSetlistAction(
           exigeVocal: s.exigeVocal,
           momento: s.momento,
           tom: s.tom,
+          finalBoss: s.finalBoss,
         })),
         targetMin: Math.max(1, opts.targetMin),
         diaSemana,
@@ -213,6 +214,7 @@ export async function generateSetlistAction(
         conhecida: s.conhecida,
         exigeVocal: s.exigeVocal,
         momento: s.momento,
+        finalBoss: s.finalBoss,
       })),
       genOpts
     );

@@ -59,6 +59,7 @@ function extractSongMeta(fd: FormData) {
       : "qualquer",
     conhecida: fd.get("conhecida") === "on",
     exigeVocal: fd.get("exigeVocal") === "on",
+    finalBoss: fd.get("finalBoss") === "on",
     tom: String(fd.get("tom") ?? "").trim() || null,
     estilo: String(fd.get("estilo") ?? "").trim() || null,
   };
@@ -265,6 +266,7 @@ export async function enrichSongsAIAction(): Promise<EnrichResult> {
       if (s.energia != null) patch.energia = s.energia;
       if (s.conhecida != null) patch.conhecida = s.conhecida;
       if (s.momento) patch.momento = s.momento;
+      if (s.finalBoss != null) patch.finalBoss = s.finalBoss;
       if (Object.keys(patch).length) {
         await db.update(songs).set(patch).where(eq(songs.id, s.id));
         updated++;

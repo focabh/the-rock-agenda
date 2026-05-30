@@ -154,6 +154,15 @@ export function SongForm({
               />
               Exige mais do vocal
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="finalBoss"
+                defaultChecked={song?.finalBoss ?? false}
+                className="size-4 accent-primary"
+              />
+              Música de final / hino (munição pesada)
+            </label>
           </div>
 
           <div className="space-y-2 sm:col-span-2">

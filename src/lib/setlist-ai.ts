@@ -17,6 +17,7 @@ export type AISong = {
   exigeVocal: boolean;
   momento: string;
   tom: string | null;
+  finalBoss: boolean;
 };
 
 export type SetlistAIInput = {
@@ -57,6 +58,7 @@ export async function generateSetlistAI(
     conhecida: s.conhecida,
     momento: s.momento,
     exigeVocal: s.exigeVocal,
+    finalBoss: s.finalBoss,
     tom: s.tom ?? "",
   }));
 
@@ -91,6 +93,7 @@ DRAMATURGIA:
 1. Abra com conhecida + energética pra fisgar nos primeiros minutos.
 2. Suba até um pico; ponha o 1º RESPIRO (média/conhecida) LOGO APÓS o pico (~primeiro terço). Respiro nunca no começo, nunca dois lentos seguidos, e nunca uma música "morta".
 3. Maior pico perto do fim; FECHE com um hino de cantar junto.
+   TRAVA (munição pesada): músicas com finalBoss=true são hinos/catarse de FECHAMENTO. Só podem entrar nos ÚLTIMOS 20% do show (fim ou bis). NUNCA nos primeiros 30%. Não desperdice munição pesada cedo.
 4. Conhecidas abrem/fecham; faixas menos óbvias ficam nos vales do meio.
 5. Vocal: não emende duas que exigem muito do vocal; as difíceis nos picos.
 6. Transições suaves (evite saltos bruscos de andamento/tom entre vizinhas).

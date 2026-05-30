@@ -11,6 +11,7 @@ export type SongMetaSuggestion = {
   energia: number | null;
   conhecida: boolean | null;
   momento: string | null;
+  finalBoss: boolean | null;
 };
 
 export async function enrichSongsWithAI(
@@ -24,9 +25,10 @@ export async function enrichSongsWithAI(
 - "energia": 1 = leve/acústica/balada, 2 = média, 3 = pesada/agitada/pra pular.
 - "conhecida": true se é um HIT muito conhecido do público geral (canta junto); false se é mais de nicho.
 - "momento": onde funciona melhor num show ao vivo: "abertura", "meio", "fechamento" ou "qualquer".
+- "finalBoss": true se é um HINO/catarse que normalmente FECHA show (munição pesada de fim); senão false.
 
 Responda SOMENTE com um array JSON, sem texto fora dele:
-[{"id":"<id>","energia":1,"conhecida":true,"momento":"qualquer"}]
+[{"id":"<id>","energia":1,"conhecida":true,"momento":"qualquer","finalBoss":false}]
 
 Músicas:
 ${JSON.stringify(songs.map((s) => ({ id: s.id, titulo: s.titulo, artista: s.artista })))}`;
@@ -70,5 +72,6 @@ ${JSON.stringify(songs.map((s) => ({ id: s.id, titulo: s.titulo, artista: s.arti
         typeof x.momento === "string" && MOMENTOS.includes(x.momento)
           ? x.momento
           : null,
+      finalBoss: typeof x.finalBoss === "boolean" ? x.finalBoss : null,
     }));
 }

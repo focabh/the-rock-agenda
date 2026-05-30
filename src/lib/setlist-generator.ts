@@ -10,6 +10,7 @@ export type GenSong = {
   conhecida: boolean;
   exigeVocal: boolean;
   momento: string; // qualquer|abertura|meio|fechamento
+  finalBoss?: boolean; // hino/munição pesada → vai pro fim, nunca no início
 };
 
 export type GenOptions = {
@@ -85,20 +86,22 @@ export function generateSetlist(songs: GenSong[], o: GenOptions): GenResult {
     total += dur(s);
   }
 
-  // Ordena: abertura → meio → fechamento, com curva de energia.
-  const abertura = picked.filter((s) => s.momento === "abertura");
-  const fechamento = picked.filter((s) => s.momento === "fechamento");
-  const meio = picked.filter(
+  // Ordena: abertura → meio → fechamento → Final Boss (munição pesada no fim).
+  const fb = picked.filter((s) => s.finalBoss);
+  const rest = picked.filter((s) => !s.finalBoss);
+  const abertura = rest.filter((s) => s.momento === "abertura");
+  const fechamento = rest.filter((s) => s.momento === "fechamento");
+  const meio = rest.filter(
     (s) => s.momento !== "abertura" && s.momento !== "fechamento"
   );
   // Energia subindo (começa mais leve, fecha mais forte). "Leves no começo"
   // reforça isso; nos dois casos ordenamos por energia ascendente.
   meio.sort((a, b) => energy(a) - energy(b));
 
-  const ordered = [...abertura, ...meio, ...fechamento];
+  const ordered = [...abertura, ...meio, ...fechamento, ...fb];
 
-  // Sem fechamento explícito: garante um final forte (maior energia/conhecida).
-  if (fechamento.length === 0 && ordered.length > 1) {
+  // Sem fechamento NEM Final Boss: garante um final forte (maior energia).
+  if (fechamento.length === 0 && fb.length === 0 && ordered.length > 1) {
     let bestIdx = 0;
     let best = -Infinity;
     ordered.forEach((s, i) => {

@@ -221,6 +221,11 @@ export const songs = sqliteTable("songs", {
   })
     .notNull()
     .default("qualquer"),
+  // "Munição pesada": hino/catarse que fecha show. Trava: só nos últimos 20%
+  // (fechamento/bis), nunca no início.
+  finalBoss: integer("final_boss", { mode: "boolean" })
+    .notNull()
+    .default(false),
   tom: text("tom"), // tom/afinação usado pela banda (ex.: "Em")
   estilo: text("estilo"), // categoria/estilo livre (ex.: "grunge")
   createdAt: createdAt(),
