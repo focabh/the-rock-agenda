@@ -1,13 +1,13 @@
+import { db } from "@/db";
+import { ensureDbInitialized } from "@/db/init";
+import type { Member, User } from "@/db/schema";
+import { appSettings, members, users } from "@/db/schema";
+import { POSICOES } from "@/lib/validators";
+import bcrypt from "bcryptjs";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
-import bcrypt from "bcryptjs";
-import { db } from "@/db";
-import { ensureDbInitialized } from "@/db/init";
-import { users, members, appSettings } from "@/db/schema";
-import type { Member, User } from "@/db/schema";
-import { POSICOES } from "@/lib/validators";
 
 export type AppSession = {
   authed?: boolean;
@@ -122,12 +122,10 @@ export async function getAvailablePositions(): Promise<string[]> {
       .where(
         and(
           isNotNull(users.posicao),
-          inArray(users.status, ["pendente", "aprovado"])
-        )
+          inArray(users.status, ["pendente", "aprovado"]),
+        ),
       );
-    const takenSet = new Set(
-      taken.map((t) => (t.posicao ?? "").toLowerCase())
-    );
+    const takenSet = new Set(taken.map((t) => (t.posicao ?? "").toLowerCase()));
     return POSICOES.filter((p) => !takenSet.has(p.toLowerCase()));
   } catch {
     return [...POSICOES];
