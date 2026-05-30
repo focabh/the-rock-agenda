@@ -23,9 +23,11 @@ export function SpotifyConnect({
   const params = useSearchParams();
 
   function handleConnect(e: React.FormEvent) {
+    // Spotify não aceita "localhost" como redirect de loopback — exige 127.0.0.1.
+    // Esse desvio vale SÓ no dev local; em produção (domínio real) não mexe.
     if (
       typeof window !== "undefined" &&
-      window.location.hostname !== CANONICAL_HOST
+      window.location.hostname === "localhost"
     ) {
       e.preventDefault();
       const url = new URL(window.location.href);
