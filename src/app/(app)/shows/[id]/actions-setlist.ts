@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, gt, lt, desc, asc, sql } from "drizzle-orm";
+import { and, eq, gt, lt, desc, asc, sql, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { setlists, setlistItems, songs } from "@/db/schema";
+import { setlists, setlistItems, songs, shows, venues } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import {
   SpotifyConfigError,
@@ -11,6 +11,115 @@ import {
   fetchPlaylistTracks,
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
+import { parseTags } from "@/lib/venue-tags";
+import { generateSetlist, type GenOptions } from "@/lib/setlist-generator";
+
+export type GenSetlistResult = {
+  ok: boolean;
+  error?: string;
+  count?: number;
+  totalSeg?: number;
+};
+
+/** Gera (substitui) o setlist com base na casa + duração + opções. Sugestão. */
+export async function generateSetlistAction(
+  showId: string,
+  setlistId: string,
+  opts: {
+    targetMin: number;
+    priConhecidas: boolean;
+    priPesadas: boolean;
+    priAlternativas: boolean;
+    levesNoComeco: boolean;
+    evitarVocalDificil: boolean;
+    ordem: "equilibrada" | "aleatoria";
+    evitarRepetir: boolean;
+    seed: number;
+  }
+): Promise<GenSetlistResult> {
+  await requireAdmin();
+
+  const allSongs = await db.select().from(songs);
+  if (allSongs.length === 0)
+    return { ok: false, error: "Repertório vazio — cadastre músicas primeiro." };
+
+  const [show] = await db.select().from(shows).where(eq(shows.id, showId)).limit(1);
+  let venueTags: string[] = [];
+  let avoidIds: string[] = [];
+
+  if (show) {
+    const [venue] = await db
+      .select()
+      .from(venues)
+      .where(eq(venues.id, show.casaId))
+      .limit(1);
+    venueTags = parseTags(venue?.caracteristicas);
+
+    if (opts.evitarRepetir) {
+      const casaShows = await db
+        .select({ id: shows.id })
+        .from(shows)
+        .where(eq(shows.casaId, show.casaId));
+      const otherShowIds = casaShows.map((s) => s.id).filter((sid) => sid !== showId);
+      if (otherShowIds.length) {
+        const sls = await db
+          .select({ id: setlists.id })
+          .from(setlists)
+          .where(inArray(setlists.showId, otherShowIds));
+        const slIds = sls.map((x) => x.id);
+        if (slIds.length) {
+          const items = await db
+            .select({ songId: setlistItems.songId })
+            .from(setlistItems)
+            .where(inArray(setlistItems.setlistId, slIds));
+          avoidIds = [...new Set(items.map((i) => i.songId))];
+        }
+      }
+    }
+  }
+
+  const genOpts: GenOptions = {
+    targetSeg: Math.max(1, opts.targetMin) * 60,
+    venueTags,
+    priConhecidas: opts.priConhecidas,
+    priPesadas: opts.priPesadas,
+    priAlternativas: opts.priAlternativas,
+    levesNoComeco: opts.levesNoComeco,
+    evitarVocalDificil: opts.evitarVocalDificil,
+    ordem: opts.ordem,
+    evitarRepetir: opts.evitarRepetir,
+    avoidIds,
+    seed: opts.seed,
+  };
+
+  const result = generateSetlist(
+    allSongs.map((s) => ({
+      id: s.id,
+      status: s.status,
+      duracaoSeg: s.duracaoSeg,
+      energia: s.energia,
+      conhecida: s.conhecida,
+      exigeVocal: s.exigeVocal,
+      momento: s.momento,
+    })),
+    genOpts
+  );
+
+  const byId = new Map(allSongs.map((s) => [s.id, s]));
+  await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
+  let ordem = 0;
+  for (const id of result.orderedIds) {
+    await db.insert(setlistItems).values({
+      setlistId,
+      songId: id,
+      ordem: ordem++,
+      duracaoSeg: byId.get(id)?.duracaoSeg ?? null,
+    });
+  }
+
+  revalidatePath(`/shows/${showId}`);
+  return { ok: true, count: result.orderedIds.length, totalSeg: result.totalSeg };
+}
 
 // ---------------- SETLISTS (vários por show) ----------------
 

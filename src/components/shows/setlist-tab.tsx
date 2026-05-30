@@ -15,6 +15,7 @@ import {
   ListPlus,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
+import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
 import {
   DndContext,
   KeyboardSensor,
@@ -270,6 +271,13 @@ export function SetlistTab({
               )}
             </h3>
             <div className="flex gap-2">
+              {canEdit && selected && (
+                <SetlistGenerateDialog
+                  showId={showId}
+                  setlistId={selected.id}
+                  hasItems={localItems.length > 0}
+                />
+              )}
               {canEdit && selected && (
                 <SpotifyImportDialog
                   mode="setlist"
