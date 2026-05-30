@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { requireAdmin, requireCurrentUser } from "@/lib/auth";
 import { computeSetlistMemory } from "@/lib/setlist-memory";
+import { NoApiKeyError } from "@/lib/venue-ai";
 import {
   SpotifyConfigError,
   extractPlaylistId,
@@ -21,7 +22,11 @@ import {
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { parseTags } from "@/lib/venue-tags";
 import { generateSetlist, type GenOptions } from "@/lib/setlist-generator";
-import { generateSetlistAI } from "@/lib/setlist-ai";
+import {
+  generateSetlistAI,
+  critiqueSetlist,
+  type SetlistCritique,
+} from "@/lib/setlist-ai";
 import { formatHoraBR } from "@/lib/formatters";
 
 export type GenSetlistResult = {
@@ -57,6 +62,89 @@ export async function saveSetlistPrefsAction(
   return { ok: true };
 }
 
+export type CritiqueResult = {
+  ok: boolean;
+  veredito?: SetlistCritique["veredito"];
+  alertas?: string[];
+  error?: string;
+  needsKey?: boolean;
+};
+
+/** A IA critica a ORDEM atual do setlist (validação humana). Haiku, sem web. */
+export async function critiqueSetlistAction(
+  setlistId: string
+): Promise<CritiqueResult> {
+  await requireCurrentUser();
+  const [sl] = await db
+    .select()
+    .from(setlists)
+    .where(eq(setlists.id, setlistId))
+    .limit(1);
+  if (!sl) return { ok: false, error: "Setlist não encontrado." };
+
+  const items = await db
+    .select({
+      titulo: songs.titulo,
+      artista: songs.artista,
+      energia: songs.energia,
+      conhecida: songs.conhecida,
+      exigeVocal: songs.exigeVocal,
+      momento: songs.momento,
+      finalBoss: songs.finalBoss,
+      duracaoSeg: songs.duracaoSeg,
+    })
+    .from(setlistItems)
+    .innerJoin(songs, eq(songs.id, setlistItems.songId))
+    .where(eq(setlistItems.setlistId, setlistId))
+    .orderBy(asc(setlistItems.ordem));
+  if (items.length === 0) return { ok: false, error: "Setlist vazio." };
+
+  let diaSemana = "";
+  let casaTags: string[] = [];
+  if (sl.showId) {
+    const [show] = await db
+      .select()
+      .from(shows)
+      .where(eq(shows.id, sl.showId))
+      .limit(1);
+    if (show) {
+      diaSemana = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        weekday: "long",
+      }).format(show.data);
+      const [v] = await db
+        .select()
+        .from(venues)
+        .where(eq(venues.id, show.casaId))
+        .limit(1);
+      casaTags = parseTags(v?.caracteristicas);
+    }
+  }
+  const totalSeg = items.reduce((t, r) => t + (r.duracaoSeg ?? 210), 0);
+
+  try {
+    const crit = await critiqueSetlist({
+      songs: items.map((r) => ({
+        titulo: r.titulo,
+        artista: r.artista,
+        energia: r.energia,
+        conhecida: r.conhecida,
+        exigeVocal: r.exigeVocal,
+        momento: r.momento,
+        finalBoss: r.finalBoss,
+      })),
+      targetMin: Math.round(totalSeg / 60),
+      diaSemana,
+      casaTags,
+    });
+    return { ok: true, veredito: crit.veredito, alertas: crit.alertas };
+  } catch (e) {
+    if (e instanceof NoApiKeyError)
+      return { ok: false, needsKey: true, error: e.message };
+    return { ok: false, error: e instanceof Error ? e.message : "Falha." };
+  }
+}
+
 /** Gera (substitui) o setlist com base na casa + duração + opções. Sugestão. */
 export async function generateSetlistAction(
   showId: string,
@@ -70,6 +158,7 @@ export async function generateSetlistAction(
     evitarVocalDificil: boolean;
     ordem: "equilibrada" | "aleatoria";
     evitarRepetir: boolean;
+    perfilDesejado?: string;
     seed: number;
   }
 ): Promise<GenSetlistResult> {
@@ -172,6 +261,7 @@ export async function generateSetlistAction(
         casaTags: venueTags,
         setlistAnterior,
         regras,
+        perfilDesejado: opts.perfilDesejado ?? "equilibrado",
         memoriaAberturas: memAberturas,
         memoriaFechamentos: memFechamentos,
         prefs: {

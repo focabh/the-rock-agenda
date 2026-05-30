@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
+import { SetlistCritiqueDialog } from "@/components/shows/setlist-critique-dialog";
 import {
   DndContext,
   KeyboardSensor,
@@ -278,6 +279,9 @@ export function SetlistTab({
                   setlistId={selected.id}
                   hasItems={localItems.length > 0}
                 />
+              )}
+              {selected && localItems.length > 0 && (
+                <SetlistCritiqueDialog setlistId={selected.id} />
               )}
               {canEdit && selected && (
                 <SpotifyImportDialog

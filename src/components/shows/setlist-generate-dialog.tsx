@@ -51,6 +51,7 @@ export function SetlistGenerateDialog({
   const [open, setOpen] = useState(false);
   const [min, setMin] = useState(60);
   const [ordem, setOrdem] = useState<"equilibrada" | "aleatoria">("equilibrada");
+  const [perfil, setPerfil] = useState("equilibrado");
   const [opts, setOpts] = useState<Opts>({
     priConhecidas: false,
     priPesadas: false,
@@ -77,6 +78,7 @@ export function SetlistGenerateDialog({
       const r = await generateSetlistAction(showId, setlistId, {
         targetMin: min,
         ordem,
+        perfilDesejado: perfil,
         ...opts,
         seed: Math.floor(Math.random() * 1_000_000_000),
       });
@@ -133,6 +135,24 @@ export function SetlistGenerateDialog({
               >
                 <option value="equilibrada">Equilibrada</option>
                 <option value="aleatoria">Mais aleatória</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gen-perfil">Perfil desejado</Label>
+              <select
+                id="gen-perfil"
+                value={perfil}
+                onChange={(e) => setPerfil(e.target.value)}
+                className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+              >
+                <option value="equilibrado">Equilibrado</option>
+                <option value="mais pesado">Mais pesado</option>
+                <option value="mais pop">Mais pop</option>
+                <option value="mais alternativo">Mais alternativo</option>
+                <option value="mais nostálgico">Mais nostálgico</option>
+                <option value="mais dançante">Mais dançante</option>
+                <option value="mais seguro">Mais seguro</option>
+                <option value="mais ousado">Mais ousado</option>
               </select>
             </div>
           </div>

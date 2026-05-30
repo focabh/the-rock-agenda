@@ -1,0 +1,106 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+import {
+  ClipboardCheck,
+  Loader2,
+  AlertTriangle,
+  CheckCircle2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import {
+  critiqueSetlistAction,
+  type CritiqueResult,
+} from "@/app/(app)/shows/[id]/actions-setlist";
+
+const VEREDITO = {
+  forte: { label: "Curva forte", cls: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30" },
+  ok: { label: "Ok, dá pra ajustar", cls: "bg-amber-500/15 text-amber-300 ring-amber-500/30" },
+  fraco: { label: "Curva fraca", cls: "bg-red-500/15 text-red-300 ring-red-500/30" },
+} as const;
+
+export function SetlistCritiqueDialog({ setlistId }: { setlistId: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, start] = useTransition();
+  const [result, setResult] = useState<CritiqueResult | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setResult(null);
+      return;
+    }
+    start(async () => {
+      const r = await critiqueSetlistAction(setlistId);
+      setResult(r);
+    });
+  }, [open, setlistId]);
+
+  const v = result?.veredito ? VEREDITO[result.veredito] : null;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="outline" size="sm" />}>
+        <ClipboardCheck className="size-4" />
+        Avaliar (IA)
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Avaliação do setlist</DialogTitle>
+          <DialogDescription>
+            A IA analisa a curva do show (não reordena nada — só aponta).
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading && !result ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
+            <Loader2 className="size-5 animate-spin" />
+            Avaliando…
+          </div>
+        ) : result && !result.ok ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {result.needsKey
+              ? "IA não configurada (ANTHROPIC_API_KEY)."
+              : (result.error ?? "Não foi possível avaliar.")}
+          </p>
+        ) : result ? (
+          <div className="space-y-3">
+            {v && (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset",
+                  v.cls
+                )}
+              >
+                {v.label}
+              </span>
+            )}
+            {result.alertas && result.alertas.length > 0 ? (
+              <ul className="space-y-2">
+                {result.alertas.map((a, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" />
+                    <span>{a}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="flex items-center gap-2 text-sm text-emerald-300">
+                <CheckCircle2 className="size-4" />
+                Nenhum problema de dinâmica encontrado. 🤘
+              </p>
+            )}
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}

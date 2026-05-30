@@ -30,6 +30,7 @@ export type SetlistAIInput = {
   casaTags: string[];
   setlistAnterior: string[];
   regras: string;
+  perfilDesejado: string;
   memoriaAberturas: string[];
   memoriaFechamentos: string[];
   prefs: {
@@ -79,6 +80,7 @@ CONTEXTO:
 - Dia: ${i.diaSemana}. Início: ${i.horario || "não informado"}.
 - Casa: ${i.casaNome} — ${i.casaPerfil || "sem perfil"}. Características: ${i.casaTags.join(", ") || "—"}.
 - Última vez nesta casa (NÃO repita abre/fecha nem a ordem): ${i.setlistAnterior.join(", ") || "nenhuma"}.
+- Perfil desejado do show: ${i.perfilDesejado || "equilibrado"}.
 - Preferências do usuário: ${prefs.join("; ") || "nenhuma específica"}.
 
 MEMÓRIA DA BANDA (aprendida dos setlists já salvos — respeite esses padrões quando fizer sentido):
@@ -140,4 +142,85 @@ Não use id fora do repertório. Não repita id.`;
 
   if (orderedIds.length === 0) throw new Error("IA não selecionou músicas válidas.");
   return { orderedIds, racional: (parsed.racional ?? "").slice(0, 600) };
+}
+
+// ---- Crítica de setlist (validação humana): a IA avalia a ORDEM atual ----
+
+export type CritiqueSong = {
+  titulo: string;
+  artista: string;
+  energia: number | null;
+  conhecida: boolean;
+  exigeVocal: boolean;
+  momento: string;
+  finalBoss: boolean;
+};
+
+export type SetlistCritique = {
+  veredito: "forte" | "ok" | "fraco";
+  alertas: string[];
+};
+
+export async function critiqueSetlist(input: {
+  songs: CritiqueSong[]; // NA ORDEM atual
+  targetMin: number;
+  diaSemana: string;
+  casaTags: string[];
+}): Promise<SetlistCritique> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new NoApiKeyError("IA não configurada.");
+
+  const lista = input.songs.map((s, i) => ({
+    pos: i + 1,
+    titulo: s.titulo,
+    artista: s.artista,
+    energia: s.energia ?? 2,
+    conhecida: s.conhecida,
+    exigeVocal: s.exigeVocal,
+    momento: s.momento,
+    finalBoss: s.finalBoss,
+  }));
+
+  const prompt = `Você é diretor musical de shows ao vivo. Avalie a ORDEM deste setlist (NÃO reordene; só critique) pra um show de ~${input.targetMin} min, ${input.diaSemana}, casa: ${input.casaTags.join(", ") || "—"}.
+
+SETLIST (na ordem):
+${JSON.stringify(lista)}
+
+Aponte PROBLEMAS de dinâmica, se houver: música finalBoss/hino cedo demais (não nos últimos ~20%); abertura fraca/sem identidade; queda brusca de energia; duas músicas de exigeVocal seguidas; mesmo artista em sequência; respiro/lenta logo no início; final fraco; energia monótona (sem picos/vales).
+
+Responda SOMENTE com JSON:
+{"veredito":"forte|ok|fraco","alertas":["alerta curto e acionável", ...]}
+Se estiver bem montado, "alertas":[] e veredito "forte" ou "ok". Máx 6 alertas.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 800,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!res.ok)
+    throw new Error(`Anthropic falhou (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+  const text = (data.content ?? [])
+    .filter((b) => b.type === "text" && b.text)
+    .map((b) => b.text as string)
+    .join("\n");
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("IA não devolveu JSON.");
+  const parsed = JSON.parse(m[0]) as { veredito?: string; alertas?: unknown };
+  const veredito =
+    parsed.veredito === "forte" || parsed.veredito === "fraco"
+      ? parsed.veredito
+      : "ok";
+  const alertas = Array.isArray(parsed.alertas)
+    ? parsed.alertas.filter((x) => typeof x === "string").slice(0, 6)
+    : [];
+  return { veredito, alertas };
 }
