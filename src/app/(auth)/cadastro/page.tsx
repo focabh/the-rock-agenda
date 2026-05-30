@@ -18,7 +18,9 @@ export default async function CadastroPage({
     getAvailablePositions(),
     getLogoUrl(),
   ]);
-  const canRegister = Boolean(invite) && positions.length > 0;
+  // Com posição travada no convite, não dependemos da lista de posições livres.
+  const canRegister =
+    Boolean(invite) && (Boolean(invite?.posicao) || positions.length > 0);
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden bg-background py-10">
@@ -51,6 +53,7 @@ export default async function CadastroPage({
               inviteToken={invite!.token}
               lockedTelefone={invite!.telefone}
               defaultNome={invite!.nome ?? ""}
+              lockedPosicao={invite!.posicao ?? ""}
             />
           ) : (
             <div className="space-y-4 text-center">

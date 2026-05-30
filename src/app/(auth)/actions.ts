@@ -121,6 +121,13 @@ export async function registerAction(
       error: "Este convite é para outro telefone.",
     };
   }
+  // Se o convite fixou uma posição, ela é obrigatória e imutável.
+  if (invite.posicao && data.posicao.toLowerCase() !== invite.posicao.toLowerCase()) {
+    return {
+      fieldErrors: { posicao: ["Posição definida pelo convite"] },
+      error: "Este convite é para outra posição.",
+    };
+  }
 
   const existing = await db
     .select({ id: users.id, username: users.username, email: users.email })

@@ -32,6 +32,7 @@ type Invite = {
   token: string;
   telefone: string;
   nome: string | null;
+  posicao: string | null;
   status: InviteStatus;
   expiresEm: number; // epoch ms
 };
@@ -66,7 +67,7 @@ function inviteUrl(token: string) {
 
 function inviteMessage(nome: string | null, token: string) {
   const saud = nome?.trim() ? `Oi, ${nome.trim()}!` : "Oi!";
-  return `${saud} Você foi convidado para entrar no app da The Rock 🎸\n\nFaça seu cadastro por aqui:\n${inviteUrl(token)}`;
+  return `${saud} 🎸 Você foi convidado pra fazer parte do app da The Rock (agenda, shows, cachês).\n\nSeu link de cadastro é pessoal e expira em alguns dias:\n${inviteUrl(token)}`;
 }
 
 const STATUS_LABEL: Record<InviteStatus, { text: string; cls: string }> = {
@@ -76,17 +77,23 @@ const STATUS_LABEL: Record<InviteStatus, { text: string; cls: string }> = {
   expirado: { text: "Expirado", cls: "text-amber-400" },
 };
 
+const selectCls =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 export function CadastrosManager({
   invites,
   approved,
+  availablePositions,
   currentUserId,
 }: {
   invites: Invite[];
   approved: Approved[];
+  availablePositions: string[];
   currentUserId: string;
 }) {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [posicao, setPosicao] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const ativos = invites.filter((i) => i.status === "valido");
@@ -115,13 +122,14 @@ export function CadastrosManager({
       return;
     }
     startTransition(async () => {
-      const r = await createInviteAction(nome, tel);
+      const r = await createInviteAction(nome, tel, posicao);
       if (r?.error) {
         toast.error(r.error);
         return;
       }
       setNome("");
       setTelefone("");
+      setPosicao("");
       toast.success("Convite gerado! Envie o link pelo WhatsApp.");
     });
   }
@@ -167,6 +175,25 @@ export function CadastrosManager({
                 onChange={(e) => setTelefone(maskPhone(e.target.value))}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="inv-posicao">Posição (opcional)</Label>
+              <select
+                id="inv-posicao"
+                className={selectCls}
+                value={posicao}
+                onChange={(e) => setPosicao(e.target.value)}
+              >
+                <option value="">Deixar o convidado escolher</option>
+                {availablePositions.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Se escolher, a posição vem travada no cadastro.
+              </p>
+            </div>
           </div>
           <Button onClick={gerar} disabled={isPending}>
             <Ticket className="size-4" />
@@ -196,6 +223,9 @@ export function CadastrosManager({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
                     {inv.nome || "Sem nome"}{" "}
+                    {inv.posicao && (
+                      <span className="text-xs text-primary">· {inv.posicao}</span>
+                    )}{" "}
                     <span className="text-xs text-muted-foreground font-mono">
                       {inv.telefone}
                     </span>

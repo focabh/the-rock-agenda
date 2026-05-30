@@ -55,6 +55,7 @@ export const inviteTokens = sqliteTable("invite_tokens", {
   token: text("token").notNull().unique(),
   telefone: text("telefone").notNull(), // amarrado — só este telefone pode usar
   nome: text("nome"), // opcional — pré-preenche o cadastro
+  posicao: text("posicao"), // opcional — se setado, trava a posição no cadastro
   expiresEm: integer("expires_em", { mode: "timestamp_ms" }).notNull(),
   redeemedEm: integer("redeemed_em", { mode: "timestamp_ms" }),
   redeemedUserId: text("redeemed_user_id").references(() => users.id, {

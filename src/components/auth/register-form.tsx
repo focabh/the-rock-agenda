@@ -31,6 +31,7 @@ export function RegisterForm({
   inviteToken,
   lockedTelefone,
   defaultNome = "",
+  lockedPosicao = "",
 }: {
   availablePositions: string[];
   inviteToken: string;
@@ -38,12 +39,14 @@ export function RegisterForm({
   lockedTelefone: string;
   /** Nome opcional pré-preenchido pelo convite. */
   defaultNome?: string;
+  /** Posição definida no convite — se houver, vem travada. */
+  lockedPosicao?: string;
 }) {
   const [state, formAction, pending] = useActionState(registerAction, null);
   const [fields, setFields] = useState<Fields>({
     nome: defaultNome,
     sobrenome: "",
-    posicao: "",
+    posicao: lockedPosicao,
     email: "",
     username: "",
     password: "",
@@ -193,22 +196,39 @@ export function RegisterForm({
 
       <div className="space-y-2">
         <Label htmlFor="posicao">Posição na banda *</Label>
-        <select
-          id="posicao"
-          name="posicao"
-          className={selectCls}
-          value={fields.posicao}
-          onChange={(e) => set("posicao", e.target.value)}
-        >
-          <option value="" disabled>
-            Selecione...
-          </option>
-          {availablePositions.map((p) => (
-            <option key={p} value={p}>
-              {p}
+        {lockedPosicao ? (
+          <>
+            <Input
+              id="posicao"
+              name="posicao"
+              value={fields.posicao}
+              readOnly
+              aria-readonly="true"
+              tabIndex={-1}
+              className="bg-muted/50 text-muted-foreground cursor-not-allowed"
+            />
+            <p className="text-xs text-muted-foreground">
+              Definida no convite.
+            </p>
+          </>
+        ) : (
+          <select
+            id="posicao"
+            name="posicao"
+            className={selectCls}
+            value={fields.posicao}
+            onChange={(e) => set("posicao", e.target.value)}
+          >
+            <option value="" disabled>
+              Selecione...
             </option>
-          ))}
-        </select>
+            {availablePositions.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        )}
         <Err name="posicao" />
       </div>
 

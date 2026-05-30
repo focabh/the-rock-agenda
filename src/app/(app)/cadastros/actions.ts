@@ -6,13 +6,18 @@ import { db } from "@/db";
 import { users, inviteTokens } from "@/db/schema";
 import { hashPassword, requireAdmin } from "@/lib/auth";
 import { generateInviteToken, INVITE_TTL_MS } from "@/lib/invites";
-import { telefoneValido, maskPhone } from "@/lib/validators";
+import { POSICOES, telefoneValido, maskPhone } from "@/lib/validators";
 
 /**
  * Gera um convite amarrado a um telefone. Retorna o token — o link
  * (/cadastro?invite=TOKEN) é montado no cliente com a origin correta.
+ * `posicao` é opcional: se vier, trava a posição no cadastro.
  */
-export async function createInviteAction(nome: string, telefone: string) {
+export async function createInviteAction(
+  nome: string,
+  telefone: string,
+  posicao?: string
+) {
   const me = await requireAdmin();
 
   const tel = maskPhone(telefone);
@@ -20,11 +25,17 @@ export async function createInviteAction(nome: string, telefone: string) {
     return { error: "Telefone inválido — use DDD + número, ex: (31) 99999-9999." };
   }
 
+  const pos = (posicao ?? "").trim();
+  if (pos && !POSICOES.some((p) => p === pos)) {
+    return { error: "Posição inválida." };
+  }
+
   const token = generateInviteToken();
   await db.insert(inviteTokens).values({
     token,
     telefone: tel,
     nome: nome.trim() || null,
+    posicao: pos || null,
     expiresEm: new Date(Date.now() + INVITE_TTL_MS),
     createdBy: me.id,
   });
