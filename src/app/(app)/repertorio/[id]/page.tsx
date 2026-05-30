@@ -5,6 +5,7 @@ import { songs, members, songMemberReadiness } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { SongForm } from "@/components/repertorio/song-form";
 import { ReadinessSection } from "@/components/repertorio/readiness-section";
+import { LyricsPanel } from "@/components/repertorio/lyrics-panel";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { updateSongAction } from "../actions";
 
@@ -55,6 +56,12 @@ export default async function EditarSongPage({
             memberId: r.memberId,
             status: r.status,
           }))}
+        />
+
+        <LyricsPanel
+          songId={id}
+          spotifyTrackId={song.spotifyTrackId}
+          admin={admin}
         />
       </div>
     </div>

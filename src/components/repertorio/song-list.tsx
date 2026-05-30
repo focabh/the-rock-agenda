@@ -13,6 +13,7 @@ import {
   X,
   Play,
   ExternalLink,
+  Guitar,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -65,12 +66,17 @@ export function SongList({
   admin = true,
   members = [],
   readinessBySong = {},
+  userPosicao = null,
 }: {
   songs: Song[];
   admin?: boolean;
   members?: Member[];
   readinessBySong?: ReadinessMap;
+  /** Posição do usuário logado (Vocal/Guitarra/Baixo/…) — habilita atalhos por instrumento. */
+  userPosicao?: string | null;
 }) {
+  // Instrumentista vê atalho de Cifra/Tab (Cifra Club). Vocal/Manager não.
+  const showCifra = /guitarra|baixo|bateria/i.test(userPosicao ?? "");
   const [q, setQ] = useState("");
   // Multi-seleção de status — se vazio, tudo passa
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
@@ -84,6 +90,8 @@ export function SongList({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // Player do Spotify aberto (um por vez)
   const [playingId, setPlayingId] = useState<string | null>(null);
+  // Card expandido no mobile (accordion) — só afeta telas pequenas
+  const [mobileOpen, setMobileOpen] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
 
   // Modo seleção / ações em massa (só admin)
@@ -214,6 +222,119 @@ export function SongList({
       );
       exitSelectMode();
     });
+  }
+
+  function toggleMobileOpen(id: string) {
+    setMobileOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Cluster de ações da música — usado inline no desktop e dentro do accordion
+  // no mobile. Renderizado nos dois lugares (visibilidade via CSS).
+  function renderActions(s: Song) {
+    const ready = readyCount(s.id);
+    const total = members.length;
+    const allReady = total > 0 && ready === total;
+    const isExpanded = expanded.has(s.id);
+    return (
+      <>
+        {total > 0 && (
+          <button
+            onClick={() => toggleExpanded(s.id)}
+            className={cn(
+              "shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset transition-colors",
+              allReady
+                ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30 hover:bg-emerald-500/25"
+                : "bg-amber-500/15 text-amber-300 ring-amber-500/30 hover:bg-amber-500/25"
+            )}
+            title="Ver status por músico"
+          >
+            <Users className="size-3" />
+            {ready}/{total}
+            <ChevronDown
+              className={cn(
+                "size-3 transition-transform",
+                isExpanded && "rotate-180"
+              )}
+            />
+          </button>
+        )}
+
+        {s.spotifyTrackId && (
+          <button
+            onClick={() => setPlayingId(playingId === s.id ? null : s.id)}
+            className={cn(
+              "shrink-0 inline-flex size-8 items-center justify-center rounded-full transition-colors",
+              playingId === s.id
+                ? "bg-primary text-primary-foreground"
+                : "text-primary hover:bg-primary/15"
+            )}
+            title={playingId === s.id ? "Fechar player" : "Tocar no Spotify"}
+          >
+            {playingId === s.id ? (
+              <X className="size-4" />
+            ) : (
+              <Play className="size-4 fill-current" />
+            )}
+          </button>
+        )}
+
+        {s.spotifyTrackId && (
+          <a
+            href={`https://open.spotify.com/track/${s.spotifyTrackId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 inline-flex size-8 items-center justify-center rounded-full text-emerald-400 transition-colors hover:bg-emerald-500/15"
+            title="Abrir no Spotify (toca inteira no app, ideal no celular)"
+          >
+            <ExternalLink className="size-4" />
+          </a>
+        )}
+
+        <LyricsDialog
+          songId={s.id}
+          titulo={s.titulo}
+          artista={s.artista}
+          spotifyTrackId={s.spotifyTrackId}
+          admin={admin}
+        />
+
+        {showCifra && (
+          <a
+            href={`https://www.cifraclub.com.br/?q=${encodeURIComponent(
+              `${s.artista} ${s.titulo}`
+            )}`}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 inline-flex size-8 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
+            title="Cifra / tab no Cifra Club"
+          >
+            <Guitar className="size-4" />
+          </a>
+        )}
+
+        {admin && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              render={<Link href={`/repertorio/${s.id}`} />}
+              title="Editar"
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <DeleteButton
+              itemName={s.titulo}
+              action={deleteSongAction.bind(null, s.id)}
+            />
+          </>
+        )}
+      </>
+    );
   }
 
   return (
@@ -416,10 +537,9 @@ export function SongList({
         <Card className="overflow-hidden p-0">
           <ul className="divide-y divide-border">
             {filtered.map((s) => {
-              const ready = readyCount(s.id);
               const total = members.length;
-              const allReady = total > 0 && ready === total;
               const isExpanded = expanded.has(s.id);
+              const mOpen = mobileOpen.has(s.id);
 
               return (
                 <li key={s.id}>
@@ -477,90 +597,37 @@ export function SongList({
                       </p>
                     </div>
 
-                    {total > 0 && (
-                      <button
-                        onClick={() => toggleExpanded(s.id)}
-                        className={cn(
-                          "shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset transition-colors",
-                          allReady
-                            ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30 hover:bg-emerald-500/25"
-                            : "bg-amber-500/15 text-amber-300 ring-amber-500/30 hover:bg-amber-500/25"
-                        )}
-                        title="Ver status por músico"
-                      >
-                        <Users className="size-3" />
-                        {ready}/{total}
-                        <ChevronDown
-                          className={cn(
-                            "size-3 transition-transform",
-                            isExpanded && "rotate-180"
-                          )}
-                        />
-                      </button>
-                    )}
-
-                    {s.spotifyTrackId && (
-                      <button
-                        onClick={() =>
-                          setPlayingId(playingId === s.id ? null : s.id)
-                        }
-                        className={cn(
-                          "shrink-0 inline-flex size-8 items-center justify-center rounded-full transition-colors",
-                          playingId === s.id
-                            ? "bg-primary text-primary-foreground"
-                            : "text-primary hover:bg-primary/15"
-                        )}
-                        title={
-                          playingId === s.id ? "Fechar player" : "Tocar no Spotify"
-                        }
-                      >
-                        {playingId === s.id ? (
-                          <X className="size-4" />
-                        ) : (
-                          <Play className="size-4 fill-current" />
-                        )}
-                      </button>
-                    )}
-
-                    {s.spotifyTrackId && (
-                      <a
-                        href={`https://open.spotify.com/track/${s.spotifyTrackId}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="shrink-0 inline-flex size-8 items-center justify-center rounded-full text-emerald-400 transition-colors hover:bg-emerald-500/15"
-                        title="Abrir no Spotify (toca inteira no app, ideal no celular)"
-                      >
-                        <ExternalLink className="size-4" />
-                      </a>
-                    )}
-
-                    <LyricsDialog
-                      songId={s.id}
-                      titulo={s.titulo}
-                      artista={s.artista}
-                      spotifyTrackId={s.spotifyTrackId}
-                      admin={admin}
-                    />
-
                     <SongStatusBadge status={s.status} />
 
-                    {admin && (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          render={<Link href={`/repertorio/${s.id}`} />}
-                          title="Editar"
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <DeleteButton
-                          itemName={s.titulo}
-                          action={deleteSongAction.bind(null, s.id)}
-                        />
-                      </div>
-                    )}
+                    {/* Desktop: ações inline */}
+                    <div className="hidden items-center gap-1 md:flex">
+                      {renderActions(s)}
+                    </div>
+
+                    {/* Mobile: toca pra expandir o card */}
+                    <button
+                      type="button"
+                      onClick={() => toggleMobileOpen(s.id)}
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent md:hidden"
+                      title={mOpen ? "Recolher" : "Mais ações"}
+                      aria-expanded={mOpen}
+                      aria-label="Mais ações"
+                    >
+                      <ChevronDown
+                        className={cn(
+                          "size-5 transition-transform",
+                          mOpen && "rotate-180"
+                        )}
+                      />
+                    </button>
                   </div>
+
+                  {/* Mobile: ações expandidas (accordion) */}
+                  {mOpen && (
+                    <div className="flex flex-wrap items-center gap-2 border-t border-border bg-muted/10 px-4 py-2.5 md:hidden">
+                      {renderActions(s)}
+                    </div>
+                  )}
 
                   {playingId === s.id && s.spotifyTrackId && (
                     <div className="border-t border-border bg-muted/20 px-4 pb-3">

@@ -88,6 +88,7 @@ export default async function RepertorioPage() {
         <SongList
           songs={lista}
           admin={admin}
+          userPosicao={user?.posicao ?? user?.member?.funcao ?? null}
           members={playableMembers}
           readinessBySong={Object.fromEntries(
             [...readinessBySong.entries()].map(([k, v]) => [
