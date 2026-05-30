@@ -205,6 +205,51 @@ export async function bulkSetFavoritaAction(
 
 // ---------------- LETRAS ----------------
 
+export type SyncLyricsResult = {
+  ok: boolean;
+  fetched: number;
+  alreadyHad: number;
+  notFound: number;
+  total: number;
+};
+
+/**
+ * Busca em lote as letras que ainda faltam no repertório (LRCLIB).
+ * Concorrência limitada pra ser rápido sem martelar a API nem estourar timeout.
+ * O vocal aperta isso e garante tudo cacheado.
+ */
+export async function syncAllLyricsAction(): Promise<SyncLyricsResult> {
+  await requireCurrentUser();
+  const all = await db.select().from(songs);
+
+  const pending = all.filter((s) => !s.lyrics || !s.lyrics.trim());
+  const alreadyHad = all.length - pending.length;
+
+  let fetched = 0;
+  let notFound = 0;
+
+  const CONCURRENCY = 6;
+  let i = 0;
+  async function worker() {
+    while (i < pending.length) {
+      const s = pending[i++];
+      const lyr = await fetchLyrics(s.titulo, s.artista);
+      if (lyr) {
+        await db.update(songs).set({ lyrics: lyr }).where(eq(songs.id, s.id));
+        fetched++;
+      } else {
+        notFound++;
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, pending.length) }, worker)
+  );
+
+  revalidatePath("/repertorio");
+  return { ok: true, fetched, alreadyHad, notFound, total: all.length };
+}
+
 export type LyricsResult = {
   ok: boolean;
   lyrics: string | null;
