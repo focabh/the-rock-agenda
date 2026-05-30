@@ -6,6 +6,11 @@ import { db } from "@/db";
 import { venues, venueContacts } from "@/db/schema";
 import { requireAdmin, requireCurrentUser } from "@/lib/auth";
 import type { VenueMsgTipo } from "@/lib/venue-messages";
+import {
+  analyzeVenueWithAI,
+  NoApiKeyError,
+  type VenueAISuggestion,
+} from "@/lib/venue-ai";
 
 /**
  * Registra um contato feito com a casa pelo app e dispara as automações:
@@ -48,6 +53,50 @@ export async function setVenueRelAction(
   revalidatePath("/casas");
   revalidatePath("/");
   return { ok: true };
+}
+
+/** Salva características (tags) e perfil de público da casa. */
+export async function setVenueProfileAction(
+  venueId: string,
+  patch: { caracteristicas?: string[]; perfilPublico?: string | null }
+): Promise<{ ok: boolean }> {
+  await requireAdmin();
+  const set: Record<string, string | null> = {};
+  if ("caracteristicas" in patch)
+    set.caracteristicas = JSON.stringify(patch.caracteristicas ?? []);
+  if ("perfilPublico" in patch)
+    set.perfilPublico = patch.perfilPublico?.trim() || null;
+  if (Object.keys(set).length)
+    await db.update(venues).set(set).where(eq(venues.id, venueId));
+  revalidatePath(`/casas/${venueId}`);
+  return { ok: true };
+}
+
+/** Analisa o perfil da casa com IA (web search). Retorna sugestão (não salva). */
+export async function analyzeVenueAction(venueId: string): Promise<{
+  ok: boolean;
+  suggestion?: VenueAISuggestion;
+  error?: string;
+  needsKey?: boolean;
+}> {
+  await requireAdmin();
+  const [v] = await db.select().from(venues).where(eq(venues.id, venueId)).limit(1);
+  if (!v) return { ok: false, error: "Casa não encontrada." };
+  try {
+    const suggestion = await analyzeVenueWithAI({
+      nome: v.nome,
+      cidade: v.cidade,
+      instagram: v.instagram,
+    });
+    return { ok: true, suggestion };
+  } catch (e) {
+    if (e instanceof NoApiKeyError)
+      return { ok: false, needsKey: true, error: e.message };
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Falha na análise.",
+    };
+  }
 }
 
 /** Ajuste manual de histórico antigo (datas) — string "yyyy-mm-dd" ou vazio pra limpar. */

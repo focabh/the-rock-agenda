@@ -19,6 +19,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { VenueActions } from "@/components/casas/venue-actions";
+import { VenueProfile } from "@/components/casas/venue-profile";
+import { parseTags } from "@/lib/venue-tags";
 import {
   formatDataBR,
   formatRelativeBR,
@@ -158,6 +160,14 @@ export default async function CasaDetailPage({
             </p>
           )}
         </Card>
+
+        {/* Perfil & características */}
+        <VenueProfile
+          venueId={id}
+          initialTags={parseTags(casa.caracteristicas)}
+          initialPerfil={casa.perfilPublico ?? ""}
+          admin={admin}
+        />
 
         {/* Resumo automático */}
         <div className="grid gap-3 sm:grid-cols-3">

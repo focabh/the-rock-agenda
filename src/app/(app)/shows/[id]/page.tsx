@@ -21,6 +21,8 @@ import { PaymentBreakdown } from "@/components/shows/payment-breakdown";
 import { PageHeader } from "@/components/shared/page-header";
 import { ShowDetailTabs } from "@/components/shows/show-detail-tabs";
 import { ShowResumo } from "@/components/shows/show-resumo";
+import { VenueShowCard } from "@/components/casas/venue-show-card";
+import { parseTags } from "@/lib/venue-tags";
 import { SetlistTab } from "@/components/shows/setlist-tab";
 import { ChecklistTab } from "@/components/shows/checklist-tab";
 import { AvaliacaoTab } from "@/components/shows/avaliacao-tab";
@@ -96,6 +98,21 @@ export default async function ShowDetailPage({
   const managerMember = allMembers.find((m) => m.isManager) ?? null;
 
   const conflitos = membersUnavailableOn(show.data, dayBlocks, allMembers);
+  const now = new Date();
+
+  // Sobre a casa: já tocou lá antes? última apresentação? (§15)
+  const casaShows = await db
+    .select({ sid: shows.id, data: shows.data })
+    .from(shows)
+    .where(eq(shows.casaId, show.casaId));
+  const pastOutras = casaShows
+    .filter((s) => s.sid !== show.id && s.data.getTime() <= now.getTime())
+    .sort((a, b) => b.data.getTime() - a.data.getTime());
+  const ultimaAprCasa =
+    [pastOutras[0]?.data ?? null, show.casa.ultimaApresentacaoManual]
+      .filter((d): d is Date => !!d)
+      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+  const jaTocouCasa = show.casa.jaTocou || pastOutras.length > 0;
 
   return (
     <div>
@@ -135,6 +152,15 @@ export default async function ShowDetailPage({
                 casa={show.casa}
                 conflitos={conflitos}
                 admin={admin}
+              />
+              <VenueShowCard
+                casaId={show.casaId}
+                tags={parseTags(show.casa.caracteristicas)}
+                perfil={show.casa.perfilPublico}
+                jaTocou={jaTocouCasa}
+                ultimaApresentacaoStr={
+                  ultimaAprCasa ? formatDataBR(ultimaAprCasa) : null
+                }
               />
               <PresenceCard
                 eventId={show.id}

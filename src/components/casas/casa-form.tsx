@@ -76,6 +76,17 @@ export function CasaForm({ casa, action, submitLabel = "Salvar" }: Props) {
           </div>
 
           <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="instagram">Instagram (opcional)</Label>
+            <Input
+              id="instagram"
+              name="instagram"
+              defaultValue={casa?.instagram ?? ""}
+              placeholder="@bardozé ou link do perfil"
+            />
+            <FieldError state={state} name="instagram" />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="observacoes">Observações</Label>
             <Textarea
               id="observacoes"
