@@ -16,6 +16,9 @@ import {
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { fetchLyrics } from "@/lib/lyrics";
+import { enrichSongsWithAI } from "@/lib/song-ai";
+import { NoApiKeyError } from "@/lib/venue-ai";
+import { isNull } from "drizzle-orm";
 
 const SONG_STATUSES = [
   "pronta",
@@ -233,6 +236,47 @@ export async function bulkSetFavoritaAction(
   await db.update(songs).set({ favorita }).where(inArray(songs.id, ids));
   revalidatePath("/repertorio");
   return { ok: true, count: ids.length };
+}
+
+// ---------------- METADADOS POR IA ----------------
+
+export type EnrichResult = {
+  ok: boolean;
+  updated?: number;
+  total?: number;
+  error?: string;
+  needsKey?: boolean;
+};
+
+/** Preenche energia/conhecida/momento (via IA) das músicas que ainda não têm. */
+export async function enrichSongsAIAction(): Promise<EnrichResult> {
+  await requireAdmin();
+  const pendentes = await db
+    .select({ id: songs.id, titulo: songs.titulo, artista: songs.artista })
+    .from(songs)
+    .where(isNull(songs.energia));
+  if (pendentes.length === 0) return { ok: true, updated: 0, total: 0 };
+
+  try {
+    const sugestoes = await enrichSongsWithAI(pendentes);
+    let updated = 0;
+    for (const s of sugestoes) {
+      const patch: Record<string, number | boolean | string> = {};
+      if (s.energia != null) patch.energia = s.energia;
+      if (s.conhecida != null) patch.conhecida = s.conhecida;
+      if (s.momento) patch.momento = s.momento;
+      if (Object.keys(patch).length) {
+        await db.update(songs).set(patch).where(eq(songs.id, s.id));
+        updated++;
+      }
+    }
+    revalidatePath("/repertorio");
+    return { ok: true, updated, total: pendentes.length };
+  } catch (e) {
+    if (e instanceof NoApiKeyError)
+      return { ok: false, needsKey: true, error: e.message };
+    return { ok: false, error: e instanceof Error ? e.message : "Falha." };
+  }
 }
 
 // ---------------- LETRAS ----------------

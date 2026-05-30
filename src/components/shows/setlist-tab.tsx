@@ -13,6 +13,7 @@ import {
   Pencil,
   Trash2,
   ListPlus,
+  Sparkles,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
@@ -324,6 +325,18 @@ export function SetlistTab({
               )}
             </div>
           </div>
+
+          {selected?.observacoesGerais && (
+            <Card className="border-primary/30 bg-primary/5 p-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-primary inline-flex items-center gap-1.5">
+                <Sparkles className="size-3.5" />
+                Estratégia (IA)
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {selected.observacoesGerais}
+              </p>
+            </Card>
+          )}
 
           {localItems.length === 0 ? (
             <EmptyState
