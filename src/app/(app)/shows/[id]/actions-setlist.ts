@@ -22,6 +22,7 @@ import {
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { parseTags } from "@/lib/venue-tags";
 import { generateSetlist, type GenOptions } from "@/lib/setlist-generator";
+import { fitToTarget, SONG_DEFAULT_SEG } from "@/lib/setlist-fit";
 import {
   generateSetlistAI,
   critiqueSetlist,
@@ -34,6 +35,9 @@ export type GenSetlistResult = {
   error?: string;
   count?: number;
   totalSeg?: number;
+  targetSeg?: number;
+  /** true quando o repertório elegível não chega ao tempo pedido */
+  faltou?: boolean;
   via?: "ia" | "heuristica";
 };
 
@@ -159,6 +163,8 @@ export async function generateSetlistAction(
     ordem: "equilibrada" | "aleatoria";
     evitarRepetir: boolean;
     perfilDesejado?: string;
+    /** Quando false (padrão), usa o motor gratuito/determinístico — sem custo de IA. */
+    usarIA?: boolean;
     seed: number;
   }
 ): Promise<GenSetlistResult> {
@@ -227,9 +233,9 @@ export async function generateSetlistAction(
   let via: "ia" | "heuristica" = "heuristica";
   let racional = "";
 
-  // 1) Tenta a IA (curva de energia + respiros + contexto). Se faltar chave ou
-  //    falhar, cai no gerador heurístico determinístico.
-  if (process.env.ANTHROPIC_API_KEY && show) {
+  // 1) Só usa a IA quando o usuário pediu explicitamente (opt-in, custo).
+  //    Caso contrário, vai direto pro gerador gratuito/determinístico.
+  if (opts.usarIA && process.env.ANTHROPIC_API_KEY && show) {
     try {
       const diaSemana = new Intl.DateTimeFormat("pt-BR", {
         timeZone: "America/Sao_Paulo",
@@ -312,12 +318,28 @@ export async function generateSetlistAction(
     via = "heuristica";
   }
 
+  // 3) Garante o tempo-alvo (completa se faltou, apara se passou).
+  const targetSeg = Math.max(1, opts.targetMin) * 60;
+  const fit = fitToTarget(
+    orderedIds,
+    allSongs.map((s) => ({
+      id: s.id,
+      status: s.status,
+      duracaoSeg: s.duracaoSeg,
+      energia: s.energia,
+      conhecida: s.conhecida,
+      finalBoss: s.finalBoss,
+    })),
+    targetSeg
+  );
+  orderedIds = fit.ids;
+
   await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
   let ordem = 0;
   let totalSeg = 0;
   for (const id of orderedIds) {
     const d = byId.get(id)?.duracaoSeg ?? null;
-    totalSeg += d ?? 210;
+    totalSeg += d ?? SONG_DEFAULT_SEG;
     await db
       .insert(setlistItems)
       .values({ setlistId, songId: id, ordem: ordem++, duracaoSeg: d });
@@ -330,7 +352,14 @@ export async function generateSetlistAction(
     .where(eq(setlists.id, setlistId));
 
   revalidatePath(`/shows/${showId}`);
-  return { ok: true, count: orderedIds.length, totalSeg, via };
+  return {
+    ok: true,
+    count: orderedIds.length,
+    totalSeg,
+    targetSeg,
+    faltou: fit.faltou,
+    via,
+  };
 }
 
 // ---------------- SETLISTS (vários por show) ----------------

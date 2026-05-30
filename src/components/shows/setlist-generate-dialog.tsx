@@ -62,9 +62,18 @@ export function SetlistGenerateDialog({
     evitarVocalDificil: false,
     evitarRepetir: true,
   });
+  const [usarIA, setUsarIA] = useState(false);
   const [pending, start] = useTransition();
   const [regras, setRegras] = useState("");
   const [regrasLoaded, setRegrasLoaded] = useState(false);
+
+  const fmtMin = (seg: number) => {
+    const m = Math.round(seg / 60);
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    return r ? `${h}h${String(r).padStart(2, "0")}` : `${h}h`;
+  };
 
   useEffect(() => {
     if (!open || regrasLoaded) return;
@@ -81,6 +90,7 @@ export function SetlistGenerateDialog({
         targetMin: min,
         ordem,
         perfilDesejado: perfil,
+        usarIA,
         ...opts,
         seed: Math.floor(Math.random() * 1_000_000_000),
       });
@@ -88,9 +98,16 @@ export function SetlistGenerateDialog({
         toast.error(r.error ?? "Falha ao gerar.");
         return;
       }
-      toast.success(
-        `Setlist gerado ${r.via === "ia" ? "✨ pela IA" : "(rápido)"}: ${r.count} música(s) · ~${Math.round((r.totalSeg ?? 0) / 60)} min. Ajuste à vontade.`
-      );
+      const tot = fmtMin(r.totalSeg ?? 0);
+      if (r.faltou) {
+        toast.warning(
+          `${r.count} música(s) · ${tot} — repertório não chega aos ${min} min pedidos. Cadastre mais músicas ou reduza a duração.`
+        );
+      } else {
+        toast.success(
+          `Setlist ${r.via === "ia" ? "✨ pela IA" : "gerado"}: ${r.count} música(s) · ${tot} (alvo ${min} min). Ajuste à vontade.`
+        );
+      }
       setOpen(false);
     });
   }
@@ -191,6 +208,23 @@ export function SetlistGenerateDialog({
             O perfil/tags da casa e o histórico de setlists (o que a banda
             costuma abrir/fechar) já influenciam automaticamente.
           </p>
+
+          <label className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={usarIA}
+              onChange={(e) => setUsarIA(e.target.checked)}
+              className="mt-0.5 size-4 accent-amber-500"
+            />
+            <span>
+              <span className="font-medium">Refinar com IA ✨ (gera custo)</span>
+              <span className="block text-xs text-muted-foreground">
+                Sem marcar, a geração é gratuita e instantânea (já respeita curva
+                de energia, Final Boss, perfil e regras). Marque para a IA buscar
+                uma curva mais elaborada — só então há cobrança.
+              </span>
+            </span>
+          </label>
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
