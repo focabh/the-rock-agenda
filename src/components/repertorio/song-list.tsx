@@ -76,7 +76,8 @@ export function SongList({
   userPosicao?: string | null;
 }) {
   // Instrumentista vê atalho de Cifra/Tab (Cifra Club). Vocal/Manager não.
-  const showCifra = /guitarra|baixo|bateria/i.test(userPosicao ?? "");
+  const showCifra =
+    !!userPosicao && !/vocal|manager/i.test(userPosicao);
   const [q, setQ] = useState("");
   // Multi-seleção de status — se vazio, tudo passa
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(

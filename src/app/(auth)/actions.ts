@@ -14,7 +14,7 @@ import {
 import { parseForm } from "@/lib/form";
 import { getValidInvite, samePhone } from "@/lib/invites";
 import { sendPushToAdmins } from "@/lib/push";
-import { POSICOES, pixValido, telefoneValido } from "@/lib/validators";
+import { pixValido, telefoneValido } from "@/lib/validators";
 
 export async function loginAction(_prev: { error?: string } | null, formData: FormData) {
   const ident = String(formData.get("username") ?? "").trim().toLowerCase();
@@ -76,7 +76,10 @@ const registerSchema = z.object({
     .trim()
     .max(200)
     .refine(pixValido, "Chave PIX inválida — pode ser CPF, telefone, email ou chave aleatória"),
-  posicao: z.enum(POSICOES, { message: "Escolha sua posição na banda" }),
+  posicao: z
+    .string()
+    .trim()
+    .min(1, "Escolha sua posição na banda"),
   inviteToken: z.string().trim().min(1, "Convite ausente"),
 });
 
@@ -143,8 +146,8 @@ export async function registerAction(
   const available = await getAvailablePositions();
   if (!available.some((p) => p.toLowerCase() === data.posicao.toLowerCase())) {
     return {
-      fieldErrors: { posicao: ["Essa posição já foi escolhida"] },
-      error: "Posição indisponível.",
+      fieldErrors: { posicao: ["Posição inválida"] },
+      error: "Posição inválida.",
     };
   }
 

@@ -1,10 +1,10 @@
 import { db } from "@/db";
 import { ensureDbInitialized } from "@/db/init";
 import type { Member, User } from "@/db/schema";
-import { appSettings, members, users } from "@/db/schema";
+import { appSettings, bandPositions, members, users } from "@/db/schema";
 import { POSICOES } from "@/lib/validators";
 import bcrypt from "bcryptjs";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -113,20 +113,20 @@ export async function registrationsAllowed(): Promise<boolean> {
   }
 }
 
-/** Posições da banda ainda livres (não escolhidas por usuário pendente/aprovado). */
+/**
+ * Posições disponíveis pra escolher no cadastro/conta. Lê da tabela
+ * band_positions (geridas pelo admin); vários músicos podem ter a mesma
+ * posição. Cai pra const POSICOES se a tabela estiver vazia ou indisponível.
+ */
 export async function getAvailablePositions(): Promise<string[]> {
   try {
-    const taken = await db
-      .select({ posicao: users.posicao })
-      .from(users)
-      .where(
-        and(
-          isNotNull(users.posicao),
-          inArray(users.status, ["pendente", "aprovado"]),
-        ),
-      );
-    const takenSet = new Set(taken.map((t) => (t.posicao ?? "").toLowerCase()));
-    return POSICOES.filter((p) => !takenSet.has(p.toLowerCase()));
+    const rows = await db
+      .select({ nome: bandPositions.nome })
+      .from(bandPositions)
+      .where(eq(bandPositions.ativo, true))
+      .orderBy(asc(bandPositions.ordem), asc(bandPositions.nome));
+    if (rows.length > 0) return rows.map((r) => r.nome);
+    return [...POSICOES];
   } catch {
     return [...POSICOES];
   }

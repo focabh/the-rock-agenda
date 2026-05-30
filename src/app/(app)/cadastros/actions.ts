@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users, inviteTokens } from "@/db/schema";
-import { hashPassword, requireAdmin } from "@/lib/auth";
+import { getAvailablePositions, hashPassword, requireAdmin } from "@/lib/auth";
 import { generateInviteToken, INVITE_TTL_MS } from "@/lib/invites";
-import { POSICOES, telefoneValido, maskPhone } from "@/lib/validators";
+import { telefoneValido, maskPhone } from "@/lib/validators";
 
 /**
  * Gera um convite amarrado a um telefone. Retorna o token — o link
@@ -26,8 +26,11 @@ export async function createInviteAction(
   }
 
   const pos = (posicao ?? "").trim();
-  if (pos && !POSICOES.some((p) => p === pos)) {
-    return { error: "Posição inválida." };
+  if (pos) {
+    const available = await getAvailablePositions();
+    if (!available.some((p) => p.toLowerCase() === pos.toLowerCase())) {
+      return { error: "Posição inválida." };
+    }
   }
 
   const token = generateInviteToken();

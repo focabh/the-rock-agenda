@@ -13,7 +13,7 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { parseForm } from "@/lib/form";
-import { POSICOES, pixValido, telefoneValido } from "@/lib/validators";
+import { pixValido, telefoneValido } from "@/lib/validators";
 
 const profileSchema = z.object({
   apelido: z.string().trim().max(60).optional(),
@@ -146,7 +146,7 @@ const optionalPix = z
 
 const linkSchema = z.object({
   nome: z.string().trim().max(120).optional(),
-  posicao: z.enum(POSICOES),
+  posicao: z.string().trim().min(1, "Escolha sua posição"),
   telefone: optionalTelefone,
   chavePix: optionalPix,
 });
@@ -167,8 +167,8 @@ export async function linkSelfToPositionAction(
   const available = await getAvailablePositions();
   if (!available.some((p) => p.toLowerCase() === posicao.toLowerCase())) {
     return {
-      fieldErrors: { posicao: ["Essa posição já está ocupada"] },
-      error: "Posição indisponível.",
+      fieldErrors: { posicao: ["Posição inválida"] },
+      error: "Posição inválida.",
     };
   }
 

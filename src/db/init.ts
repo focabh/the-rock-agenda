@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "./index";
-import { users } from "./schema";
+import { users, bandPositions } from "./schema";
 import { hashPassword } from "@/lib/auth";
+import { POSICOES } from "@/lib/validators";
 
 let initialized = false;
 
@@ -31,6 +32,15 @@ export async function ensureDbInitialized(): Promise<void> {
         role: "admin",
       });
       console.log("✓ Initialized database with admin user");
+    }
+
+    // Semeia as posições padrão se a tabela estiver vazia
+    const [pos] = await db.select().from(bandPositions).limit(1);
+    if (!pos) {
+      await db.insert(bandPositions).values(
+        POSICOES.map((nome, i) => ({ nome, ordem: i }))
+      );
+      console.log("✓ Seeded band positions");
     }
   } catch (error) {
     console.error("Error initializing database:", error);

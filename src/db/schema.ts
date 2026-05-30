@@ -782,6 +782,19 @@ export const announcementsRelations = relations(announcements, ({ one }) => ({
   }),
 }));
 
+// ---------------- POSIÇÕES DA BANDA (customizáveis) ----------------
+
+// Posições/instrumentos da banda, geridas pelo admin (add Tecladista, Gaita…).
+// Substitui a const fixa POSICOES (que vira só seed/fallback). Vários músicos
+// podem ter a mesma posição (sem regra de slot único).
+export const bandPositions = sqliteTable("band_positions", {
+  id: id(),
+  nome: text("nome").notNull(),
+  ordem: integer("ordem").notNull().default(0),
+  ativo: integer("ativo", { mode: "boolean" }).notNull().default(true),
+  createdAt: createdAt(),
+});
+
 // ---------------- TYPES ----------------
 
 export type User = typeof users.$inferSelect;
@@ -817,3 +830,4 @@ export type ContractorLinkVisit = typeof contractorLinkVisits.$inferSelect;
 export type SiteVisit = typeof siteVisits.$inferSelect;
 export type PromoItem = typeof promoItems.$inferSelect;
 export type Announcement = typeof announcements.$inferSelect;
+export type BandPosition = typeof bandPositions.$inferSelect;
