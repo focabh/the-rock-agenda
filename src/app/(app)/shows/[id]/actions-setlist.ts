@@ -157,16 +157,18 @@ export async function importPlaylistToSetlistAction(
             artista: t.artista,
             status: "aprendendo",
             spotifyTrackId: t.spotifyId || null,
+            duracaoSeg: t.duracaoSeg || null,
           })
           .returning();
         songByKey.set(key, created);
         song = created;
         songsCriadas++;
-      } else if (!song.spotifyTrackId && t.spotifyId) {
-        await db
-          .update(songs)
-          .set({ spotifyTrackId: t.spotifyId })
-          .where(eq(songs.id, song.id));
+      } else {
+        const patch: Record<string, string | number> = {};
+        if (!song.spotifyTrackId && t.spotifyId) patch.spotifyTrackId = t.spotifyId;
+        if (!song.duracaoSeg && t.duracaoSeg) patch.duracaoSeg = t.duracaoSeg;
+        if (Object.keys(patch).length)
+          await db.update(songs).set(patch).where(eq(songs.id, song.id));
       }
       if (usedSongIds.has(song.id)) {
         duplicados++;

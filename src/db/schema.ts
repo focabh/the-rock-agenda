@@ -209,6 +209,20 @@ export const songs = sqliteTable("songs", {
   // Letra (cache do LRCLIB na 1ª abertura; admin pode corrigir). Null = ainda
   // não buscada / não encontrada.
   lyrics: text("lyrics"),
+  // --- Metadados pra geração de setlist (Fase 6) ---
+  duracaoSeg: integer("duracao_seg"), // duração aproximada (preenchida no import)
+  energia: integer("energia"), // 1=leve, 2=média, 3=pesada
+  conhecida: integer("conhecida", { mode: "boolean" }).notNull().default(false),
+  exigeVocal: integer("exige_vocal", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  momento: text("momento", {
+    enum: ["qualquer", "abertura", "meio", "fechamento"],
+  })
+    .notNull()
+    .default("qualquer"),
+  tom: text("tom"), // tom/afinação usado pela banda (ex.: "Em")
+  estilo: text("estilo"), // categoria/estilo livre (ex.: "grunge")
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

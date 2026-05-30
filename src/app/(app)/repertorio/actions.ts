@@ -32,6 +32,35 @@ const songSchema = z.object({
   observacoes: z.string().max(500).optional(),
 });
 
+const MOMENTOS = ["qualquer", "abertura", "meio", "fechamento"] as const;
+
+/** "3:45" ou "225" → segundos. Vazio/invalid → null. */
+function parseDuracao(input: string): number | null {
+  const t = (input ?? "").trim();
+  if (!t) return null;
+  const mmss = t.match(/^(\d+):([0-5]?\d)$/);
+  if (mmss) return Number(mmss[1]) * 60 + Number(mmss[2]);
+  const n = Number(t.replace(/\D/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Metadados de setlist vindos do form (campos extras, fora do songSchema). */
+function extractSongMeta(fd: FormData) {
+  const energia = Number(fd.get("energia"));
+  const momentoRaw = String(fd.get("momento") ?? "qualquer");
+  return {
+    duracaoSeg: parseDuracao(String(fd.get("duracao") ?? "")),
+    energia: energia >= 1 && energia <= 3 ? energia : null,
+    momento: (MOMENTOS as readonly string[]).includes(momentoRaw)
+      ? (momentoRaw as (typeof MOMENTOS)[number])
+      : "qualquer",
+    conhecida: fd.get("conhecida") === "on",
+    exigeVocal: fd.get("exigeVocal") === "on",
+    tom: String(fd.get("tom") ?? "").trim() || null,
+    estilo: String(fd.get("estilo") ?? "").trim() || null,
+  };
+}
+
 export async function createSongAction(
   _prev: ActionState,
   formData: FormData
@@ -39,7 +68,7 @@ export async function createSongAction(
   await requireAdmin();
   const parsed = parseForm(songSchema, formData);
   if (!parsed.ok) return parsed.state;
-  await db.insert(songs).values(parsed.data);
+  await db.insert(songs).values({ ...parsed.data, ...extractSongMeta(formData) });
   revalidatePath("/repertorio");
   redirect("/repertorio");
 }
@@ -52,7 +81,10 @@ export async function updateSongAction(
   await requireAdmin();
   const parsed = parseForm(songSchema, formData);
   if (!parsed.ok) return parsed.state;
-  await db.update(songs).set(parsed.data).where(eq(songs.id, id));
+  await db
+    .update(songs)
+    .set({ ...parsed.data, ...extractSongMeta(formData) })
+    .where(eq(songs.id, id));
   revalidatePath("/repertorio");
   revalidatePath(`/repertorio/${id}`);
   redirect("/repertorio");
@@ -98,13 +130,12 @@ export async function importFromSpotifyAction(
       const found = byKey.get(key);
       if (found) {
         existing++;
-        // Backfill: música já existia sem o ID do Spotify → preenche agora.
-        if (!found.spotifyTrackId && t.spotifyId) {
-          await db
-            .update(songs)
-            .set({ spotifyTrackId: t.spotifyId })
-            .where(eq(songs.id, found.id));
-        }
+        // Backfill: música já existia sem ID/duração do Spotify → preenche agora.
+        const patch: Record<string, string | number> = {};
+        if (!found.spotifyTrackId && t.spotifyId) patch.spotifyTrackId = t.spotifyId;
+        if (!found.duracaoSeg && t.duracaoSeg) patch.duracaoSeg = t.duracaoSeg;
+        if (Object.keys(patch).length)
+          await db.update(songs).set(patch).where(eq(songs.id, found.id));
         continue;
       }
       const [created] = await db
@@ -114,6 +145,7 @@ export async function importFromSpotifyAction(
           artista: t.artista,
           status: "aprendendo",
           spotifyTrackId: t.spotifyId || null,
+          duracaoSeg: t.duracaoSeg || null,
         })
         .returning();
       byKey.set(key, created);

@@ -12,6 +12,16 @@ import { SONG_STATUS_OPTIONS } from "@/components/shared/status-badge";
 import type { ActionState } from "@/lib/form";
 import type { Song } from "@/db/schema";
 
+const SELECT_CLS =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+function toMMSS(sec: number | null): string {
+  if (!sec || sec <= 0) return "";
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export function SongForm({
   song,
   action,
@@ -55,6 +65,95 @@ export function SongForm({
               ))}
             </select>
             <FieldError state={state} name="status" />
+          </div>
+
+          {/* --- Metadados pro setlist --- */}
+          <div className="sm:col-span-2 pt-1">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Detalhes pro setlist
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="duracao">Duração (mm:ss)</Label>
+            <Input
+              id="duracao"
+              name="duracao"
+              defaultValue={toMMSS(song?.duracaoSeg ?? null)}
+              placeholder="3:45"
+              inputMode="numeric"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tom">Tom / afinação</Label>
+            <Input
+              id="tom"
+              name="tom"
+              defaultValue={song?.tom ?? ""}
+              placeholder="Ex.: Em, A, Drop D"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="energia">Energia</Label>
+            <select
+              id="energia"
+              name="energia"
+              defaultValue={song?.energia ?? ""}
+              className={SELECT_CLS}
+            >
+              <option value="">—</option>
+              <option value="1">Leve</option>
+              <option value="2">Média</option>
+              <option value="3">Pesada</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="momento">Melhor momento</Label>
+            <select
+              id="momento"
+              name="momento"
+              defaultValue={song?.momento ?? "qualquer"}
+              className={SELECT_CLS}
+            >
+              <option value="qualquer">Qualquer</option>
+              <option value="abertura">Abre o show</option>
+              <option value="meio">Meio do show</option>
+              <option value="fechamento">Fecha o show</option>
+            </select>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="estilo">Estilo / categoria</Label>
+            <Input
+              id="estilo"
+              name="estilo"
+              defaultValue={song?.estilo ?? ""}
+              placeholder="Ex.: grunge, pop rock, clássico"
+            />
+          </div>
+
+          <div className="sm:col-span-2 flex flex-wrap gap-x-6 gap-y-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="conhecida"
+                defaultChecked={song?.conhecida ?? false}
+                className="size-4 accent-primary"
+              />
+              Mais conhecida pelo público
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="exigeVocal"
+                defaultChecked={song?.exigeVocal ?? false}
+                className="size-4 accent-primary"
+              />
+              Exige mais do vocal
+            </label>
           </div>
 
           <div className="space-y-2 sm:col-span-2">
