@@ -69,7 +69,7 @@ export function SetlistGenerateDialog({
         return;
       }
       toast.success(
-        `Setlist gerado: ${r.count} música(s) (~${Math.round((r.totalSeg ?? 0) / 60)} min). Ajuste à vontade.`
+        `Setlist gerado ${r.via === "ia" ? "✨ pela IA" : "(rápido)"}: ${r.count} música(s) · ~${Math.round((r.totalSeg ?? 0) / 60)} min. Ajuste à vontade.`
       );
       setOpen(false);
     });

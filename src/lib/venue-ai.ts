@@ -31,16 +31,24 @@ export async function analyzeVenueWithAI(input: {
   const ig = input.instagram ? `Instagram: ${input.instagram}.` : "";
   const tagList = ALL_VENUE_TAGS.join(", ");
 
-  const prompt = `Você ajuda a banda "The Rock" (rock alternativo dos anos 90 e 2000, de Belo Horizonte) a entender casas/bares onde quer tocar.
+  const prompt = `Você é analista de cena musical e "A&R" da banda The Rock (cover de rock alternativo dos anos 90/2000, de BH). Avalie esta CASA com PRECISÃO baseada em EVIDÊNCIAS reais — nunca em achismo.
 
 Casa: "${local}". ${ig}
 
-Pesquise na web (se útil) o perfil dessa casa — público, estilo musical, tipo de evento, ambiente. Depois responda SOMENTE com um JSON válido, sem texto fora dele, no formato:
-{"caracteristicas": string[], "perfilPublico": string}
+PESQUISE na web, priorizando evidência real nesta ordem:
+- Instagram: bio (telefone/horários/"música ao vivo"), posts/reels recentes (flyers de line-up, fotos de palco e de público), stories destacados, hashtags.
+- Google: categoria do lugar, avaliações, faixa de preço, fotos.
+- Site/Linktree oficial.
 
-- "caracteristicas": escolha as que se aplicam, PREFERINDO esta lista quando fizer sentido: ${tagList}. Pode adicionar 1-2 próprias se relevante. Máx 8.
-- "perfilPublico": 1-2 frases resumindo o público e se combina com o repertório da The Rock.
-Se não achar informação confiável, faça a melhor estimativa e seja honesto na frase.`;
+AVALIE (preencha só o que a evidência sustentar): tipo de casa; se faz MÚSICA AO VIVO com banda e em quais dias; estilo predominante e se é COVER; se já contrata banda cover de rock (sinal forte de fit); público (faixa etária, vibe, porte); alinhamento com a The Rock (rock alt 90/2000).
+
+HONESTIDADE (regras duras): só afirme o que a evidência sustenta; diferencie "encontrado" de "estimado"; desconhecido → null/“baixa”; NUNCA invente. Cite 1-2 evidências curtas e literais.
+
+Responda SOMENTE com JSON válido, sem texto fora dele:
+{"caracteristicas": string[], "perfilPublico": string, "alinhamento": "alto|médio|baixo", "confianca": "alta|média|baixa", "evidencias": string[]}
+
+- "caracteristicas": máx 8, PREFERINDO esta lista quando fizer sentido: ${tagList}. Pode adicionar próprias se relevante.
+- "perfilPublico": 2-3 frases sobre o público e se combina com o repertório da The Rock.`;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -51,8 +59,8 @@ Se não achar informação confiável, faça a melhor estimativa e seja honesto 
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 1024,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+      max_tokens: 1500,
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -70,13 +78,27 @@ Se não achar informação confiável, faça a melhor estimativa e seja honesto 
 
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("A IA não devolveu um JSON reconhecível.");
-  const parsed = JSON.parse(match[0]) as Partial<VenueAISuggestion>;
+  const parsed = JSON.parse(match[0]) as {
+    caracteristicas?: unknown;
+    perfilPublico?: unknown;
+    alinhamento?: unknown;
+    confianca?: unknown;
+  };
+
+  const base =
+    typeof parsed.perfilPublico === "string" ? parsed.perfilPublico.trim() : "";
+  const alinhamento =
+    typeof parsed.alinhamento === "string" ? parsed.alinhamento : "";
+  const confianca =
+    typeof parsed.confianca === "string" ? parsed.confianca : "";
+  const extra = alinhamento
+    ? ` (Alinhamento: ${alinhamento}${confianca ? `, confiança ${confianca}` : ""}.)`
+    : "";
 
   return {
     caracteristicas: Array.isArray(parsed.caracteristicas)
       ? parsed.caracteristicas.filter((x) => typeof x === "string").slice(0, 8)
       : [],
-    perfilPublico:
-      typeof parsed.perfilPublico === "string" ? parsed.perfilPublico.slice(0, 600) : "",
+    perfilPublico: (base + extra).slice(0, 700),
   };
 }

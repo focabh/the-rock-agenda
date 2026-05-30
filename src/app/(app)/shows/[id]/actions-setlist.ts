@@ -13,12 +13,15 @@ import {
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { parseTags } from "@/lib/venue-tags";
 import { generateSetlist, type GenOptions } from "@/lib/setlist-generator";
+import { generateSetlistAI } from "@/lib/setlist-ai";
+import { formatHoraBR } from "@/lib/formatters";
 
 export type GenSetlistResult = {
   ok: boolean;
   error?: string;
   count?: number;
   totalSeg?: number;
+  via?: "ia" | "heuristica";
 };
 
 /** Gera (substitui) o setlist com base na casa + duração + opções. Sugestão. */
@@ -78,47 +81,110 @@ export async function generateSetlistAction(
     }
   }
 
-  const genOpts: GenOptions = {
-    targetSeg: Math.max(1, opts.targetMin) * 60,
-    venueTags,
-    priConhecidas: opts.priConhecidas,
-    priPesadas: opts.priPesadas,
-    priAlternativas: opts.priAlternativas,
-    levesNoComeco: opts.levesNoComeco,
-    evitarVocalDificil: opts.evitarVocalDificil,
-    ordem: opts.ordem,
-    evitarRepetir: opts.evitarRepetir,
-    avoidIds,
-    seed: opts.seed,
-  };
-
-  const result = generateSetlist(
-    allSongs.map((s) => ({
-      id: s.id,
-      status: s.status,
-      duracaoSeg: s.duracaoSeg,
-      energia: s.energia,
-      conhecida: s.conhecida,
-      exigeVocal: s.exigeVocal,
-      momento: s.momento,
-    })),
-    genOpts
-  );
-
   const byId = new Map(allSongs.map((s) => [s.id, s]));
-  await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
-  let ordem = 0;
-  for (const id of result.orderedIds) {
-    await db.insert(setlistItems).values({
-      setlistId,
-      songId: id,
-      ordem: ordem++,
-      duracaoSeg: byId.get(id)?.duracaoSeg ?? null,
-    });
+
+  let orderedIds: string[] = [];
+  let via: "ia" | "heuristica" = "heuristica";
+  let racional = "";
+
+  // 1) Tenta a IA (curva de energia + respiros + contexto). Se faltar chave ou
+  //    falhar, cai no gerador heurístico determinístico.
+  if (process.env.ANTHROPIC_API_KEY && show) {
+    try {
+      const diaSemana = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        weekday: "long",
+      }).format(show.data);
+      const horario = show.inicio || formatHoraBR(show.data);
+      const setlistAnterior = opts.evitarRepetir
+        ? allSongs.filter((s) => avoidIds.includes(s.id)).map((s) => s.titulo)
+        : [];
+
+      const ai = await generateSetlistAI({
+        songs: allSongs.map((s) => ({
+          id: s.id,
+          titulo: s.titulo,
+          artista: s.artista,
+          duracaoSeg: s.duracaoSeg,
+          energia: s.energia,
+          conhecida: s.conhecida,
+          exigeVocal: s.exigeVocal,
+          momento: s.momento,
+          tom: s.tom,
+        })),
+        targetMin: Math.max(1, opts.targetMin),
+        diaSemana,
+        horario,
+        casaNome: show ? "esta casa" : "",
+        casaPerfil: "",
+        casaTags: venueTags,
+        setlistAnterior,
+        prefs: {
+          priConhecidas: opts.priConhecidas,
+          priPesadas: opts.priPesadas,
+          priAlternativas: opts.priAlternativas,
+          levesNoComeco: opts.levesNoComeco,
+          evitarVocalDificil: opts.evitarVocalDificil,
+        },
+      });
+      orderedIds = ai.orderedIds;
+      racional = ai.racional;
+      via = "ia";
+    } catch {
+      // silencioso — usa o heurístico
+    }
   }
 
+  // 2) Fallback heurístico
+  if (orderedIds.length === 0) {
+    const genOpts: GenOptions = {
+      targetSeg: Math.max(1, opts.targetMin) * 60,
+      venueTags,
+      priConhecidas: opts.priConhecidas,
+      priPesadas: opts.priPesadas,
+      priAlternativas: opts.priAlternativas,
+      levesNoComeco: opts.levesNoComeco,
+      evitarVocalDificil: opts.evitarVocalDificil,
+      ordem: opts.ordem,
+      evitarRepetir: opts.evitarRepetir,
+      avoidIds,
+      seed: opts.seed,
+    };
+    const result = generateSetlist(
+      allSongs.map((s) => ({
+        id: s.id,
+        status: s.status,
+        duracaoSeg: s.duracaoSeg,
+        energia: s.energia,
+        conhecida: s.conhecida,
+        exigeVocal: s.exigeVocal,
+        momento: s.momento,
+      })),
+      genOpts
+    );
+    orderedIds = result.orderedIds;
+    via = "heuristica";
+  }
+
+  await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
+  let ordem = 0;
+  let totalSeg = 0;
+  for (const id of orderedIds) {
+    const d = byId.get(id)?.duracaoSeg ?? null;
+    totalSeg += d ?? 210;
+    await db
+      .insert(setlistItems)
+      .values({ setlistId, songId: id, ordem: ordem++, duracaoSeg: d });
+  }
+
+  // Guarda o racional da IA nas observações do setlist (aparece na impressão).
+  await db
+    .update(setlists)
+    .set({ observacoesGerais: racional || null })
+    .where(eq(setlists.id, setlistId));
+
   revalidatePath(`/shows/${showId}`);
-  return { ok: true, count: result.orderedIds.length, totalSeg: result.totalSeg };
+  return { ok: true, count: orderedIds.length, totalSeg, via };
 }
 
 // ---------------- SETLISTS (vários por show) ----------------

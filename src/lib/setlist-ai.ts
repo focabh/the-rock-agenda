@@ -1,0 +1,132 @@
+// Geração de setlist por IA (Claude). Recebe o repertório + contexto do show
+// (duração, dia, horário, perfil da casa) e devolve a ORDEM pensada como uma
+// curva de energia com respiros estratégicos. Sem chave → lança (o caller cai
+// no gerador heurístico). Não usa web (tudo vem no prompt) → barato e rápido.
+
+import { NoApiKeyError } from "@/lib/venue-ai";
+
+const MODEL = "claude-haiku-4-5-20251001";
+
+export type AISong = {
+  id: string;
+  titulo: string;
+  artista: string;
+  duracaoSeg: number | null;
+  energia: number | null;
+  conhecida: boolean;
+  exigeVocal: boolean;
+  momento: string;
+  tom: string | null;
+};
+
+export type SetlistAIInput = {
+  songs: AISong[];
+  targetMin: number;
+  diaSemana: string;
+  horario: string;
+  casaNome: string;
+  casaPerfil: string;
+  casaTags: string[];
+  setlistAnterior: string[];
+  prefs: {
+    priConhecidas: boolean;
+    priPesadas: boolean;
+    priAlternativas: boolean;
+    levesNoComeco: boolean;
+    evitarVocalDificil: boolean;
+  };
+};
+
+export type SetlistAIResult = { orderedIds: string[]; racional: string };
+
+export async function generateSetlistAI(
+  i: SetlistAIInput
+): Promise<SetlistAIResult> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new NoApiKeyError("IA não configurada.");
+
+  const repertorio = i.songs.map((s) => ({
+    id: s.id,
+    titulo: s.titulo,
+    artista: s.artista,
+    duracaoSeg: s.duracaoSeg ?? 210,
+    energia: s.energia ?? 2, // 1 leve, 2 média, 3 pesada
+    conhecida: s.conhecida,
+    momento: s.momento,
+    exigeVocal: s.exigeVocal,
+    tom: s.tom ?? "",
+  }));
+
+  const prefs: string[] = [];
+  if (i.prefs.priConhecidas) prefs.push("priorizar músicas mais conhecidas");
+  if (i.prefs.priPesadas) prefs.push("priorizar músicas mais pesadas");
+  if (i.prefs.priAlternativas) prefs.push("priorizar mais alternativas/b-sides");
+  if (i.prefs.levesNoComeco) prefs.push("começar mais leve");
+  if (i.prefs.evitarVocalDificil)
+    prefs.push("evitar músicas difíceis pro vocal");
+
+  const prompt = `Você é diretor de show e curador de setlist veterano, especialista em bandas cover de rock em bares e pubs. Monte a ORDEM perfeita pra manter o público grudado do início ao fim — com picos pra cantar/pular e RESPIROS estratégicos (banheiro, bar, aquele beijo) que nunca esvaziam a pista.
+
+BANDA: The Rock — covers de rock alternativo dos anos 90 e 2000, de BH.
+
+CONTEXTO:
+- Duração-alvo: ${i.targetMin} min (conte ~60s de fala/transição por música).
+- Dia: ${i.diaSemana}. Início: ${i.horario || "não informado"}.
+- Casa: ${i.casaNome} — ${i.casaPerfil || "sem perfil"}. Características: ${i.casaTags.join(", ") || "—"}.
+- Última vez nesta casa (NÃO repita abre/fecha nem a ordem): ${i.setlistAnterior.join(", ") || "nenhuma"}.
+- Preferências do usuário: ${prefs.join("; ") || "nenhuma específica"}.
+
+REPERTÓRIO (use SOMENTE estes id; nunca invente música):
+${JSON.stringify(repertorio)}
+
+DRAMATURGIA:
+1. Abra com conhecida + energética pra fisgar nos primeiros minutos.
+2. Suba até um pico; ponha o 1º RESPIRO (média/conhecida) LOGO APÓS o pico (~primeiro terço). Respiro nunca no começo, nunca dois lentos seguidos, e nunca uma música "morta".
+3. Maior pico perto do fim; FECHE com um hino de cantar junto.
+4. Conhecidas abrem/fecham; faixas menos óbvias ficam nos vales do meio.
+5. Vocal: não emende duas que exigem muito do vocal; as difíceis nos picos.
+6. Transições suaves (evite saltos bruscos de andamento/tom entre vizinhas).
+7. Ajuste ao contexto: sex/sáb à noite ou tarde → +energia/+hits, menos respiros; quinta/happy-hour/cedo/público 30+ → comece ameno e suba; comercial → +conhecidas; pesado → +energia; alternativo → +b-sides; ≤45min → só bala, 1 respiro; ≥120min → blocos com respiros entre eles.
+8. PREENCHA o tempo-alvo (tolerância ~1 música).
+
+RESPONDA SOMENTE COM JSON VÁLIDO:
+{"ordem":[{"id":"<id do repertório>"}],"racional":"1-3 frases sobre a estratégia da curva pra este dia/horário/casa"}
+Não use id fora do repertório. Não repita id.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Anthropic falhou (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  }
+  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+  const text = (data.content ?? [])
+    .filter((b) => b.type === "text" && b.text)
+    .map((b) => b.text as string)
+    .join("\n");
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("IA não devolveu JSON.");
+  const parsed = JSON.parse(m[0]) as {
+    ordem?: { id: string }[];
+    racional?: string;
+  };
+
+  const valid = new Set(i.songs.map((s) => s.id));
+  const seen = new Set<string>();
+  const orderedIds = (parsed.ordem ?? [])
+    .map((x) => x?.id)
+    .filter((id): id is string => !!id && valid.has(id) && !seen.has(id) && (seen.add(id), true));
+
+  if (orderedIds.length === 0) throw new Error("IA não selecionou músicas válidas.");
+  return { orderedIds, racional: (parsed.racional ?? "").slice(0, 600) };
+}
