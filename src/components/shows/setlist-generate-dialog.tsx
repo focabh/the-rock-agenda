@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Wand2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { generateSetlistAction } from "@/app/(app)/shows/[id]/actions-setlist";
+import {
+  generateSetlistAction,
+  getSetlistPrefsAction,
+  saveSetlistPrefsAction,
+} from "@/app/(app)/shows/[id]/actions-setlist";
 
 type Opts = {
   priConhecidas: boolean;
@@ -55,9 +60,20 @@ export function SetlistGenerateDialog({
     evitarRepetir: true,
   });
   const [pending, start] = useTransition();
+  const [regras, setRegras] = useState("");
+  const [regrasLoaded, setRegrasLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!open || regrasLoaded) return;
+    getSetlistPrefsAction().then((r) => {
+      setRegras(r.regras ?? "");
+      setRegrasLoaded(true);
+    });
+  }, [open, regrasLoaded]);
 
   function gerar() {
     start(async () => {
+      await saveSetlistPrefsAction(regras); // persiste as regras fixas
       const r = await generateSetlistAction(showId, setlistId, {
         targetMin: min,
         ordem,
@@ -137,9 +153,22 @@ export function SetlistGenerateDialog({
             ))}
           </div>
 
+          <div className="space-y-1.5">
+            <Label htmlFor="gen-regras">
+              Regras fixas da banda (a IA sempre obedece)
+            </Label>
+            <Textarea
+              id="gen-regras"
+              value={regras}
+              onChange={(e) => setRegras(e.target.value)}
+              rows={2}
+              placeholder="Ex.: guardar a catarse pro final; não abrir com lenta; terminar com sequência explosiva."
+            />
+          </div>
+
           <p className="text-xs text-muted-foreground">
-            O perfil/tags da casa já influenciam automaticamente (ex.: público
-            comercial → mais conhecidas; pesado → mais energia).
+            O perfil/tags da casa e o histórico de setlists (o que a banda
+            costuma abrir/fechar) já influenciam automaticamente.
           </p>
 
           <div className="flex justify-end gap-2">

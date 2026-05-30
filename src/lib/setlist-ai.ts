@@ -28,6 +28,9 @@ export type SetlistAIInput = {
   casaPerfil: string;
   casaTags: string[];
   setlistAnterior: string[];
+  regras: string;
+  memoriaAberturas: string[];
+  memoriaFechamentos: string[];
   prefs: {
     priConhecidas: boolean;
     priPesadas: boolean;
@@ -75,6 +78,11 @@ CONTEXTO:
 - Casa: ${i.casaNome} — ${i.casaPerfil || "sem perfil"}. Características: ${i.casaTags.join(", ") || "—"}.
 - Última vez nesta casa (NÃO repita abre/fecha nem a ordem): ${i.setlistAnterior.join(", ") || "nenhuma"}.
 - Preferências do usuário: ${prefs.join("; ") || "nenhuma específica"}.
+
+MEMÓRIA DA BANDA (aprendida dos setlists já salvos — respeite esses padrões quando fizer sentido):
+- Costuma ABRIR com: ${i.memoriaAberturas.join(", ") || "sem histórico ainda"}.
+- Costuma FECHAR com: ${i.memoriaFechamentos.join(", ") || "sem histórico ainda"}.
+${i.regras ? `\nREGRAS FIXAS DA BANDA (SEMPRE obedeça, têm prioridade): ${i.regras}` : ""}
 
 REPERTÓRIO (use SOMENTE estes id; nunca invente música):
 ${JSON.stringify(repertorio)}

@@ -3,8 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, gt, lt, desc, asc, sql, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { setlists, setlistItems, songs, shows, venues } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth";
+import {
+  setlists,
+  setlistItems,
+  songs,
+  shows,
+  venues,
+  bandSetlistPrefs,
+} from "@/db/schema";
+import { requireAdmin, requireCurrentUser } from "@/lib/auth";
+import { computeSetlistMemory } from "@/lib/setlist-memory";
 import {
   SpotifyConfigError,
   extractPlaylistId,
@@ -23,6 +31,31 @@ export type GenSetlistResult = {
   totalSeg?: number;
   via?: "ia" | "heuristica";
 };
+
+// ---------------- PREFERÊNCIAS FIXAS DA BANDA (memória explícita) ----------------
+
+export async function getSetlistPrefsAction(): Promise<{ regras: string }> {
+  await requireCurrentUser();
+  const [row] = await db.select().from(bandSetlistPrefs).limit(1);
+  return { regras: row?.regras ?? "" };
+}
+
+export async function saveSetlistPrefsAction(
+  regras: string
+): Promise<{ ok: boolean }> {
+  await requireAdmin();
+  const value = regras.trim().slice(0, 2000) || null;
+  const [row] = await db.select().from(bandSetlistPrefs).limit(1);
+  if (row) {
+    await db
+      .update(bandSetlistPrefs)
+      .set({ regras: value })
+      .where(eq(bandSetlistPrefs.id, row.id));
+  } else {
+    await db.insert(bandSetlistPrefs).values({ regras: value });
+  }
+  return { ok: true };
+}
 
 /** Gera (substitui) o setlist com base na casa + duração + opções. Sugestão. */
 export async function generateSetlistAction(
@@ -83,6 +116,24 @@ export async function generateSetlistAction(
 
   const byId = new Map(allSongs.map((s) => [s.id, s]));
 
+  // Memória: aprende abre/fecha dos setlists já salvos + regras fixas da banda.
+  const allItems = await db
+    .select({
+      setlistId: setlistItems.setlistId,
+      songId: setlistItems.songId,
+      ordem: setlistItems.ordem,
+    })
+    .from(setlistItems);
+  const mem = computeSetlistMemory(allItems);
+  const memAberturas = mem.aberturas
+    .map((id) => byId.get(id)?.titulo)
+    .filter((t): t is string => !!t);
+  const memFechamentos = mem.fechamentos
+    .map((id) => byId.get(id)?.titulo)
+    .filter((t): t is string => !!t);
+  const [prefsRow] = await db.select().from(bandSetlistPrefs).limit(1);
+  const regras = prefsRow?.regras ?? "";
+
   let orderedIds: string[] = [];
   let via: "ia" | "heuristica" = "heuristica";
   let racional = "";
@@ -119,6 +170,9 @@ export async function generateSetlistAction(
         casaPerfil: "",
         casaTags: venueTags,
         setlistAnterior,
+        regras,
+        memoriaAberturas: memAberturas,
+        memoriaFechamentos: memFechamentos,
         prefs: {
           priConhecidas: opts.priConhecidas,
           priPesadas: opts.priPesadas,

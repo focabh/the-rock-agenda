@@ -838,6 +838,14 @@ export const announcementsRelations = relations(announcements, ({ one }) => ({
   }),
 }));
 
+// Preferências fixas da banda pra geração de setlist (singleton). Texto livre
+// que a IA sempre obedece (ex.: "guardar catarse pro final", "não abrir lenta").
+export const bandSetlistPrefs = sqliteTable("band_setlist_prefs", {
+  id: id(),
+  regras: text("regras"),
+  updatedAt: updatedAt(),
+});
+
 // ---------------- POSIÇÕES DA BANDA (customizáveis) ----------------
 
 // Posições/instrumentos da banda, geridas pelo admin (add Tecladista, Gaita…).
@@ -887,4 +895,5 @@ export type SiteVisit = typeof siteVisits.$inferSelect;
 export type PromoItem = typeof promoItems.$inferSelect;
 export type Announcement = typeof announcements.$inferSelect;
 export type BandPosition = typeof bandPositions.$inferSelect;
+export type BandSetlistPrefs = typeof bandSetlistPrefs.$inferSelect;
 export type VenueContact = typeof venueContacts.$inferSelect;
