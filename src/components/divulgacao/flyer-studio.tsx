@@ -1,7 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Download, Upload, Shuffle, Loader2, Building2, Plus, X, ArrowUp, ArrowDown } from "lucide-react";
+import { Download, Upload, Shuffle, Loader2, Building2, Plus, X, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,6 +115,53 @@ function fx(efeito: Efeito, accent: string): React.CSSProperties {
 }
 const pillText = (accent: string) => (accent === "#ef4444" ? "#fff" : "#09090b");
 
+/** Efeitos como CAMADAS de texto (cópias posicionadas atrás), não text-shadow:
+ *  o text-shadow some na exportação (o Webkit/iOS não pinta sombra/filtro no
+ *  modo SVG/foreignObject que o screenshot usa). Cópias de texto são glifos
+ *  reais → aparecem em qualquer aparelho. */
+function fxLayers(efeito: Efeito, accent: string): { dx: number; dy: number; color: string }[] {
+  const dirs = (d: number, color: string) =>
+    ([[-d, -d], [d, -d], [-d, d], [d, d], [0, -d], [0, d], [-d, 0], [d, 0]] as const).map(([dx, dy]) => ({ dx, dy, color }));
+  switch (efeito) {
+    case "sombra":
+      return [{ dx: 0, dy: 1, color: "rgba(0,0,0,.55)" }, { dx: 0, dy: 2, color: "rgba(0,0,0,.45)" }, { dx: 1, dy: 3, color: "rgba(0,0,0,.3)" }];
+    case "contorno":
+      return dirs(1, "#000");
+    case "3d":
+      return [{ dx: 1, dy: 1, color: accent }, { dx: 2, dy: 2, color: accent }, { dx: 3, dy: 3, color: "rgba(0,0,0,.7)" }, { dx: 4, dy: 4, color: "rgba(0,0,0,.5)" }, { dx: 5, dy: 5, color: "rgba(0,0,0,.3)" }];
+    case "longa":
+      return Array.from({ length: 8 }, (_, k) => ({ dx: k + 1, dy: k + 1, color: `rgba(0,0,0,${(0.5 * (1 - k / 8)).toFixed(2)})` }));
+    case "neon":
+      return [...dirs(3, accent + "4d"), ...dirs(2, accent + "80"), ...dirs(1, accent + "e6")];
+    case "brilho":
+      return [...dirs(3, accent + "4d"), ...dirs(2, accent + "99"), ...dirs(1, "#ffffffe6")];
+    case "duplo":
+      return [...dirs(2, accent), ...dirs(1, "#000")];
+    default:
+      return [];
+  }
+}
+
+/** Texto com efeito por camadas (exporta em qualquer aparelho). */
+function TextoFx({
+  efeito, accent, children, className, style,
+}: {
+  efeito: Efeito; accent: string; children: React.ReactNode; className?: string; style?: React.CSSProperties;
+}) {
+  const layers = fxLayers(efeito, accent);
+  if (layers.length === 0) return <span className={className} style={style}>{children}</span>;
+  return (
+    <span className={cn("relative inline-block", className)} style={style}>
+      {layers.map((l, i) => (
+        <span key={i} aria-hidden className="pointer-events-none absolute left-0 top-0 w-full" style={{ color: l.color, transform: `translate(${l.dx}px, ${l.dy}px)` }}>
+          {children}
+        </span>
+      ))}
+      <span className="relative">{children}</span>
+    </span>
+  );
+}
+
 /** Salva a imagem do jeito que funciona no aparelho:
  *  - Celular (iOS/Android): Web Share API → folha de compartilhar (Salvar
  *    imagem / mandar pro Instagram). Anchor download não funciona no iOS.
@@ -153,14 +217,22 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [tam, setTam] = useState<Record<string, number>>({ chamada: 1, banda: 1, casa: 1, data: 1, ingresso: 1, lineup: 1 });
   const setTamKey = (k: string, v: number) => setTam((p) => ({ ...p, [k]: v }));
   const [ordem, setOrdem] = useState<string[]>(["chamada", "banda", "lineup", "data", "casa", "ingresso"]);
-  const moverItem = (i: number, dir: number) =>
-    setOrdem((p) => {
-      const j = i + dir;
-      if (j < 0 || j >= p.length) return p;
-      const a = [...p];
-      [a[i], a[j]] = [a[j], a[i]];
-      return a;
-    });
+  const ordemSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+  function onOrdemDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const vis = ordem.filter((k) => k !== "lineup" || festival);
+    const oldIdx = vis.indexOf(String(active.id));
+    const newIdx = vis.indexOf(String(over.id));
+    if (oldIdx < 0 || newIdx < 0) return;
+    const newVis = arrayMove(vis, oldIdx, newIdx);
+    // Reconstrói a ordem completa mantendo o line-up no lugar quando oculto.
+    let vi = 0;
+    setOrdem(ordem.map((k) => (k === "lineup" && !festival ? k : newVis[vi++])));
+  }
   const [tarjaOp, setTarjaOp] = useState(78);
   const [textPos, setTextPos] = useState({ x: 20, y: 0 });
 
@@ -400,26 +472,18 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
         </Bloco>
 
         <Bloco titulo="Ordem dos textos">
-          <div className="space-y-1">
-            {ordem.map((k, i) => {
-              const labels: Record<string, string> = { chamada: "Chamada", banda: festival ? "Evento" : "Banda", lineup: "Line-up", data: "Data", casa: "Casa / local", ingresso: "Ingresso" };
-              if (k === "lineup" && !festival) return null;
-              return (
-                <div key={k} className="flex items-center justify-between rounded-md border border-zinc-700 bg-[#0f0f11] px-2.5 py-1.5">
-                  <span className="text-sm text-zinc-200">{labels[k]}</span>
-                  <div className="flex gap-1">
-                    <button onClick={() => moverItem(i, -1)} disabled={i === 0} className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30" title="Subir">
-                      <ArrowUp className="size-4" />
-                    </button>
-                    <button onClick={() => moverItem(i, 1)} disabled={i === ordem.length - 1} className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30" title="Descer">
-                      <ArrowDown className="size-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="text-[11px] text-zinc-500">Define a sequência em que os textos aparecem no flyer. O QR fica por último.</p>
+          <DndContext sensors={ordemSensors} collisionDetection={closestCenter} onDragEnd={onOrdemDragEnd}>
+            <SortableContext items={ordem.filter((k) => k !== "lineup" || festival)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">
+                {ordem
+                  .filter((k) => k !== "lineup" || festival)
+                  .map((k) => (
+                    <OrdemItem key={k} id={k} label={{ chamada: "Chamada", banda: festival ? "Evento" : "Banda", lineup: "Line-up", data: "Data", casa: "Casa / local", ingresso: "Ingresso" }[k] ?? k} />
+                  ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+          <p className="text-[11px] text-zinc-500">Arraste pra reordenar como os textos aparecem no flyer. O QR fica por último.</p>
         </Bloco>
 
         <Bloco titulo="Fundo">
@@ -470,43 +534,51 @@ function Conteudo({
 }: {
   estilo: Estilo; fam: string; efeito: Efeito; accent: string; escala: number; tam: Record<string, number>; tarjaOp: number; ordem: string[]; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
 }) {
-  const titleFx = fx(efeito, accent);
   const tituloPrincipal = festival ? (evento.trim() || "FESTIVAL") : banda;
   const dataTxt = data + (!festival && inicio ? ` · ${inicio}` : "");
   const pill = estilo === "festival"; // festival usa "pílulas" em chamada/ingresso
 
-  const t = (extra?: React.CSSProperties): React.CSSProperties => ({ fontFamily: fam, ...titleFx, ...extra });
+  const t = (extra?: React.CSSProperties): React.CSSProperties => ({ fontFamily: fam, ...extra });
   const sz = (key: string, basePx: number, extra?: React.CSSProperties): React.CSSProperties =>
     ({ ...t(extra), fontSize: Math.round(basePx * escala * (tam[key] ?? 1)) });
   const bandaBase = estilo === "festival" ? (festival ? 36 : 48) : estilo === "minimal" ? 30 : 26;
 
   // Cada item de texto é um bloco; renderizamos na ordem escolhida (`ordem`).
+  // Os efeitos são camadas de texto (TextoFx) pra exportarem em qualquer aparelho.
   const ITENS: Record<string, React.ReactNode> = {
     chamada: headline ? (
       pill ? (
         <div key="chamada"><span className="inline-block px-2 py-0.5 font-bold uppercase tracking-[0.2em]" style={sz("chamada", 11, { background: accent, color: pillText(accent) })}>{headline}</span></div>
       ) : (
-        <p key="chamada" className="uppercase tracking-[0.3em]" style={sz("chamada", 11, { color: accent })}>{headline}</p>
+        <div key="chamada"><TextoFx efeito={efeito} accent={accent} className="uppercase tracking-[0.3em]" style={sz("chamada", 11, { color: accent })}>{headline}</TextoFx></div>
       )
     ) : null,
-    banda: <p key="banda" className="font-black uppercase leading-[0.9] text-zinc-50" style={sz("banda", bandaBase)}>{tituloPrincipal}</p>,
+    banda: (
+      <div key="banda">
+        <TextoFx efeito={efeito} accent={accent} className="font-black uppercase leading-[0.9] text-zinc-50" style={sz("banda", bandaBase)}>{tituloPrincipal}</TextoFx>
+      </div>
+    ),
     lineup: festival && lineup.length > 0 ? (
       <ul key="lineup" className="space-y-0.5">
         {lineup.map((b, i) => (
           <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={sz("lineup", 14)}>
             {b.hora && <span className="shrink-0 font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
-            <span className="font-semibold uppercase tracking-wide">{b.nome}</span>
+            <TextoFx efeito={efeito} accent={accent} className="font-semibold uppercase tracking-wide">{b.nome}</TextoFx>
           </li>
         ))}
       </ul>
     ) : null,
-    data: dataTxt.trim() ? <p key="data" className="font-bold" style={sz("data", estilo === "festival" ? 18 : 13, { color: estilo === "festival" ? accent : "#d4d4d8" })}>{dataTxt}</p> : null,
-    casa: casa.trim() ? <p key="casa" className="font-semibold uppercase tracking-wide text-zinc-100" style={sz("casa", 14)}>{casa}</p> : null,
+    data: dataTxt.trim() ? (
+      <div key="data"><TextoFx efeito={efeito} accent={accent} className="font-bold" style={sz("data", estilo === "festival" ? 18 : 13, { color: estilo === "festival" ? accent : "#d4d4d8" })}>{dataTxt}</TextoFx></div>
+    ) : null,
+    casa: casa.trim() ? (
+      <div key="casa"><TextoFx efeito={efeito} accent={accent} className="font-semibold uppercase tracking-wide text-zinc-100" style={sz("casa", 14)}>{casa}</TextoFx></div>
+    ) : null,
     ingresso: ingresso.trim() ? (
       pill ? (
         <div key="ingresso"><span className="inline-block rounded-full px-2.5 py-0.5 font-bold" style={sz("ingresso", 13, { background: accent, color: pillText(accent) })}>{ingresso}</span></div>
       ) : (
-        <p key="ingresso" className="font-semibold" style={sz("ingresso", 12, { color: accent })}>{ingresso}</p>
+        <div key="ingresso"><TextoFx efeito={efeito} accent={accent} className="font-semibold" style={sz("ingresso", 12, { color: accent })}>{ingresso}</TextoFx></div>
       )
     ) : null,
   };
@@ -523,6 +595,31 @@ function Conteudo({
     <div className="w-full space-y-1.5" style={wrapper}>
       {ordem.map((k) => ITENS[k]).filter(Boolean)}
       {QR}
+    </div>
+  );
+}
+
+function OrdemItem({ id, label }: { id: string; label: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(
+        "flex items-center gap-2 rounded-md border border-zinc-700 bg-[#0f0f11] px-2.5 py-2",
+        isDragging && "z-10 ring-1 ring-primary/50"
+      )}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab touch-none text-zinc-500 hover:text-zinc-200 active:cursor-grabbing"
+        title="Arrastar para reordenar"
+        aria-label="Arrastar"
+      >
+        <GripVertical className="size-4" />
+      </button>
+      <span className="text-sm text-zinc-200">{label}</span>
     </div>
   );
 }
