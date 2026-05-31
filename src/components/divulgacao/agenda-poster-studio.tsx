@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { fileToDownscaledDataUrl } from "@/lib/image-resize";
 import { addImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
 
 export type PosterShow = {
@@ -33,10 +34,12 @@ const GRADIENTES = [
 
 export function AgendaPosterStudio({
   banda,
+  logoUrl,
   shows,
   galeria,
 }: {
   banda: string;
+  logoUrl: string | null;
   shows: PosterShow[];
   galeria: { id: string; url: string }[];
 }) {
@@ -55,15 +58,12 @@ export function AgendaPosterStudio({
   }, [shows, dias]);
 
   function onUpload(file: File) {
-    if (file.size > 1_400_000) return toast.error("Imagem muito grande (máx ~1.4MB).");
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = String(reader.result);
+    start(async () => {
+      const url = await fileToDownscaledDataUrl(file);
       setImgs((p) => [{ id: `local-${Date.now()}`, url }, ...p]);
       setBg(url);
-      start(async () => { await addImagemDivulgacaoAction(url); });
-    };
-    reader.readAsDataURL(file);
+      await addImagemDivulgacaoAction(url);
+    });
   }
 
   async function baixar() {
@@ -107,8 +107,16 @@ export function AgendaPosterStudio({
           <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(9,9,11,0.82), rgba(9,9,11,0.92))" }} />
 
           <div className="absolute inset-0 flex flex-col p-4">
-            <p className="text-[11px] uppercase tracking-[0.25em] text-amber-400">Agenda</p>
-            <p className="text-2xl font-black leading-none text-zinc-100">{banda}</p>
+            <div className="flex items-center gap-2.5">
+              {logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="" crossOrigin="anonymous" className="size-10 shrink-0 rounded-md object-contain ring-1 ring-white/15" />
+              )}
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.25em] text-amber-400">Agenda</p>
+                <p className="text-2xl font-black leading-none text-zinc-100">{banda}</p>
+              </div>
+            </div>
             <div className="my-3 h-px w-full bg-red-600/70" />
             <ul className="flex-1 space-y-1.5 overflow-hidden">
               {filtrados.length === 0 ? (

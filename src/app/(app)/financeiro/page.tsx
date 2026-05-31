@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { TrendingUp, Clock, Send, PiggyBank, Trophy, Wallet } from "lucide-react";
+import { TrendingUp, CalendarClock, Send, CheckCircle2, Trophy, Wallet } from "lucide-react";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { loadFinanceReport } from "@/lib/finance-report";
 import { PageHeader } from "@/components/shared/page-header";
@@ -62,20 +62,20 @@ export default async function FinanceiroPage({
           </Card>
         ) : (
           <>
-            {/* KPIs de caixa */}
+            {/* KPIs principais */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Kpi icon={<CheckCircle2 className="size-4" />} label="Renda realizada (shows feitos)" value={formatBRL(r.realizado)} accent />
+              <Kpi icon={<CalendarClock className="size-4" />} label="Renda esperada (a realizar)" value={formatBRL(r.esperado)} />
               <Kpi icon={<TrendingUp className="size-4" />} label="Recebido (entrou no caixa)" value={formatBRL(r.recebido)} accent />
-              <Kpi icon={<Clock className="size-4" />} label="A receber (contratante)" value={formatBRL(r.aReceberContratante)} />
               <Kpi icon={<Send className="size-4" />} label="A repassar (músicos)" value={formatBRL(r.aRepassarMusicos)} danger={r.aRepassarMusicos > 0} />
-              <Kpi icon={<PiggyBank className="size-4" />} label="Saldo em caixa" value={formatBRL(r.saldoCaixa)} accent={r.saldoCaixa >= 0} danger={r.saldoCaixa < 0} />
             </div>
 
             {/* Linha secundária */}
             <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-              <Mini label="Faturado (concluídos)" value={formatBRL(r.faturado)} />
-              <Mini label="Repassado aos músicos" value={formatBRL(r.repassadoMusicos)} />
+              <Mini label="Faturado (esperado + realizado)" value={formatBRL(r.faturado)} />
+              <Mini label="A receber (contratante)" value={formatBRL(r.aReceberContratante)} />
+              <Mini label="Saldo em caixa" value={formatBRL(r.saldoCaixa)} />
               <Mini label="Gastos + reembolsos" value={formatBRL(r.gastosTotal + r.reembolsosTotal)} />
-              <Mini label="Comissão do manager" value={formatBRL(r.managerTotal)} />
             </div>
 
             {foco && (

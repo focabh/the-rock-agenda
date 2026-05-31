@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { fileToDownscaledDataUrl } from "@/lib/image-resize";
 import { addImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
 
 type Show = {
@@ -17,6 +18,7 @@ type Show = {
   termino: string | null;
   valorIngresso: string | null;
   linkVendas: string | null;
+  logoUrl: string | null;
 };
 
 const GRADIENTES = [
@@ -50,17 +52,12 @@ export function FlyerStudio({
   }, [show.linkVendas]);
 
   function onUpload(file: File) {
-    if (file.size > 1_400_000) return toast.error("Imagem muito grande (máx ~1.4MB).");
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = String(reader.result);
+    start(async () => {
+      const url = await fileToDownscaledDataUrl(file);
       setImgs((p) => [{ id: `local-${Date.now()}`, url }, ...p]);
       setBg(url);
-      start(async () => {
-        await addImagemDivulgacaoAction(url);
-      });
-    };
-    reader.readAsDataURL(file);
+      await addImagemDivulgacaoAction(url);
+    });
   }
 
   function sortear() {
@@ -108,10 +105,16 @@ export function FlyerStudio({
           {/* Gradiente de legibilidade */}
           <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(9,9,11,0.96) 8%, rgba(9,9,11,0.55) 42%, transparent 75%)" }} />
 
-          {/* Topo: banda */}
-          <div className="absolute inset-x-0 top-0 p-4">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-amber-400">Ao vivo</p>
-            <p className="text-xl font-black leading-none text-zinc-100">{show.banda}</p>
+          {/* Topo: logo + banda */}
+          <div className="absolute inset-x-0 top-0 flex items-center gap-2.5 p-4">
+            {show.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={show.logoUrl} alt="" crossOrigin="anonymous" className="size-11 shrink-0 rounded-md object-contain ring-1 ring-white/15" />
+            )}
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-amber-400">Ao vivo</p>
+              <p className="text-xl font-black leading-none text-zinc-100">{show.banda}</p>
+            </div>
           </div>
 
           {/* Tarja inferior */}

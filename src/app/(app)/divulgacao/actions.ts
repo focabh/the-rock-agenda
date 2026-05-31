@@ -28,16 +28,16 @@ const LIMITS: Record<
   { max: number; sizeBytes: number; accept: RegExp }
 > = {
   video: { max: 50, sizeBytes: 0, accept: /^https?:\/\// },
-  foto: { max: 15, sizeBytes: 2_000_000, accept: /^(https?:\/\/|data:image\/)/ },
-  logo: { max: 10, sizeBytes: 2_000_000, accept: /^(https?:\/\/|data:image\/)/ },
+  foto: { max: 15, sizeBytes: 12_000_000, accept: /^(https?:\/\/|data:image\/)/ },
+  logo: { max: 10, sizeBytes: 12_000_000, accept: /^(https?:\/\/|data:image\/)/ },
   presskit: {
     max: 1,
-    sizeBytes: 5_000_000,
+    sizeBytes: 14_000_000,
     accept: /^(https?:\/\/|data:application\/pdf|data:image\/)/,
   },
   rider: {
     max: 1,
-    sizeBytes: 5_000_000,
+    sizeBytes: 14_000_000,
     accept: /^(https?:\/\/|data:application\/pdf|data:image\/)/,
   },
   instagram: {
@@ -52,7 +52,7 @@ const SINGLETONS: Set<Tipo> = new Set(["presskit", "rider", "instagram"]);
 const schema = z.object({
   tipo: z.enum(TIPOS),
   titulo: z.string().trim().min(2, "Informe um título").max(120),
-  url: z.string().trim().min(1, "Informe o link ou anexe um arquivo").max(7_000_000),
+  url: z.string().trim().min(1, "Informe o link ou anexe um arquivo").max(16_000_000),
   descricao: z.string().trim().max(500).optional(),
   cover: z
     .string()

@@ -15,7 +15,7 @@ export async function addImagemDivulgacaoAction(
   const u = url.trim();
   const valido = /^data:image\/(png|jpe?g|webp);base64,/.test(u) || /^https?:\/\//.test(u);
   if (!valido) return { ok: false, error: "Envie uma imagem ou cole um link http(s)." };
-  if (u.length > 1_500_000) return { ok: false, error: "Imagem muito grande (máx ~1.5MB)." };
+  if (u.length > 6_000_000) return { ok: false, error: "Imagem muito grande." };
   await db.insert(imagensDivulgacao).values({ url: u, legenda: legenda?.slice(0, 120) || null });
   revalidatePath("/shows");
   return { ok: true };

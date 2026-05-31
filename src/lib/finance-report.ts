@@ -28,9 +28,11 @@ export type FinanceReport = {
   anos: number[];
   ano: number;
   // Entradas (contratante → banda)
-  faturado: number; // Σ cachê de shows concluídos (billing)
+  faturado: number; // Σ cachê dos shows comprometidos (confirmado + concluído)
+  realizado: number; // Σ cachê de shows CONCLUÍDOS (renda realizada)
+  esperado: number; // Σ cachê de shows CONFIRMADOS ainda não realizados (prospecção)
   recebido: number; // entrou no caixa (pagamentoStatus = pago)
-  aReceberContratante: number; // concluído mas não pago
+  aReceberContratante: number; // comprometido mas não pago
   // Distribuição (banda → músicos/manager)
   devidoMusicos: number;
   repassadoMusicos: number;
@@ -65,8 +67,11 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
   const ano = anoParam && anos.includes(Number(anoParam)) ? Number(anoParam) : anos[0];
 
   const showsAno = allShows.filter((s) => s.data.getFullYear() === ano);
-  const concluidos = showsAno.filter((s) => s.status === "concluido" && (s.cacheCentavos ?? 0) > 0);
-  const ids = concluidos.map((s) => s.id);
+  // Shows com movimentação financeira = comprometidos (confirmado OU concluído).
+  const considera = showsAno.filter(
+    (s) => (s.status === "confirmado" || s.status === "concluido") && (s.cacheCentavos ?? 0) > 0
+  );
+  const ids = considera.map((s) => s.id);
 
   const [presences, overrides, paidRows, gastoRows, reembolsoRows] = await Promise.all([
     ids.length ? db.select().from(showMemberPresence).where(inArray(showMemberPresence.showId, ids)) : Promise.resolve([] as (typeof showMemberPresence.$inferSelect)[]),
@@ -94,7 +99,8 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     if (r.status == null || r.status === "confirmado") repassadoSet.add(`${r.showId}-${r.memberId}`);
   }
 
-  let faturado = 0;
+  let realizado = 0;
+  let esperado = 0;
   let recebido = 0;
   let managerTotal = 0;
   const devidoM = new Map<string, number>();
@@ -103,9 +109,10 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
   const venueAgg = new Map<string, { sum: number; count: number }>();
   const mesEntradas = Array(12).fill(0);
 
-  for (const s of concluidos) {
+  for (const s of considera) {
     const c = s.cacheCentavos ?? 0;
-    faturado += c;
+    if (s.status === "concluido") realizado += c;
+    else esperado += c; // confirmado (a realizar)
     const pago = s.pagamentoStatus === "pago";
     if (pago) {
       recebido += c;
@@ -137,8 +144,9 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     }
   }
 
-  const aReceberContratante = showsAno
-    .filter((s) => s.status === "concluido" && s.pagamentoStatus !== "pago")
+  // A receber do contratante = comprometido (confirmado/concluído) e ainda não pago.
+  const aReceberContratante = considera
+    .filter((s) => s.pagamentoStatus !== "pago")
     .reduce((t, s) => t + (s.cacheCentavos ?? 0), 0);
 
   const gastosAno = gastoRows.filter((g) => g.paidEm.getFullYear() === ano);
@@ -172,7 +180,9 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
   return {
     anos,
     ano,
-    faturado,
+    faturado: realizado + esperado,
+    realizado,
+    esperado,
     recebido,
     aReceberContratante,
     devidoMusicos,

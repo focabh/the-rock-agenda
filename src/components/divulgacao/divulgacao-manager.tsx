@@ -43,6 +43,25 @@ import { toast } from "sonner";
 
 type Tipo = "video" | "foto" | "logo" | "presskit" | "rider" | "instagram";
 
+// Abre o material. Links http abrem normal; arquivos enviados (data: URL) o
+// navegador BLOQUEIA em nova aba — então convertemos pra Blob e abrimos o blob.
+function openMedia(e: React.MouseEvent, url: string) {
+  if (!url.startsWith("data:")) return; // deixa o <a> http seguir
+  e.preventDefault();
+  try {
+    const [head, b64] = url.split(",");
+    const mime = head.match(/data:([^;]+)/)?.[1] || "application/octet-stream";
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const obj = URL.createObjectURL(new Blob([arr], { type: mime }));
+    window.open(obj, "_blank");
+    setTimeout(() => URL.revokeObjectURL(obj), 60_000);
+  } catch {
+    /* ignora */
+  }
+}
+
 export type PromoLite = {
   id: string;
   tipo: Tipo;
@@ -77,32 +96,32 @@ const TIPO_META: Record<Tipo, TipoMeta> = {
     icon: ImageIcon,
     singleton: false,
     max: 15,
-    helper: "Até 15 fotos. JPEG, PNG ou WEBP, até ~2MB cada.",
-    upload: { accept: "image/jpeg,image/png,image/webp", maxMB: 2 },
+    helper: "Até 15 fotos. JPEG, PNG ou WEBP (a foto é otimizada no envio).",
+    upload: { accept: "image/jpeg,image/png,image/webp", maxMB: 10 },
   },
   logo: {
     label: "Logo",
     icon: Download,
     singleton: false,
     max: 10,
-    helper: "PNG/JPEG até ~2MB. Suba variações (colorida, preto-no-branco, etc).",
-    upload: { accept: "image/jpeg,image/png,image/webp", maxMB: 2 },
+    helper: "PNG/JPEG. Suba variações (colorida, preto-no-branco, etc).",
+    upload: { accept: "image/jpeg,image/png,image/webp", maxMB: 10 },
   },
   presskit: {
     label: "Press kit",
     icon: FileText,
     singleton: true,
     max: 1,
-    helper: "PDF público até ~5MB. Substituir troca o press kit atual.",
-    upload: { accept: "application/pdf,image/jpeg,image/png", maxMB: 5 },
+    helper: "PDF público. Substituir troca o press kit atual.",
+    upload: { accept: "application/pdf,image/jpeg,image/png", maxMB: 12 },
   },
   rider: {
     label: "Rider técnico",
     icon: Wrench,
     singleton: true,
     max: 1,
-    helper: "Lista de equipamentos/exigências (PDF até ~5MB).",
-    upload: { accept: "application/pdf,image/jpeg,image/png", maxMB: 5 },
+    helper: "Lista de equipamentos/exigências (PDF).",
+    upload: { accept: "application/pdf,image/jpeg,image/png", maxMB: 12 },
   },
   instagram: {
     label: "Instagram",
@@ -272,6 +291,7 @@ function InstagramCard({
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => openMedia(e, item.url)}
           className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline shrink-0"
         >
           Abrir <ExternalLink className="size-3.5" />
@@ -314,6 +334,7 @@ function ItemList({
                 href={i.url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => openMedia(e, i.url)}
                 className="font-medium hover:text-primary truncate inline-flex items-center gap-1.5"
               >
                 {i.titulo}
@@ -366,6 +387,7 @@ function FotoGrid({
             href={i.url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => openMedia(e, i.url)}
             className="block aspect-square bg-muted/30"
             title={i.titulo}
           >

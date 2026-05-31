@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
 import { shows } from "@/db/schema";
-import { getCurrentUser, isAdmin, getBrand } from "@/lib/auth";
+import { getCurrentUser, isAdmin, getBrand, getLogoUrl } from "@/lib/auth";
 import { formatDataBR, formatHoraBR } from "@/lib/formatters";
 import { PageHeader } from "@/components/shared/page-header";
 import { FlyerStudio } from "@/components/divulgacao/flyer-studio";
@@ -23,7 +23,11 @@ export default async function DivulgacaoShowPage({
   });
   if (!show) notFound();
 
-  const [brand, galeria] = await Promise.all([getBrand(), listImagensDivulgacao()]);
+  const [brand, logoUrl, galeria] = await Promise.all([
+    getBrand(),
+    getLogoUrl(),
+    listImagensDivulgacao(),
+  ]);
 
   return (
     <div>
@@ -41,6 +45,7 @@ export default async function DivulgacaoShowPage({
             termino: show.termino,
             valorIngresso: show.valorIngresso,
             linkVendas: show.linkVendas,
+            logoUrl,
           }}
           galeria={galeria.map((g) => ({ id: g.id, url: g.url }))}
         />

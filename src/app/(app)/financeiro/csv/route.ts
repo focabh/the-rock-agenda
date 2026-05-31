@@ -15,7 +15,9 @@ export async function GET(req: NextRequest) {
   lines.push(`Controle financeiro;${r.ano}`);
   lines.push("");
   lines.push("Indicador;Valor (R$)");
-  lines.push(`Faturado (concluidos);${brl(r.faturado)}`);
+  lines.push(`Faturado (esperado + realizado);${brl(r.faturado)}`);
+  lines.push(`Renda realizada (shows feitos);${brl(r.realizado)}`);
+  lines.push(`Renda esperada (a realizar);${brl(r.esperado)}`);
   lines.push(`Recebido (entrou no caixa);${brl(r.recebido)}`);
   lines.push(`A receber (contratante);${brl(r.aReceberContratante)}`);
   lines.push(`Devido aos musicos;${brl(r.devidoMusicos)}`);
