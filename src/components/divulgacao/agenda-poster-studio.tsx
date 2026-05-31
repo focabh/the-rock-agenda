@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Download, Upload, Shuffle, Loader2, Plus, X, ImageIcon, Wand2, Sparkles } from "lucide-react";
+import { Download, Upload, Shuffle, Loader2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,8 +22,19 @@ export type PosterShow = {
 
 type Efeito = "nenhum" | "sombra" | "contorno" | "neon" | "3d" | "longa" | "brilho" | "duplo";
 type Banda = { nome: string; hora: string };
-type Escopo = "imagem" | "texto";
-type Modelo = { fonte: string; efeito: Efeito; accent: string; grad: string };
+
+const MODELOS_TEXTO: { nome: string; fonte: string; efeito: Efeito; accent: string }[] = [
+  { nome: "Neon", fonte: "anton", efeito: "neon", accent: "#f59e0b" },
+  { nome: "Festival", fonte: "archivo", efeito: "3d", accent: "#ef4444" },
+  { nome: "Clean", fonte: "montserrat", efeito: "sombra", accent: "#fafafa" },
+  { nome: "Elegante", fonte: "serif", efeito: "sombra", accent: "#fafafa" },
+  { nome: "Glamour", fonte: "abril", efeito: "contorno", accent: "#f472b6" },
+  { nome: "Marcador", fonte: "marker", efeito: "contorno", accent: "#a3e635" },
+  { nome: "Praia", fonte: "pacifico", efeito: "sombra", accent: "#22d3ee" },
+  { nome: "Estádio", fonte: "oswald", efeito: "longa", accent: "#f59e0b" },
+  { nome: "Retrô", fonte: "righteous", efeito: "3d", accent: "#22d3ee" },
+  { nome: "Alta tensão", fonte: "bebas", efeito: "duplo", accent: "#ef4444" },
+];
 
 const EFEITOS: [Efeito, string][] = [
   ["nenhum", "Nenhum"],
@@ -53,17 +64,6 @@ const FONTES: Record<string, { label: string; family: string }> = {
 
 const ACCENTS = ["#f59e0b", "#ef4444", "#fafafa", "#22d3ee", "#f472b6", "#a3e635"];
 
-async function dataUrlToPngBlob(dataUrl: string): Promise<Blob> {
-  const img = new Image();
-  img.src = dataUrl;
-  await img.decode();
-  const c = document.createElement("canvas");
-  c.width = img.naturalWidth;
-  c.height = img.naturalHeight;
-  c.getContext("2d")?.drawImage(img, 0, 0);
-  return await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("blob"))), "image/png"));
-}
-
 const PERIODOS: { key: string; label: string; dias: number }[] = [
   { key: "semanal", label: "Semana", dias: 7 },
   { key: "quinzenal", label: "Quinzena", dias: 15 },
@@ -88,46 +88,6 @@ async function garantirFonte(familyCss: string) {
   } catch {
     /* ignora */
   }
-}
-
-async function extrairPaleta(dataUrl: string): Promise<{ accent: string; grad: string }> {
-  const img = new Image();
-  img.src = dataUrl;
-  await img.decode();
-  const w = 48;
-  const h = Math.max(1, Math.round((48 * img.height) / img.width));
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext("2d");
-  if (!ctx) return { accent: "#f59e0b", grad: GRADIENTES[0] };
-  ctx.drawImage(img, 0, 0, w, h);
-  const { data } = ctx.getImageData(0, 0, w, h);
-  const buckets = new Map<string, { r: number; g: number; b: number; n: number; sat: number }>();
-  let darkR = 0, darkG = 0, darkB = 0, darkN = 0;
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i], g = data[i + 1], b = data[i + 2];
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
-    const lum = (max + min) / 2;
-    const sat = max === 0 ? 0 : (max - min) / max;
-    if (lum < 60) { darkR += r; darkG += g; darkB += b; darkN++; }
-    if (lum < 35 || lum > 225 || sat < 0.25) continue;
-    const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
-    const cur = buckets.get(key) ?? { r: 0, g: 0, b: 0, n: 0, sat: 0 };
-    cur.r += r; cur.g += g; cur.b += b; cur.n++; cur.sat = sat;
-    buckets.set(key, cur);
-  }
-  let best: { r: number; g: number; b: number; n: number; sat: number } | null = null;
-  for (const v of buckets.values()) {
-    const score = v.n * (0.5 + v.sat);
-    const bestScore = best ? best.n * (0.5 + best.sat) : -1;
-    if (score > bestScore) best = v;
-  }
-  const hex = (r: number, g: number, b: number) => "#" + [r, g, b].map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
-  const accent = best ? hex(best.r / best.n, best.g / best.n, best.b / best.n) : "#f59e0b";
-  const dr = darkN ? darkR / darkN : 26, dg = darkN ? darkG / darkN : 10, db = darkN ? darkB / darkN : 10;
-  const grad = `radial-gradient(120% 90% at 50% 0%, ${hex(dr * 1.4, dg * 1.4, db * 1.4)}, #09090b 68%)`;
-  return { accent, grad };
 }
 
 function fx(efeito: Efeito, accent: string): React.CSSProperties {
@@ -172,9 +132,6 @@ export function AgendaPosterStudio({
   const [escalaTitulo, setEscalaTitulo] = useState(1);
   const [downloading, setDownloading] = useState(false);
   const [pending, start] = useTransition();
-  const [ref0, setRef0] = useState<string | null>(null);
-  const [modelos, setModelos] = useState<Modelo[]>([]);
-  const [escopo, setEscopo] = useState<Escopo>("imagem");
 
   // Festival / line-up de um único evento
   const [festival, setFestival] = useState(false);
@@ -209,62 +166,6 @@ export function AgendaPosterStudio({
     if (!/^(local|ia|ex)-/.test(id)) {
       try { await deleteImagemDivulgacaoAction(id); } catch { /* já saiu da lista */ }
     }
-  }
-
-  async function gerarModelos() {
-    if (!ref0) return toast.error("Envie um exemplo de estilo primeiro.");
-    try {
-      const { accent: ac, grad: gr } = await extrairPaleta(ref0);
-      setModelos([
-        { fonte: "anton", efeito: "neon", accent: ac, grad: gr },
-        { fonte: "poppins", efeito: "3d", accent: ac, grad: gr },
-        { fonte: "serif", efeito: "sombra", accent: ac, grad: gr },
-      ]);
-      toast.success("3 modelos gerados a partir do exemplo. Toque pra aplicar.");
-    } catch {
-      toast.error("Não consegui ler o exemplo. Tente outra imagem.");
-    }
-  }
-
-  function aplicarModelo(m: Modelo) {
-    setFonte(m.fonte);
-    setEfeito(m.efeito);
-    setAccent(m.accent);
-    if (escopo === "imagem") {
-      setGrad(m.grad);
-      setBg(null);
-    }
-  }
-
-  function promptChatGPT() {
-    const linhas = lineupValido.map((b) => `${b.hora ? b.hora + " — " : ""}${b.nome}`).join("; ");
-    return [
-      `Você é diretor de arte especialista em cartazes de show. Crie 3 VARIAÇÕES distintas de arte para ${festival ? `um pôster de festival/line-up "${evento.trim() || banda}"${dataEvento ? ` (${dataEvento})` : ""}` : `um pôster de agenda de shows da banda "${banda}"`}.`,
-      `Formato: vertical 9:16 (Instagram Stories), 1080x1920px, alta resolução.`,
-      `Vou colar/anexar uma IMAGEM DE REFERÊNCIA de estilo — use-a como guia de paleta, clima e composição (não copie literalmente; recrie no mesmo espírito).`,
-      `Direção: moderno, impactante, profissional, cara de post de Instagram, tipografia forte e atual. Cor de destaque sugerida: ${accent}.`,
-      festival && linhas ? `Line-up: ${linhas}.` : `Vou listar vários shows (datas + locais) por cima — deixe espaço pra uma lista.`,
-      `As 3 variações devem ser nitidamente diferentes entre si.`,
-      `IMPORTANTE: deixe áreas limpas/escuras pra sobrepor a lista de texto depois e, de preferência, gere SEM texto embutido (eu adiciono no app).`,
-    ].join("\n");
-  }
-
-  async function abrirNoChatGPT() {
-    if (!ref0) return toast.error("Envie um exemplo primeiro.");
-    let copiouImg = false;
-    try {
-      const blob = await dataUrlToPngBlob(ref0);
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      copiouImg = true;
-    } catch {
-      /* navegador sem suporte a copiar imagem */
-    }
-    window.open("https://chatgpt.com/?q=" + encodeURIComponent(promptChatGPT()), "_blank", "noopener");
-    toast.success(
-      copiouImg
-        ? "ChatGPT aberto pedindo 3 modelos. Cole a imagem de exemplo no chat (Ctrl+V) e envie."
-        : "ChatGPT aberto pedindo 3 modelos. Anexe a imagem de exemplo no chat e envie."
-    );
   }
 
   async function baixar() {
@@ -469,60 +370,23 @@ export function AgendaPosterStudio({
           )}
         </Bloco>
 
-        <Bloco titulo="Inspiração: gerar modelos a partir de um exemplo">
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
-              <ImageIcon className="size-4" /> Enviar exemplo
-              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setRef0(await fileToDownscaledDataUrl(f, 900, 0.7)); setModelos([]); } }} />
-            </label>
-            {ref0 && (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={ref0} alt="referência" className="h-16 w-12 rounded object-cover ring-1 ring-zinc-700" />
-                <button onClick={() => { setRef0(null); setModelos([]); }} className="text-xs text-zinc-500 hover:text-foreground">remover</button>
-              </>
-            )}
+        <Bloco titulo="Modelos de texto">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {MODELOS_TEXTO.map((m) => {
+              const ativo = fonte === m.fonte && efeito === m.efeito && accent === m.accent;
+              return (
+                <button
+                  key={m.nome}
+                  onClick={() => { setFonte(m.fonte); setEfeito(m.efeito); setAccent(m.accent); }}
+                  className={cn("flex flex-col items-center gap-1 rounded-lg border p-2", ativo ? "border-primary ring-1 ring-primary" : "border-zinc-700 hover:border-zinc-500")}
+                >
+                  <span className="text-xl font-black uppercase leading-none text-zinc-50" style={{ fontFamily: FONTES[m.fonte].family, ...fx(m.efeito, m.accent) }}>Aa</span>
+                  <span className="text-[10px] text-zinc-400">{m.nome}</span>
+                </button>
+              );
+            })}
           </div>
-          {ref0 && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <Label className="text-[11px] text-zinc-400">Aplicar em</Label>
-                <Chips value={escopo} onChange={(v) => setEscopo(v as Escopo)} options={[["imagem", "Toda a imagem"], ["texto", "Só o texto"]]} />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={gerarModelos} className="bg-amber-500 text-zinc-950 hover:bg-amber-400">
-                  <Wand2 className="size-4" /> Gerar 3 modelos (grátis)
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => { setImgs((p) => [{ id: `ex-${Date.now()}`, url: ref0 }, ...p]); setBg(ref0); toast.success("Exemplo aplicado como fundo."); }}>
-                  <ImageIcon className="size-4" /> Usar como fundo (grátis)
-                </Button>
-                <Button size="sm" variant="outline" onClick={abrirNoChatGPT} className="border-emerald-600/50">
-                  <Sparkles className="size-4 text-emerald-400" /> Pedir 3 ao ChatGPT
-                </Button>
-              </div>
-            </div>
-          )}
-          {modelos.length > 0 && (
-            <div className="mt-3">
-              <p className="mb-1.5 text-[11px] text-zinc-400">
-                Modelos (paleta do exemplo) — toque pra aplicar {escopo === "imagem" ? "na imagem toda (fundo + texto)" : "só no texto (mantém seu fundo)"}:
-              </p>
-              <div className="flex gap-2">
-                {modelos.map((m, i) => (
-                  <button key={i} onClick={() => aplicarModelo(m)} className="flex-1 overflow-hidden rounded-lg ring-1 ring-zinc-700 hover:ring-primary" style={{ background: escopo === "imagem" ? m.grad : "#18181b" }}>
-                    <div className="flex h-20 flex-col items-center justify-center gap-1 p-2">
-                      <span className="text-base font-black uppercase leading-none text-zinc-50" style={{ fontFamily: FONTES[m.fonte].family, ...fx(m.efeito, m.accent) }}>Aa</span>
-                      <span className="h-1 w-8 rounded-full" style={{ background: m.accent }} />
-                      <span className="text-[9px] uppercase tracking-wide text-zinc-300">{FONTES[m.fonte].label}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <p className="mt-2 text-[11px] text-zinc-500">
-            Tudo grátis: <strong>Gerar 3 modelos</strong> usa as cores/clima; <strong>Usar como fundo</strong> põe o próprio exemplo de fundo; <strong>Pedir 3 ao ChatGPT</strong> abre o ChatGPT (sua conta) pedindo 3 variações e copia a imagem de exemplo pro clipboard — é só colar (Ctrl+V) no chat e enviar.
-          </p>
+          <p className="text-[11px] text-zinc-500">Aplica fonte + efeito + cor num clique. Dá pra ajustar nos controles abaixo.</p>
         </Bloco>
       </div>
     </div>
