@@ -12,7 +12,7 @@ import { PresenceCard } from "@/components/shows/presence-card";
 import { NotifyBandButton } from "@/components/shared/notify-band-button";
 import { setRehearsalPresenceAction } from "@/app/(app)/agenda/actions";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser, isAdmin, getBrand } from "@/lib/auth";
 
 function mapsUrl(r: {
   latitude: number | null;
@@ -50,6 +50,7 @@ export default async function EnsaioDetailPage({
       .where(eq(rehearsalMemberPresence.rehearsalId, id)),
   ]);
   const admin = isAdmin(user);
+  const brand = await getBrand();
   const maps = mapsUrl(r);
   const quando = `dia ${formatDataBR(r.data)}${
     r.inicio ? ` às ${r.inicio}` : ""
@@ -163,6 +164,7 @@ export default async function EnsaioDetailPage({
             local: r.local || r.endereco || "",
             path: `/ensaios/${r.id}`,
           }}
+          groupLink={brand.whatsappGrupo}
         />
       </div>
     </div>
