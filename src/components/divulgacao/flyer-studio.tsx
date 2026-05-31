@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Download, Upload, Shuffle, Loader2, ImageIcon, Building2, Wand2, Plus, X } from "lucide-react";
+import { Download, Upload, Shuffle, Loader2, ImageIcon, Building2, Wand2, Plus, X, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,9 +24,12 @@ type Show = {
 
 type Estilo = "festival" | "minimal" | "tarja";
 type Pos = "top" | "center" | "bottom";
-type Efeito = "nenhum" | "sombra" | "contorno" | "neon";
+type Efeito = "nenhum" | "sombra" | "contorno" | "neon" | "3d" | "longa" | "brilho" | "duplo";
+type Cor = "accent" | "white" | "dark";
 type Banda = { nome: string; hora: string };
 type Modelo = { estilo: Estilo; fonte: string; efeito: Efeito; accent: string; grad: string };
+type ElKey = "chamada" | "banda" | "lineup" | "data" | "local" | "ingresso" | "qr";
+type El = { x: number; y: number; size: number; color: Cor; hidden: boolean };
 
 const FONTES: Record<string, { label: string; family: string }> = {
   anton: { label: "Impacto", family: "'Anton', system-ui, sans-serif" },
@@ -52,6 +55,17 @@ const GRADIENTES = [
   "linear-gradient(135deg, #1a0a1e, #09090b 70%)",
 ];
 
+const EFEITOS: [Efeito, string][] = [
+  ["nenhum", "Nenhum"],
+  ["sombra", "Sombra"],
+  ["contorno", "Contorno"],
+  ["neon", "Neon"],
+  ["3d", "3D Retrô"],
+  ["longa", "Sombra longa"],
+  ["brilho", "Brilho"],
+  ["duplo", "Halo duplo"],
+];
+
 function fx(efeito: Efeito, accent: string): React.CSSProperties {
   switch (efeito) {
     case "sombra":
@@ -60,14 +74,34 @@ function fx(efeito: Efeito, accent: string): React.CSSProperties {
       return { textShadow: "1px 1px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,0 2px 6px rgba(0,0,0,.5)" };
     case "neon":
       return { textShadow: `0 0 8px ${accent}aa, 0 0 22px ${accent}88, 0 2px 8px rgba(0,0,0,.5)` };
+    case "3d":
+      return { textShadow: `2px 2px 0 ${accent}, 4px 4px 0 rgba(0,0,0,.55)` };
+    case "longa":
+      return { textShadow: "3px 3px 0 rgba(0,0,0,.5),6px 6px 0 rgba(0,0,0,.32),9px 9px 0 rgba(0,0,0,.18),12px 12px 0 rgba(0,0,0,.08)" };
+    case "brilho":
+      return { textShadow: `0 0 10px #fff, 0 0 24px ${accent}, 0 0 40px ${accent}` };
+    case "duplo":
+      return { textShadow: `-1px -1px 0 #000,1px 1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000, 0 0 10px ${accent}` };
     default:
       return {};
   }
 }
 const pillText = (accent: string) => (accent === "#ef4444" ? "#fff" : "#09090b");
+const corVal = (cor: Cor, accent: string) => (cor === "accent" ? accent : cor === "dark" ? "#09090b" : "#fafafa");
 
-/** Lê uma imagem (data URL) e extrai a cor de destaque mais vibrante + um
- *  gradiente escuro combinando. 100% no navegador, custo zero. */
+/** Garante que a fonte foi baixada antes de rasterizar (html2canvas não
+ *  espera web fonts sozinho → exportava com fallback). */
+async function garantirFonte(familyCss: string) {
+  if (typeof document === "undefined" || !("fonts" in document)) return;
+  const fam = familyCss.split(",")[0].trim();
+  try {
+    await Promise.all([document.fonts.load(`700 48px ${fam}`), document.fonts.load(`400 48px ${fam}`)]);
+    await document.fonts.ready;
+  } catch {
+    /* ignora — segue com fallback */
+  }
+}
+
 async function extrairPaleta(dataUrl: string): Promise<{ accent: string; grad: string }> {
   const img = new Image();
   img.src = dataUrl;
@@ -81,7 +115,6 @@ async function extrairPaleta(dataUrl: string): Promise<{ accent: string; grad: s
   if (!ctx) return { accent: "#f59e0b", grad: GRADIENTES[0] };
   ctx.drawImage(img, 0, 0, w, h);
   const { data } = ctx.getImageData(0, 0, w, h);
-
   const buckets = new Map<string, { r: number; g: number; b: number; n: number; sat: number }>();
   let darkR = 0, darkG = 0, darkB = 0, darkN = 0;
   for (let i = 0; i < data.length; i += 4) {
@@ -90,7 +123,7 @@ async function extrairPaleta(dataUrl: string): Promise<{ accent: string; grad: s
     const lum = (max + min) / 2;
     const sat = max === 0 ? 0 : (max - min) / max;
     if (lum < 60) { darkR += r; darkG += g; darkB += b; darkN++; }
-    if (lum < 35 || lum > 225 || sat < 0.25) continue; // ignora muito escuro/claro/lavado
+    if (lum < 35 || lum > 225 || sat < 0.25) continue;
     const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
     const cur = buckets.get(key) ?? { r: 0, g: 0, b: 0, n: 0, sat: 0 };
     cur.r += r; cur.g += g; cur.b += b; cur.n++; cur.sat = sat;
@@ -102,13 +135,40 @@ async function extrairPaleta(dataUrl: string): Promise<{ accent: string; grad: s
     const bestScore = best ? best.n * (0.5 + best.sat) : -1;
     if (score > bestScore) best = v;
   }
-  const hex = (r: number, g: number, b: number) =>
-    "#" + [r, g, b].map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
+  const hex = (r: number, g: number, b: number) => "#" + [r, g, b].map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
   const accent = best ? hex(best.r / best.n, best.g / best.n, best.b / best.n) : "#f59e0b";
   const dr = darkN ? darkR / darkN : 26, dg = darkN ? darkG / darkN : 10, db = darkN ? darkB / darkN : 10;
   const grad = `radial-gradient(120% 90% at 50% 0%, ${hex(dr * 1.4, dg * 1.4, db * 1.4)}, #09090b 68%)`;
   return { accent, grad };
 }
+
+const W = 300;
+const hFor = (aspect: "9:16" | "1:1") => (aspect === "9:16" ? Math.round((W * 16) / 9) : W);
+
+/** Posições/tamanhos iniciais por modelo. O usuário arrasta/redimensiona depois. */
+function seed(tpl: Estilo, aspect: "9:16" | "1:1", festival: boolean, linhas: number): Record<ElKey, El> {
+  const H = hFor(aspect);
+  const titulo = tpl === "festival" ? 46 : tpl === "minimal" ? 30 : 26;
+  let y = tpl === "minimal" ? 24 : tpl === "festival" ? H - 220 : H - 180;
+  const stack = (size: number, gap: number, color: Cor): El => {
+    const el: El = { x: 20, y, size, color, hidden: false };
+    y += Math.round(size * 0.95) + gap;
+    return el;
+  };
+  const chamada = stack(tpl === "minimal" ? 11 : 13, 6, "accent");
+  const banda = stack(titulo, 8, "white");
+  const lineup: El = { x: 20, y, size: 15, color: "white", hidden: !festival };
+  if (festival) y += Math.max(1, linhas) * 20 + 8;
+  const data = stack(18, 4, "accent");
+  const local = stack(15, 4, "white");
+  const ingresso = stack(13, 6, "accent");
+  const qr: El = { x: W - 70, y: H - 70, size: 56, color: "white", hidden: false };
+  return { chamada, banda, lineup, data, local, ingresso, qr };
+}
+
+const EL_LABEL: Record<ElKey, string> = {
+  chamada: "Chamada", banda: "Banda / evento", lineup: "Line-up", data: "Data", local: "Casa / local", ingresso: "Ingresso", qr: "QR code",
+};
 
 export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: string; url: string }[] }) {
   const [imgs, setImgs] = useState(galeria);
@@ -121,8 +181,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [efeito, setEfeito] = useState<Efeito>("sombra");
   const [accent, setAccent] = useState("#f59e0b");
   const [scrim, setScrim] = useState(62);
-  const [escala, setEscala] = useState(1);
-  const [textPos, setTextPos] = useState({ x: 20, y: 0 });
+  const [tarjaOp, setTarjaOp] = useState(78);
   const [ref0, setRef0] = useState<string | null>(null);
   const [modelos, setModelos] = useState<Modelo[]>([]);
 
@@ -133,17 +192,20 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [ingresso, setIngresso] = useState(show.valorIngresso ?? "");
   const [link, setLink] = useState(show.linkVendas ?? "");
 
-  // Festival / várias bandas
   const [festival, setFestival] = useState(false);
   const [evento, setEvento] = useState("");
   const [lineup, setLineup] = useState<Banda[]>([{ nome: show.banda, hora: show.inicio ?? "" }]);
+
+  const lineupValido = festival ? lineup.filter((b) => b.nome.trim()) : [];
+
+  const [els, setEls] = useState<Record<ElKey, El>>(() => seed("festival", "9:16", false, 1));
+  const [sel, setSel] = useState<ElKey | null>(null);
 
   const [qr, setQr] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [pending, start] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-  const dragStart = useRef({ mx: 0, my: 0, px: 0, py: 0 });
+  const drag = useRef<{ key: ElKey; mx: number; my: number; ox: number; oy: number } | null>(null);
 
   useEffect(() => {
     const l = link.trim();
@@ -151,28 +213,30 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
     import("qrcode").then((Q) => Q.toDataURL(l, { margin: 1, width: 240 }).then(setQr).catch(() => setQr(null)));
   }, [link]);
 
-  // Ao escolher um preset de posição (ou trocar o formato), encaixa o bloco
-  // de texto na região correspondente. Arrastar depois ajusta fino.
+  // Re-semeia as posições quando muda o modelo, o formato ou o modo festival.
   useEffect(() => {
-    const h = aspect === "9:16" ? Math.round((300 * 16) / 9) : 300;
-    const y = pos === "top" ? 18 : pos === "center" ? Math.round(h / 2 - 70) : h - 175;
-    setTextPos({ x: 20, y });
-  }, [pos, aspect]);
+    setEls(seed(estilo, aspect, festival, lineupValido.length || 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estilo, aspect, festival]);
 
-  function onDragStart(e: React.PointerEvent) {
-    dragging.current = true;
-    dragStart.current = { mx: e.clientX, my: e.clientY, px: textPos.x, py: textPos.y };
+  function startDrag(key: ElKey, e: React.PointerEvent) {
+    setSel(key);
+    drag.current = { key, mx: e.clientX, my: e.clientY, ox: els[key].x, oy: els[key].y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
-  function onDragMove(e: React.PointerEvent) {
-    if (!dragging.current) return;
-    setTextPos({
-      x: dragStart.current.px + (e.clientX - dragStart.current.mx),
-      y: dragStart.current.py + (e.clientY - dragStart.current.my),
-    });
+  function moveDrag(e: React.PointerEvent) {
+    const d = drag.current;
+    if (!d) return;
+    const nx = d.ox + (e.clientX - d.mx);
+    const ny = d.oy + (e.clientY - d.my);
+    setEls((p) => ({ ...p, [d.key]: { ...p[d.key], x: nx, y: ny } }));
   }
-  function onDragEnd() {
-    dragging.current = false;
+  function endDrag() {
+    drag.current = null;
+  }
+  function patchSel(patch: Partial<El>) {
+    if (!sel) return;
+    setEls((p) => ({ ...p, [sel]: { ...p[sel], ...patch } }));
   }
 
   function onUpload(files: FileList) {
@@ -194,7 +258,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
       const { accent: ac, grad: gr } = await extrairPaleta(ref0);
       setModelos([
         { estilo: "festival", fonte: "anton", efeito: "neon", accent: ac, grad: gr },
-        { estilo: "tarja", fonte: "poppins", efeito: "contorno", accent: ac, grad: gr },
+        { estilo: "tarja", fonte: "poppins", efeito: "3d", accent: ac, grad: gr },
         { estilo: "minimal", fonte: "serif", efeito: "sombra", accent: ac, grad: gr },
       ]);
       toast.success("3 modelos gerados a partir do exemplo. Toque pra aplicar.");
@@ -215,6 +279,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
     if (!ref.current) return;
     setDownloading(true);
     try {
+      await garantirFonte(fam);
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(ref.current, { useCORS: true, backgroundColor: "#09090b", scale: 1080 / ref.current.offsetWidth });
       const a = document.createElement("a");
@@ -228,54 +293,151 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
     }
   }
 
-  const W = 300;
-  const H = aspect === "9:16" ? Math.round((W * 16) / 9) : W;
-  const a = scrim / 100;
+  const H = hFor(aspect);
+  const aA = scrim / 100;
   const scrimBg =
     pos === "top"
-      ? `linear-gradient(to bottom, rgba(9,9,11,${a + 0.25}), rgba(9,9,11,${a * 0.4}) 45%, transparent 72%)`
+      ? `linear-gradient(to bottom, rgba(9,9,11,${aA + 0.25}), rgba(9,9,11,${aA * 0.4}) 45%, transparent 72%)`
       : pos === "center"
-        ? `radial-gradient(130% 75% at 50% 50%, rgba(9,9,11,${a + 0.2}), rgba(9,9,11,${a * 0.5}) 65%, transparent)`
-        : `linear-gradient(to top, rgba(9,9,11,${a + 0.3}), rgba(9,9,11,${a * 0.45}) 45%, transparent 74%)`;
+        ? `radial-gradient(130% 75% at 50% 50%, rgba(9,9,11,${aA + 0.2}), rgba(9,9,11,${aA * 0.5}) 65%, transparent)`
+        : `linear-gradient(to top, rgba(9,9,11,${aA + 0.3}), rgba(9,9,11,${aA * 0.45}) 45%, transparent 74%)`;
 
   const fam = FONTES[fonte].family;
-  const lineupValido = festival ? lineup.filter((b) => b.nome.trim()) : [];
+  const efx = fx(efeito, accent);
+
+  const conteudo: Record<Exclude<ElKey, "lineup" | "qr">, string> = {
+    chamada: headline,
+    banda: festival ? (evento.trim() || "FESTIVAL") : banda,
+    data: data + (!festival && show.inicio ? ` · ${show.inicio}` : ""),
+    local: casa,
+    ingresso,
+  };
+  const upperKey = (k: ElKey) => k === "chamada" || k === "banda" || k === "local";
+
+  // Caixa da tarja (atrás do texto) quando estilo === "tarja".
+  const visiveis = (Object.keys(els) as ElKey[]).filter(
+    (k) => k !== "qr" && !els[k].hidden && (k === "lineup" ? festival && lineupValido.length > 0 : Boolean((conteudo as Record<string, string>)[k]?.trim()))
+  );
+  const ys = visiveis.map((k) => els[k].y);
+  const ye = visiveis.map((k) => els[k].y + els[k].size + (k === "lineup" ? lineupValido.length * 20 : 0));
+  const tarjaBox = visiveis.length
+    ? { top: Math.min(...ys) - 12, height: Math.max(...ye) - Math.min(...ys) + 24 }
+    : null;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       <div className="flex flex-col items-center gap-3">
-        <div ref={ref} className="relative overflow-hidden rounded-xl ring-1 ring-zinc-800" style={{ width: W, height: H, background: bg ? "#000" : grad }}>
+        <div ref={ref} className="relative overflow-hidden rounded-xl ring-1 ring-zinc-800" style={{ width: W, height: H, background: bg ? "#000" : grad }} onPointerDown={(e) => { if (e.target === e.currentTarget) setSel(null); }}>
           {bg && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={bg} alt="" crossOrigin="anonymous" className="absolute inset-0 size-full object-cover" />
           )}
           <div className="absolute inset-0" style={{ background: scrimBg }} />
-          <div
-            onPointerDown={onDragStart}
-            onPointerMove={onDragMove}
-            onPointerUp={onDragEnd}
-            className="absolute cursor-move touch-none select-none"
-            style={{ left: textPos.x, top: textPos.y, width: W - 40 }}
-            title="Arraste para posicionar o texto"
-          >
-            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} escala={escala} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
-          </div>
+
+          {estilo === "tarja" && tarjaBox && (
+            <div className="absolute rounded-lg" style={{ left: 10, right: 10, top: tarjaBox.top, height: tarjaBox.height, background: `rgba(9,9,11,${tarjaOp / 100})`, border: `1px solid ${accent}` }} />
+          )}
+
+          {(Object.keys(els) as ElKey[]).map((key) => {
+            const el = els[key];
+            if (el.hidden) return null;
+            const selected = sel === key;
+            const ring = selected ? "outline-dashed outline-1 outline-white/70" : "";
+
+            if (key === "qr") {
+              if (!qr) return null;
+              return (
+                <div key={key} onPointerDown={(e) => startDrag(key, e)} onPointerMove={moveDrag} onPointerUp={endDrag} className={cn("absolute cursor-move touch-none select-none rounded bg-white p-0.5", ring)} style={{ left: el.x, top: el.y, width: el.size, height: el.size }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qr} alt="QR" className="size-full" />
+                </div>
+              );
+            }
+
+            if (key === "lineup") {
+              if (!festival || lineupValido.length === 0) return null;
+              return (
+                <div key={key} onPointerDown={(e) => startDrag(key, e)} onPointerMove={moveDrag} onPointerUp={endDrag} className={cn("absolute cursor-move touch-none select-none", ring)} style={{ left: el.x, top: el.y, width: W - 40 }}>
+                  <ul className="space-y-0.5">
+                    {lineupValido.map((b, i) => (
+                      <li key={i} className="flex items-baseline gap-2" style={{ color: "#fafafa", fontFamily: fam, fontSize: el.size, ...efx }}>
+                        {b.hora && <span className="shrink-0 font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
+                        <span className="font-semibold uppercase tracking-wide">{b.nome}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            }
+
+            const txt = (conteudo as Record<string, string>)[key];
+            if (!txt?.trim()) return null;
+
+            if (key === "ingresso") {
+              return (
+                <div key={key} onPointerDown={(e) => startDrag(key, e)} onPointerMove={moveDrag} onPointerUp={endDrag} className={cn("absolute cursor-move touch-none select-none rounded-full font-bold", ring)} style={{ left: el.x, top: el.y, background: accent, color: pillText(accent), fontFamily: fam, fontSize: el.size, padding: "3px 10px" }}>
+                  {txt}
+                </div>
+              );
+            }
+
+            return (
+              <div key={key} onPointerDown={(e) => startDrag(key, e)} onPointerMove={moveDrag} onPointerUp={endDrag} className={cn("absolute cursor-move touch-none select-none font-black leading-none", ring)} style={{ left: el.x, top: el.y, maxWidth: W - el.x - 8, color: corVal(el.color, accent), fontFamily: fam, fontSize: el.size, textTransform: upperKey(key) ? "uppercase" : "none", letterSpacing: key === "chamada" ? "0.2em" : undefined, ...efx }}>
+                {txt}
+              </div>
+            );
+          })}
         </div>
         <Button onClick={baixar} disabled={downloading} className="w-full bg-red-600 hover:bg-red-700">
           {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
           Baixar {aspect === "9:16" ? "Stories (9:16)" : "Feed (1:1)"}
         </Button>
+        <p className="text-center text-[11px] text-zinc-500">Toque num texto pra selecionar; arraste pra mover. O painel “Camada selecionada” ajusta tamanho e cor.</p>
       </div>
 
       <div className="space-y-4">
-        <Bloco titulo="Estilo">
+        <Bloco titulo="Camada selecionada">
+          {sel ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-zinc-100">{EL_LABEL[sel]}</span>
+                <button onClick={() => patchSel({ hidden: true })} className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-red-400">
+                  <EyeOff className="size-3.5" /> ocultar
+                </button>
+              </div>
+              <div>
+                <Label className="text-[11px] text-zinc-400">Tamanho · {els[sel].size}px</Label>
+                <input type="range" min={8} max={120} value={els[sel].size} onChange={(e) => patchSel({ size: Number(e.target.value) })} className="w-full accent-red-600" />
+              </div>
+              {sel !== "qr" && sel !== "ingresso" && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-[11px] text-zinc-400">Cor</Label>
+                  <Chips value={els[sel].color} onChange={(v) => patchSel({ color: v as Cor })} options={[["white", "Branco"], ["accent", "Destaque"], ["dark", "Escuro"]]} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-400">Toque num texto no preview pra editar tamanho, cor e posição.</p>
+          )}
+          {(Object.keys(els) as ElKey[]).some((k) => els[k].hidden) && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(Object.keys(els) as ElKey[]).filter((k) => els[k].hidden).map((k) => (
+                <button key={k} onClick={() => setEls((p) => ({ ...p, [k]: { ...p[k], hidden: false } }))} className="inline-flex items-center gap-1 rounded-full border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800">
+                  <Eye className="size-3.5" /> {EL_LABEL[k]}
+                </button>
+              ))}
+            </div>
+          )}
+        </Bloco>
+
+        <Bloco titulo="Modelo inicial (posiciona os textos)">
           <Chips value={estilo} onChange={(v) => setEstilo(v as Estilo)} options={[["festival", "Festival"], ["minimal", "Minimalista"], ["tarja", "Tarja"]]} />
         </Bloco>
         <Bloco titulo="Fonte">
           <Chips value={fonte} onChange={setFonte} options={Object.entries(FONTES).map(([k, v]) => [k, v.label] as [string, string])} />
         </Bloco>
         <Bloco titulo="Efeito do texto">
-          <Chips value={efeito} onChange={(v) => setEfeito(v as Efeito)} options={[["nenhum", "Nenhum"], ["sombra", "Sombra"], ["contorno", "Contorno"], ["neon", "Neon"]]} />
+          <Chips value={efeito} onChange={(v) => setEfeito(v as Efeito)} options={EFEITOS} />
         </Bloco>
         <Bloco titulo="Cor de destaque">
           <div className="flex flex-wrap items-center gap-2">
@@ -288,15 +450,18 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             </span>
           </div>
         </Bloco>
-        <Bloco titulo="Formato e posição">
+        {estilo === "tarja" && (
+          <Bloco titulo={`Transparência da tarja · ${tarjaOp}%`}>
+            <input type="range" min={0} max={100} value={tarjaOp} onChange={(e) => setTarjaOp(Number(e.target.value))} className="w-full accent-red-600" />
+            <p className="text-[11px] text-zinc-500">0% = tarja invisível · 100% = preto sólido atrás do texto.</p>
+          </Bloco>
+        )}
+        <Bloco titulo="Formato e escurecimento">
           <div className="flex flex-wrap gap-2">
             <Chips value={aspect} onChange={(v) => setAspect(v as "9:16" | "1:1")} options={[["9:16", "Stories"], ["1:1", "Feed"]]} />
             <Chips value={pos} onChange={(v) => setPos(v as Pos)} options={[["top", "Topo"], ["center", "Centro"], ["bottom", "Rodapé"]]} />
           </div>
-          <p className="text-[11px] text-zinc-500">Escolha uma região e depois <strong>arraste o texto</strong> direto no preview pra posicionar livremente.</p>
-        </Bloco>
-        <Bloco titulo={`Tamanho do texto · ${Math.round(escala * 100)}%`}>
-          <input type="range" min={60} max={170} value={Math.round(escala * 100)} onChange={(e) => setEscala(Number(e.target.value) / 100)} className="w-full accent-red-600" />
+          <p className="text-[11px] text-zinc-500">“Topo/Centro/Rodapé” controla onde o fundo escurece pra leitura.</p>
         </Bloco>
         <Bloco titulo={`Transparência do fundo · ${scrim}%`}>
           <input type="range" min={0} max={95} value={scrim} onChange={(e) => setScrim(Number(e.target.value))} className="w-full accent-red-600" />
@@ -324,7 +489,6 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
               <Button variant="outline" size="sm" onClick={() => setLineup((p) => [...p, { nome: "", hora: "" }])}>
                 <Plus className="size-4" /> Adicionar banda
               </Button>
-              <p className="text-[11px] text-zinc-500">No modo festival o line-up aparece no flyer no lugar da banda única.</p>
             </div>
           )}
         </Bloco>
@@ -412,86 +576,9 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             </div>
           )}
           <p className="mt-2 text-[11px] text-zinc-500">
-            Lê as cores e o clima do exemplo e monta 3 combinações (estilo + fonte + efeito + cor) com a sua foto — tudo no navegador, custo R$0.
+            Lê as cores e o clima do exemplo e monta 3 combinações (modelo + fonte + efeito + cor) com a sua foto — tudo no navegador, custo R$0.
           </p>
         </Bloco>
-      </div>
-    </div>
-  );
-}
-
-function Conteudo({
-  estilo, fam, efeito, accent, escala, headline, banda, casa, data, inicio, ingresso, qr, festival, evento, lineup,
-}: {
-  estilo: Estilo; fam: string; efeito: Efeito; accent: string; escala: number; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
-}) {
-  const titleFx = fx(efeito, accent);
-  const tituloPrincipal = festival ? (evento.trim() || "FESTIVAL") : banda;
-  const titleSize = (basePx: number) => ({ fontSize: Math.round(basePx * escala) });
-  const QR = qr ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={qr} alt="QR" className="size-14 shrink-0 rounded bg-white p-0.5" />
-  ) : null;
-
-  const LineupList = festival && lineup.length > 0 ? (
-    <ul className="mt-2 space-y-0.5">
-      {lineup.map((b, i) => (
-        <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>
-          {b.hora && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
-          <span className="text-sm font-semibold uppercase tracking-wide">{b.nome}</span>
-        </li>
-      ))}
-    </ul>
-  ) : null;
-
-  if (estilo === "minimal") {
-    return (
-      <div className="w-full">
-        {headline && <p className="text-[10px] uppercase tracking-[0.35em]" style={{ color: accent }}>{headline}</p>}
-        <p className="mt-1 font-bold uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleSize(30), ...titleFx }}>{tituloPrincipal}</p>
-        <div className="mt-3 h-px w-12" style={{ background: accent }} />
-        {LineupList}
-        <p className="mt-3 text-sm font-medium text-zinc-100" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{casa}</p>
-        <p className="text-xs text-zinc-300" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{data}{!festival && inicio ? ` · ${inicio}` : ""}{ingresso ? ` · ${ingresso}` : ""}</p>
-        {QR && <div className="mt-3">{QR}</div>}
-      </div>
-    );
-  }
-
-  if (estilo === "tarja") {
-    return (
-      <div className="w-full rounded-lg bg-zinc-950/80 p-3 backdrop-blur-sm" style={{ border: `1px solid ${accent}` }}>
-        {headline && <p className="text-[10px] uppercase tracking-[0.25em]" style={{ color: accent }}>{headline}</p>}
-        <p className="font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleSize(24), ...titleFx }}>{tituloPrincipal}</p>
-        {LineupList}
-        <div className="mt-1.5 flex items-end justify-between gap-2">
-          <div className="text-[11px] leading-tight text-zinc-200">
-            <p className="font-semibold">{casa}</p>
-            <p className="text-zinc-400">{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
-            {ingresso && <p style={{ color: accent }}>Ingresso: {ingresso}</p>}
-          </div>
-          {QR}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full">
-      {headline && (
-        <span className="inline-block px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.2em]" style={{ background: accent, color: pillText(accent) }}>{headline}</span>
-      )}
-      <p className="mt-2 font-black uppercase leading-[0.85] text-zinc-50" style={{ fontFamily: fam, ...titleSize(festival ? 36 : 48), ...titleFx }}>{tituloPrincipal}</p>
-      {LineupList}
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <div className="leading-tight">
-          <p className="text-lg font-bold" style={{ fontFamily: fam, color: accent, ...titleFx }}>{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
-          <p className="text-sm font-semibold uppercase tracking-wide text-zinc-100" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{casa}</p>
-          {ingresso && (
-            <span className="mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold" style={{ background: accent, color: pillText(accent) }}>{ingresso}</span>
-          )}
-        </div>
-        {QR}
       </div>
     </div>
   );

@@ -20,8 +20,19 @@ export type PosterShow = {
   cidade: string | null;
 };
 
-type Efeito = "nenhum" | "sombra" | "contorno" | "neon";
+type Efeito = "nenhum" | "sombra" | "contorno" | "neon" | "3d" | "longa" | "brilho" | "duplo";
 type Banda = { nome: string; hora: string };
+
+const EFEITOS: [Efeito, string][] = [
+  ["nenhum", "Nenhum"],
+  ["sombra", "Sombra"],
+  ["contorno", "Contorno"],
+  ["neon", "Neon"],
+  ["3d", "3D Retrô"],
+  ["longa", "Sombra longa"],
+  ["brilho", "Brilho"],
+  ["duplo", "Halo duplo"],
+];
 
 const FONTES: Record<string, { label: string; family: string }> = {
   anton: { label: "Impacto", family: "'Anton', system-ui, sans-serif" },
@@ -55,6 +66,17 @@ const GRADIENTES = [
   "linear-gradient(135deg, #1a0a1e, #09090b 70%)",
 ];
 
+async function garantirFonte(familyCss: string) {
+  if (typeof document === "undefined" || !("fonts" in document)) return;
+  const fam = familyCss.split(",")[0].trim();
+  try {
+    await Promise.all([document.fonts.load(`700 48px ${fam}`), document.fonts.load(`400 48px ${fam}`)]);
+    await document.fonts.ready;
+  } catch {
+    /* ignora */
+  }
+}
+
 function fx(efeito: Efeito, accent: string): React.CSSProperties {
   switch (efeito) {
     case "sombra":
@@ -63,6 +85,14 @@ function fx(efeito: Efeito, accent: string): React.CSSProperties {
       return { textShadow: "1px 1px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,0 2px 6px rgba(0,0,0,.5)" };
     case "neon":
       return { textShadow: `0 0 8px ${accent}aa, 0 0 22px ${accent}88, 0 2px 8px rgba(0,0,0,.5)` };
+    case "3d":
+      return { textShadow: `2px 2px 0 ${accent}, 4px 4px 0 rgba(0,0,0,.55)` };
+    case "longa":
+      return { textShadow: "3px 3px 0 rgba(0,0,0,.5),6px 6px 0 rgba(0,0,0,.32),9px 9px 0 rgba(0,0,0,.18),12px 12px 0 rgba(0,0,0,.08)" };
+    case "brilho":
+      return { textShadow: `0 0 10px #fff, 0 0 24px ${accent}, 0 0 40px ${accent}` };
+    case "duplo":
+      return { textShadow: `-1px -1px 0 #000,1px 1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000, 0 0 10px ${accent}` };
     default:
       return {};
   }
@@ -86,6 +116,7 @@ export function AgendaPosterStudio({
   const [efeito, setEfeito] = useState<Efeito>("sombra");
   const [accent, setAccent] = useState("#f59e0b");
   const [scrim, setScrim] = useState(78);
+  const [escalaTitulo, setEscalaTitulo] = useState(1);
   const [downloading, setDownloading] = useState(false);
   const [pending, start] = useTransition();
 
@@ -120,6 +151,7 @@ export function AgendaPosterStudio({
     if (!node) return;
     setDownloading(true);
     try {
+      await garantirFonte(FONTES[fonte].family);
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(node, {
         useCORS: true,
@@ -167,7 +199,7 @@ export function AgendaPosterStudio({
               <p className="text-[11px] uppercase tracking-[0.3em]" style={{ color: accent }}>
                 {festival ? (dataEvento.trim() || "Line-up") : "Agenda"}
               </p>
-              <p className="text-3xl font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>
+              <p className="font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, fontSize: Math.round(30 * escalaTitulo), ...titleFx }}>
                 {festival ? (evento.trim() || banda) : banda}
               </p>
             </div>
@@ -257,7 +289,10 @@ export function AgendaPosterStudio({
           <Chips value={fonte} onChange={setFonte} options={Object.entries(FONTES).map(([k, v]) => [k, v.label] as [string, string])} />
         </Bloco>
         <Bloco titulo="Efeito do texto">
-          <Chips value={efeito} onChange={(v) => setEfeito(v as Efeito)} options={[["nenhum", "Nenhum"], ["sombra", "Sombra"], ["contorno", "Contorno"], ["neon", "Neon"]]} />
+          <Chips value={efeito} onChange={(v) => setEfeito(v as Efeito)} options={EFEITOS} />
+        </Bloco>
+        <Bloco titulo={`Tamanho do título · ${Math.round(escalaTitulo * 100)}%`}>
+          <input type="range" min={60} max={180} value={Math.round(escalaTitulo * 100)} onChange={(e) => setEscalaTitulo(Number(e.target.value) / 100)} className="w-full accent-red-600" />
         </Bloco>
         <Bloco titulo="Cor de destaque">
           <div className="flex flex-wrap gap-2">
