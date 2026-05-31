@@ -98,6 +98,26 @@ function fx(efeito: Efeito, accent: string): React.CSSProperties {
 }
 const pillText = (accent: string) => (accent === "#ef4444" ? "#fff" : "#09090b");
 
+/** Baixa um canvas via Blob URL (NÃO via data: URL — o Chrome bloqueia
+ *  download de data: grande, dava "erro de rede"). Âncora vai no DOM. */
+function baixarCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return reject(new Error("canvas vazio"));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      resolve();
+    }, "image/png");
+  });
+}
+
 /** Garante que a fonte foi baixada antes de rasterizar (html2canvas não
  *  espera web fonts sozinho → exportava com fallback). */
 async function garantirFonte(familyCss: string) {
@@ -204,12 +224,9 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
       await garantirFonte(fam);
       const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(ref.current, { useCORS: true, backgroundColor: "#09090b", scale: 1080 / ref.current.offsetWidth });
-      const a = document.createElement("a");
-      a.href = canvas.toDataURL("image/png");
-      a.download = `flyer-${aspect === "9:16" ? "stories" : "feed"}.png`;
-      a.click();
-    } catch {
-      toast.error("Falha ao exportar. Se usou link de imagem externo, envie a foto.");
+      await baixarCanvas(canvas, `flyer-${aspect === "9:16" ? "stories" : "feed"}.png`);
+    } catch (e) {
+      toast.error("Falha ao exportar: " + (e instanceof Error ? e.message : "erro desconhecido") + ". Se usou link de imagem externo, envie a foto.");
     } finally {
       setDownloading(false);
     }

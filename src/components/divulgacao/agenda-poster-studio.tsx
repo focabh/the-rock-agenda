@@ -79,6 +79,24 @@ const GRADIENTES = [
   "linear-gradient(135deg, #1a0a1e, #09090b 70%)",
 ];
 
+function baixarCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return reject(new Error("canvas vazio"));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      resolve();
+    }, "image/png");
+  });
+}
+
 async function garantirFonte(familyCss: string) {
   if (typeof document === "undefined" || !("fonts" in document)) return;
   const fam = familyCss.split(",")[0].trim();
@@ -180,12 +198,9 @@ export function AgendaPosterStudio({
         backgroundColor: "#09090b",
         scale: 1080 / node.offsetWidth,
       });
-      const a = document.createElement("a");
-      a.href = canvas.toDataURL("image/png");
-      a.download = `agenda-${periodo}-${aspect === "9:16" ? "stories" : "feed"}.png`;
-      a.click();
-    } catch {
-      toast.error("Falha ao exportar. Use 'Enviar foto' (link externo pode ser bloqueado).");
+      await baixarCanvas(canvas, `agenda-${periodo}-${aspect === "9:16" ? "stories" : "feed"}.png`);
+    } catch (e) {
+      toast.error("Falha ao exportar: " + (e instanceof Error ? e.message : "erro desconhecido") + ". Use 'Enviar foto' (link externo pode ser bloqueado).");
     } finally {
       setDownloading(false);
     }
