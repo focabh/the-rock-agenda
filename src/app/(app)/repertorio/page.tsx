@@ -7,7 +7,7 @@ import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { members, songMemberReadiness, songs } from "@/db/schema";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { adminMaterialPorPosicao, getCurrentUser, isAdmin } from "@/lib/auth";
 import { BAND } from "@/lib/band";
 import { isSpotifyConnected } from "@/lib/spotify";
 import { asc, desc, eq } from "drizzle-orm";
@@ -24,6 +24,8 @@ export default async function RepertorioPage() {
     .select()
     .from(songs)
     .orderBy(desc(songs.favorita), asc(songs.titulo));
+  // Por padrão o admin sempre vê letras; se ligou a preferência, segue a posição.
+  const matPorPosicao = admin ? await adminMaterialPorPosicao() : false;
 
   // Músicos ativos não-manager
   const allMembers = await db
@@ -92,6 +94,7 @@ export default async function RepertorioPage() {
         <SongList
           songs={lista}
           admin={admin}
+          adminMaterialPorPosicao={matPorPosicao}
           userPosicao={user?.posicao ?? user?.member?.funcao ?? null}
           members={playableMembers}
           readinessBySong={Object.fromEntries(

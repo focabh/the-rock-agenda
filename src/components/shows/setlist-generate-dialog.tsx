@@ -118,7 +118,7 @@ export function SetlistGenerateDialog({
         <Wand2 className="size-4" />
         Gerar
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Gerar setlist</DialogTitle>
           <DialogDescription>
@@ -129,9 +129,9 @@ export function SetlistGenerateDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex items-end gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-end">
             <div className="space-y-1.5">
-              <Label htmlFor="gen-min">Duração do show (min)</Label>
+              <Label htmlFor="gen-min">Duração (min)</Label>
               <NumberStepper
                 id="gen-min"
                 value={min}
@@ -149,7 +149,7 @@ export function SetlistGenerateDialog({
                 onChange={(e) =>
                   setOrdem(e.target.value as "equilibrada" | "aleatoria")
                 }
-                className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               >
                 <option value="equilibrada">Equilibrada</option>
                 <option value="aleatoria">Mais aleatória</option>
@@ -161,7 +161,7 @@ export function SetlistGenerateDialog({
                 id="gen-perfil"
                 value={perfil}
                 onChange={(e) => setPerfil(e.target.value)}
-                className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               >
                 <option value="equilibrado">Equilibrado</option>
                 <option value="mais pesado">Mais pesado</option>

@@ -73,21 +73,25 @@ const MATERIAL_ICON: Record<MaterialKind, typeof Guitar> = {
 export function SongList({
   songs,
   admin = true,
+  adminMaterialPorPosicao = false,
   members = [],
   readinessBySong = {},
   userPosicao = null,
 }: {
   songs: Song[];
   admin?: boolean;
+  /** Se true, o admin também segue o material da posição (não vê letras como instrumentista). */
+  adminMaterialPorPosicao?: boolean;
   members?: Member[];
   readinessBySong?: ReadinessMap;
   /** Posição do usuário logado (Vocal/Guitarra/Baixo/…) — habilita atalhos por instrumento. */
   userPosicao?: string | null;
 }) {
   // Material "como tocar" específico da função: baterista vê tab de bateria,
-  // cordas veem cifra, vocal/manager veem letras. (admin sempre vê letras p/
-  // gerenciar/sincronizar.)
+  // cordas veem cifra, vocal/manager veem letras. O admin vê letras sempre —
+  // a menos que tenha ligado "seguir material da posição" em Conta.
   const material = materialForPosicao(userPosicao);
+  const mostrarLetras = material.letrasRelevante || (admin && !adminMaterialPorPosicao);
   const [q, setQ] = useState("");
   // Multi-seleção de status — se vazio, tudo passa
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
@@ -306,7 +310,7 @@ export function SongList({
           </a>
         )}
 
-        {(material.letrasRelevante || admin) && (
+        {mostrarLetras && (
           <LyricsDialog
             songId={s.id}
             titulo={s.titulo}

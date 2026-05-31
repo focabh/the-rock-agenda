@@ -132,6 +132,22 @@ export async function removeLogoAction() {
   return { ok: true };
 }
 
+/** Liga/desliga: admin também vê só o material da sua posição (esconde letras). */
+export async function setAdminMaterialPorPosicaoAction(value: boolean) {
+  await requireAdmin();
+  const [row] = await db.select().from(appSettings).limit(1);
+  if (row) {
+    await db
+      .update(appSettings)
+      .set({ adminMaterialPorPosicao: value })
+      .where(eq(appSettings.id, row.id));
+  } else {
+    await db.insert(appSettings).values({ adminMaterialPorPosicao: value });
+  }
+  revalidatePath("/repertorio");
+  return { ok: true };
+}
+
 const optionalTelefone = z
   .string()
   .trim()

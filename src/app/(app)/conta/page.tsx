@@ -4,7 +4,9 @@ import { MusicoProfile } from "@/components/conta/musico-profile";
 import { LogoUploader } from "@/components/conta/logo-uploader";
 import { PushManager } from "@/components/conta/push-manager";
 import { ProfileSettings } from "@/components/conta/profile-settings";
+import { MaterialPrefToggle } from "@/components/conta/material-pref-toggle";
 import {
+  adminMaterialPorPosicao,
   getAvailablePositions,
   getCurrentUser,
   getLogoUrl,
@@ -14,9 +16,10 @@ import {
 export default async function ContaPage() {
   const user = await getCurrentUser();
   const admin = isAdmin(user);
-  const [logo, positions] = await Promise.all([
+  const [logo, positions, matPorPosicao] = await Promise.all([
     getLogoUrl(),
     getAvailablePositions(),
+    adminMaterialPorPosicao(),
   ]);
 
   const member = user?.member
@@ -46,6 +49,7 @@ export default async function ContaPage() {
         <PushManager />
         <ChangePasswordForm />
         <MusicoProfile member={member} availablePositions={positions} />
+        {admin && <MaterialPrefToggle initial={matPorPosicao} />}
         {admin && <LogoUploader currentLogo={logo} />}
       </div>
     </div>

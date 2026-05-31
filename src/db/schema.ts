@@ -75,6 +75,13 @@ export const appSettings = sqliteTable("app_settings", {
     .notNull()
     .default(true),
   logoUrl: text("logo_url"), // data URL (base64) da logo personalizada
+  // Quando true, o ADMIN também vê só o material da sua posição (ex.: baterista
+  // não vê letras). Quando false (padrão), o admin sempre vê letras p/ gerenciar.
+  adminMaterialPorPosicao: integer("admin_material_por_posicao", {
+    mode: "boolean",
+  })
+    .notNull()
+    .default(false),
   updatedAt: updatedAt(),
 });
 

@@ -113,6 +113,16 @@ export async function registrationsAllowed(): Promise<boolean> {
   }
 }
 
+/** Admin também vê só o material da sua posição (esconde letras p/ instrumentista)? */
+export async function adminMaterialPorPosicao(): Promise<boolean> {
+  try {
+    const [s] = await db.select().from(appSettings).limit(1);
+    return s?.adminMaterialPorPosicao ?? false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Posições disponíveis pra escolher no cadastro/conta. Lê da tabela
  * band_positions (geridas pelo admin); vários músicos podem ter a mesma
