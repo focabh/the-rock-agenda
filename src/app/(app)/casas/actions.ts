@@ -132,6 +132,16 @@ export async function updateCasaAction(
   redirect("/casas");
 }
 
+/** Liga/desliga flags da casa direto no card (já tocou, voltaria, etc.). */
+export async function setCasaFlagAction(
+  id: string,
+  patch: { jaTocou?: boolean; voltaria?: boolean | null; querTocar?: boolean; naoContatar?: boolean }
+): Promise<void> {
+  await requireAdmin();
+  await db.update(venues).set(patch).where(eq(venues.id, id));
+  revalidatePath("/casas");
+}
+
 export async function deleteCasaAction(id: string) {
   await requireAdmin();
   try {

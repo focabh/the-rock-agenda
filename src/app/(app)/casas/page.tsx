@@ -32,6 +32,9 @@ export default async function CasasPage() {
     observacoes: c.observacoes,
     querTocar: c.querTocar,
     jaTocou: c.jaTocou || pastSet.has(c.id),
+    jaTocouManual: c.jaTocou,
+    temShowPassado: pastSet.has(c.id),
+    voltaria: c.voltaria,
     naoContatar: c.naoContatar,
     ultimoContatoEmISO: c.ultimoContatoEm?.toISOString() ?? null,
   }));

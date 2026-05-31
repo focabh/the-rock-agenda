@@ -159,6 +159,8 @@ export const venues = sqliteTable("venues", {
   // --- CRM: relacionamento com a casa ---
   querTocar: integer("quer_tocar", { mode: "boolean" }).notNull().default(false),
   jaTocou: integer("ja_tocou", { mode: "boolean" }).notNull().default(false),
+  // Voltaria a tocar? null = não avaliado, true = voltaria, false = não voltaria.
+  voltaria: integer("voltaria", { mode: "boolean" }),
   naoContatar: integer("nao_contatar", { mode: "boolean" })
     .notNull()
     .default(false),

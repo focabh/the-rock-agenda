@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { MapPin, Phone, ChevronRight, Search } from "lucide-react";
+import { MapPin, Phone, ChevronRight, Search, Check, ThumbsUp, ThumbsDown } from "lucide-react";
 import { formatRelativeBR } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { DeleteButton } from "@/components/shared/delete-button";
-import { deleteCasaAction } from "@/app/(app)/casas/actions";
+import { deleteCasaAction, setCasaFlagAction } from "@/app/(app)/casas/actions";
 
 export type CasaItem = {
   id: string;
@@ -19,6 +19,9 @@ export type CasaItem = {
   observacoes: string | null;
   querTocar: boolean;
   jaTocou: boolean; // efetivo (flag OU tem show passado)
+  jaTocouManual: boolean;
+  temShowPassado: boolean;
+  voltaria: boolean | null;
   naoContatar: boolean;
   ultimoContatoEmISO: string | null;
 };
@@ -39,6 +42,11 @@ export function CasasBrowser({
   const [status, setStatus] = useState<StatusFilter>("todos");
   const [cidade, setCidade] = useState("");
   const [bairro, setBairro] = useState("");
+  const [, startFlag] = useTransition();
+  const setFlag = (id: string, patch: Parameters<typeof setCasaFlagAction>[1]) =>
+    startFlag(() => {
+      setCasaFlagAction(id, patch);
+    });
 
   const cidades = useMemo(
     () =>
@@ -181,7 +189,7 @@ export function CasasBrowser({
                     <ChevronRight className="size-4 text-zinc-500 shrink-0" />
                   </div>
 
-                  {(c.querTocar || c.jaTocou || c.naoContatar) && (
+                  {(c.querTocar || c.jaTocou || c.naoContatar || c.voltaria != null) && (
                     <div className="flex flex-wrap gap-1.5">
                       {c.naoContatar && (
                         <Tag className="bg-red-500/15 text-red-300 ring-red-500/30">
@@ -196,6 +204,16 @@ export function CasasBrowser({
                       {c.jaTocou && (
                         <Tag className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">
                           Já tocou
+                        </Tag>
+                      )}
+                      {c.voltaria === true && (
+                        <Tag className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">
+                          Voltaria
+                        </Tag>
+                      )}
+                      {c.voltaria === false && (
+                        <Tag className="bg-red-500/15 text-red-300 ring-red-500/30">
+                          Não voltaria
                         </Tag>
                       )}
                     </div>
@@ -227,11 +245,44 @@ export function CasasBrowser({
                 </CardContent>
               </Link>
               {admin && (
-                <div className="flex items-center justify-end border-t border-zinc-800 px-3 py-2">
-                  <DeleteButton
-                    itemName={c.nome}
-                    action={deleteCasaAction.bind(null, c.id)}
-                  />
+                <div className="flex flex-wrap items-center gap-1.5 border-t border-zinc-800 px-3 py-2">
+                  <button
+                    onClick={() => setFlag(c.id, { jaTocou: !c.jaTocouManual })}
+                    disabled={c.temShowPassado}
+                    title={c.temShowPassado ? "Tem show passado registrado — já tocou" : "Marcar/desmarcar “já tocou”"}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ring-1 ring-inset transition-colors disabled:opacity-60",
+                      c.jaTocou ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30" : "text-zinc-400 ring-zinc-700 hover:bg-zinc-800"
+                    )}
+                  >
+                    <Check className="size-3" /> Já tocou
+                  </button>
+                  <button
+                    onClick={() => setFlag(c.id, { voltaria: c.voltaria === true ? null : true })}
+                    title="Voltaria a tocar aqui"
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ring-1 ring-inset transition-colors",
+                      c.voltaria === true ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30" : "text-zinc-400 ring-zinc-700 hover:bg-zinc-800"
+                    )}
+                  >
+                    <ThumbsUp className="size-3" /> Voltaria
+                  </button>
+                  <button
+                    onClick={() => setFlag(c.id, { voltaria: c.voltaria === false ? null : false })}
+                    title="Não voltaria a tocar aqui"
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ring-1 ring-inset transition-colors",
+                      c.voltaria === false ? "bg-red-500/15 text-red-300 ring-red-500/30" : "text-zinc-400 ring-zinc-700 hover:bg-zinc-800"
+                    )}
+                  >
+                    <ThumbsDown className="size-3" /> Não
+                  </button>
+                  <div className="ml-auto">
+                    <DeleteButton
+                      itemName={c.nome}
+                      action={deleteCasaAction.bind(null, c.id)}
+                    />
+                  </div>
                 </div>
               )}
             </Card>
