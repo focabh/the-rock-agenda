@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Download, Upload, Shuffle, Loader2, Plus, X } from "lucide-react";
+import { Download, Upload, Shuffle, Loader2, Plus, X, ImageIcon, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,8 @@ export type PosterShow = {
 
 type Efeito = "nenhum" | "sombra" | "contorno" | "neon" | "3d" | "longa" | "brilho" | "duplo";
 type Banda = { nome: string; hora: string };
+type Escopo = "imagem" | "texto";
+type Modelo = { fonte: string; efeito: Efeito; accent: string; grad: string };
 
 const EFEITOS: [Efeito, string][] = [
   ["nenhum", "Nenhum"],
@@ -77,6 +79,46 @@ async function garantirFonte(familyCss: string) {
   }
 }
 
+async function extrairPaleta(dataUrl: string): Promise<{ accent: string; grad: string }> {
+  const img = new Image();
+  img.src = dataUrl;
+  await img.decode();
+  const w = 48;
+  const h = Math.max(1, Math.round((48 * img.height) / img.width));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
+  if (!ctx) return { accent: "#f59e0b", grad: GRADIENTES[0] };
+  ctx.drawImage(img, 0, 0, w, h);
+  const { data } = ctx.getImageData(0, 0, w, h);
+  const buckets = new Map<string, { r: number; g: number; b: number; n: number; sat: number }>();
+  let darkR = 0, darkG = 0, darkB = 0, darkN = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const lum = (max + min) / 2;
+    const sat = max === 0 ? 0 : (max - min) / max;
+    if (lum < 60) { darkR += r; darkG += g; darkB += b; darkN++; }
+    if (lum < 35 || lum > 225 || sat < 0.25) continue;
+    const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
+    const cur = buckets.get(key) ?? { r: 0, g: 0, b: 0, n: 0, sat: 0 };
+    cur.r += r; cur.g += g; cur.b += b; cur.n++; cur.sat = sat;
+    buckets.set(key, cur);
+  }
+  let best: { r: number; g: number; b: number; n: number; sat: number } | null = null;
+  for (const v of buckets.values()) {
+    const score = v.n * (0.5 + v.sat);
+    const bestScore = best ? best.n * (0.5 + best.sat) : -1;
+    if (score > bestScore) best = v;
+  }
+  const hex = (r: number, g: number, b: number) => "#" + [r, g, b].map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
+  const accent = best ? hex(best.r / best.n, best.g / best.n, best.b / best.n) : "#f59e0b";
+  const dr = darkN ? darkR / darkN : 26, dg = darkN ? darkG / darkN : 10, db = darkN ? darkB / darkN : 10;
+  const grad = `radial-gradient(120% 90% at 50% 0%, ${hex(dr * 1.4, dg * 1.4, db * 1.4)}, #09090b 68%)`;
+  return { accent, grad };
+}
+
 function fx(efeito: Efeito, accent: string): React.CSSProperties {
   switch (efeito) {
     case "sombra":
@@ -119,6 +161,9 @@ export function AgendaPosterStudio({
   const [escalaTitulo, setEscalaTitulo] = useState(1);
   const [downloading, setDownloading] = useState(false);
   const [pending, start] = useTransition();
+  const [ref0, setRef0] = useState<string | null>(null);
+  const [modelos, setModelos] = useState<Modelo[]>([]);
+  const [escopo, setEscopo] = useState<Escopo>("imagem");
 
   // Festival / line-up de um único evento
   const [festival, setFestival] = useState(false);
@@ -144,6 +189,31 @@ export function AgendaPosterStudio({
       }
       if (arr.length > 1) toast.success(`${arr.length} fotos adicionadas.`);
     });
+  }
+
+  async function gerarModelos() {
+    if (!ref0) return toast.error("Envie um exemplo de estilo primeiro.");
+    try {
+      const { accent: ac, grad: gr } = await extrairPaleta(ref0);
+      setModelos([
+        { fonte: "anton", efeito: "neon", accent: ac, grad: gr },
+        { fonte: "poppins", efeito: "3d", accent: ac, grad: gr },
+        { fonte: "serif", efeito: "sombra", accent: ac, grad: gr },
+      ]);
+      toast.success("3 modelos gerados a partir do exemplo. Toque pra aplicar.");
+    } catch {
+      toast.error("Não consegui ler o exemplo. Tente outra imagem.");
+    }
+  }
+
+  function aplicarModelo(m: Modelo) {
+    setFonte(m.fonte);
+    setEfeito(m.efeito);
+    setAccent(m.accent);
+    if (escopo === "imagem") {
+      setGrad(m.grad);
+      setBg(null);
+    }
   }
 
   async function baixar() {
@@ -341,6 +411,54 @@ export function AgendaPosterStudio({
               ))}
             </div>
           )}
+        </Bloco>
+
+        <Bloco titulo="Inspiração: gerar modelos a partir de um exemplo">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
+              <ImageIcon className="size-4" /> Enviar exemplo
+              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setRef0(await fileToDownscaledDataUrl(f, 900, 0.7)); setModelos([]); } }} />
+            </label>
+            {ref0 && (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={ref0} alt="referência" className="h-16 w-12 rounded object-cover ring-1 ring-zinc-700" />
+                <button onClick={() => { setRef0(null); setModelos([]); }} className="text-xs text-zinc-500 hover:text-foreground">remover</button>
+              </>
+            )}
+          </div>
+          {ref0 && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Label className="text-[11px] text-zinc-400">Aplicar em</Label>
+                <Chips value={escopo} onChange={(v) => setEscopo(v as Escopo)} options={[["imagem", "Toda a imagem"], ["texto", "Só o texto"]]} />
+              </div>
+              <Button size="sm" onClick={gerarModelos} className="bg-amber-500 text-zinc-950 hover:bg-amber-400">
+                <Wand2 className="size-4" /> Gerar 3 modelos
+              </Button>
+            </div>
+          )}
+          {modelos.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-[11px] text-zinc-400">
+                Modelos (paleta do exemplo) — toque pra aplicar {escopo === "imagem" ? "na imagem toda (fundo + texto)" : "só no texto (mantém seu fundo)"}:
+              </p>
+              <div className="flex gap-2">
+                {modelos.map((m, i) => (
+                  <button key={i} onClick={() => aplicarModelo(m)} className="flex-1 overflow-hidden rounded-lg ring-1 ring-zinc-700 hover:ring-primary" style={{ background: escopo === "imagem" ? m.grad : "#18181b" }}>
+                    <div className="flex h-20 flex-col items-center justify-center gap-1 p-2">
+                      <span className="text-base font-black uppercase leading-none text-zinc-50" style={{ fontFamily: FONTES[m.fonte].family, ...fx(m.efeito, m.accent) }}>Aa</span>
+                      <span className="h-1 w-8 rounded-full" style={{ background: m.accent }} />
+                      <span className="text-[9px] uppercase tracking-wide text-zinc-300">{FONTES[m.fonte].label}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-zinc-500">
+            Lê as cores e o clima do exemplo. <strong>Toda a imagem</strong> aplica fundo + cores + fonte + efeito; <strong>só o texto</strong> mantém seu fundo e restila apenas as letras. Custo R$0.
+          </p>
         </Bloco>
       </div>
     </div>
