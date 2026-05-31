@@ -1,0 +1,50 @@
+import { eq } from "drizzle-orm";
+import { notFound, redirect } from "next/navigation";
+import { db } from "@/db";
+import { shows } from "@/db/schema";
+import { getCurrentUser, isAdmin, getBrand } from "@/lib/auth";
+import { formatDataBR, formatHoraBR } from "@/lib/formatters";
+import { PageHeader } from "@/components/shared/page-header";
+import { FlyerStudio } from "@/components/divulgacao/flyer-studio";
+import { listImagensDivulgacao } from "./actions";
+
+export default async function DivulgacaoShowPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const user = await getCurrentUser();
+  if (!isAdmin(user)) redirect(`/shows/${id}`);
+
+  const show = await db.query.shows.findFirst({
+    where: eq(shows.id, id),
+    with: { casa: { columns: { nome: true } } },
+  });
+  if (!show) notFound();
+
+  const [brand, galeria] = await Promise.all([getBrand(), listImagensDivulgacao()]);
+
+  return (
+    <div>
+      <PageHeader
+        title="Flyer do show"
+        description="Monte um cartaz pro Instagram com a foto do bar (ou da banda), os dados do show e QR de ingressos. Baixa como imagem — custo zero."
+      />
+      <div className="p-6">
+        <FlyerStudio
+          show={{
+            banda: brand.bandName?.trim() || "The Rock",
+            casaNome: show.casa.nome,
+            dataLabel: formatDataBR(show.data, true),
+            inicio: show.inicio || formatHoraBR(show.data),
+            termino: show.termino,
+            valorIngresso: show.valorIngresso,
+            linkVendas: show.linkVendas,
+          }}
+          galeria={galeria.map((g) => ({ id: g.id, url: g.url }))}
+        />
+      </div>
+    </div>
+  );
+}

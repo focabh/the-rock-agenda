@@ -238,6 +238,28 @@ export function ShowForm({
             <FieldError state={state} name="acompanhantes" />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="valorIngresso">Valor do ingresso</Label>
+            <Input
+              id="valorIngresso"
+              name="valorIngresso"
+              defaultValue={show?.valorIngresso ?? ""}
+              placeholder="Ex.: R$ 20 (ou Gratuito)"
+            />
+            <FieldError state={state} name="valorIngresso" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="linkVendas">Link de venda de ingressos</Label>
+            <Input
+              id="linkVendas"
+              name="linkVendas"
+              defaultValue={show?.linkVendas ?? ""}
+              placeholder="https://… (vira QR Code no flyer)"
+            />
+            <FieldError state={state} name="linkVendas" />
+          </div>
+
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="observacoes">Observações</Label>
             <Textarea

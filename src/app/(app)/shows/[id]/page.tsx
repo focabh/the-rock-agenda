@@ -1,7 +1,7 @@
 import { eq, asc, and, lte, gte } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ImageIcon } from "lucide-react";
 import { db } from "@/db";
 import {
   shows,
@@ -130,6 +130,16 @@ export default async function ShowDetailPage({
         description={formatDataBR(show.data, true)}
         actions={
           <div className="flex items-center gap-2">
+            {admin && (
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link href={`/shows/${show.id}/divulgacao`} />}
+              >
+                <ImageIcon className="size-4" />
+                Flyer
+              </Button>
+            )}
             {admin && (
               <NotifyBandButton
                 title={`Show: ${show.casa.nome}`}

@@ -305,6 +305,8 @@ export const shows = sqliteTable("shows", {
   duracaoMin: integer("duracao_min"), // duração planejada do show (minutos)
   consumacao: text("consumacao"), // couvert/consumação mínima
   acompanhantes: text("acompanhantes"), // política de acompanhantes/lista
+  valorIngresso: text("valor_ingresso"), // ex.: "R$ 20" ou "Gratuito" (flyer)
+  linkVendas: text("link_vendas"), // link de venda de ingressos (vira QR no flyer)
   observacoes: text("observacoes"),
   status: text("status", {
     enum: ["planejado", "confirmado", "concluido", "cancelado"],
@@ -369,6 +371,16 @@ export const showMemberPaid = sqliteTable(
     ),
   }),
 );
+
+// ---------------- GALERIA DE MÍDIA (divulgação) ----------------
+
+// Fotos de alta qualidade da banda, usadas como fundo dos cartazes/flyers.
+export const imagensDivulgacao = sqliteTable("imagens_divulgacao", {
+  id: id(),
+  url: text("url").notNull(),
+  legenda: text("legenda"),
+  createdAt: createdAt(),
+});
 
 // ---------------- INVENTÁRIO DE EQUIPAMENTOS ----------------
 
@@ -937,6 +949,7 @@ export type ShowMemberPaid = typeof showMemberPaid.$inferSelect;
 export type Gasto = typeof gastos.$inferSelect;
 export type Reembolso = typeof reembolsos.$inferSelect;
 export type Equipamento = typeof equipamentos.$inferSelect;
+export type ImagemDivulgacao = typeof imagensDivulgacao.$inferSelect;
 export type ContractorLink = typeof contractorLinks.$inferSelect;
 export type ContractorLinkVisit = typeof contractorLinkVisits.$inferSelect;
 export type SiteVisit = typeof siteVisits.$inferSelect;
