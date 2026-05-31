@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Download, Upload, Shuffle, Loader2, Building2, Plus, X } from "lucide-react";
+import { Download, Upload, Shuffle, Loader2, Building2, Plus, X, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -145,6 +145,15 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [escala, setEscala] = useState(1);
   const [tam, setTam] = useState<Record<string, number>>({ chamada: 1, banda: 1, casa: 1, data: 1, ingresso: 1, lineup: 1 });
   const setTamKey = (k: string, v: number) => setTam((p) => ({ ...p, [k]: v }));
+  const [ordem, setOrdem] = useState<string[]>(["chamada", "banda", "lineup", "data", "casa", "ingresso"]);
+  const moverItem = (i: number, dir: number) =>
+    setOrdem((p) => {
+      const j = i + dir;
+      if (j < 0 || j >= p.length) return p;
+      const a = [...p];
+      [a[i], a[j]] = [a[j], a[i]];
+      return a;
+    });
   const [tarjaOp, setTarjaOp] = useState(78);
   const [textPos, setTextPos] = useState({ x: 20, y: 0 });
 
@@ -268,7 +277,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             style={{ left: textPos.x, top: textPos.y, width: W - 40 }}
             title="Arraste para posicionar o texto"
           >
-            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} escala={escala} tam={tam} tarjaOp={tarjaOp} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
+            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} escala={escala} tam={tam} tarjaOp={tarjaOp} ordem={ordem} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
           </div>
         </div>
         <Button onClick={baixar} disabled={downloading} className="w-full bg-red-600 hover:bg-red-700">
@@ -380,6 +389,29 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           <p className="text-[11px] text-zinc-500">Cada texto tem seu próprio tamanho (mini-barra abaixo do campo). A barra “Tamanho do texto” lá em cima escala todos de uma vez.</p>
         </Bloco>
 
+        <Bloco titulo="Ordem dos textos">
+          <div className="space-y-1">
+            {ordem.map((k, i) => {
+              const labels: Record<string, string> = { chamada: "Chamada", banda: festival ? "Evento" : "Banda", lineup: "Line-up", data: "Data", casa: "Casa / local", ingresso: "Ingresso" };
+              if (k === "lineup" && !festival) return null;
+              return (
+                <div key={k} className="flex items-center justify-between rounded-md border border-zinc-700 bg-[#0f0f11] px-2.5 py-1.5">
+                  <span className="text-sm text-zinc-200">{labels[k]}</span>
+                  <div className="flex gap-1">
+                    <button onClick={() => moverItem(i, -1)} disabled={i === 0} className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30" title="Subir">
+                      <ArrowUp className="size-4" />
+                    </button>
+                    <button onClick={() => moverItem(i, 1)} disabled={i === ordem.length - 1} className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-30" title="Descer">
+                      <ArrowDown className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-zinc-500">Define a sequência em que os textos aparecem no flyer. O QR fica por último.</p>
+        </Bloco>
+
         <Bloco titulo="Fundo">
           <div className="mb-2 flex flex-wrap gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
@@ -424,85 +456,63 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 }
 
 function Conteudo({
-  estilo, fam, efeito, accent, escala, tam, tarjaOp, headline, banda, casa, data, inicio, ingresso, qr, festival, evento, lineup,
+  estilo, fam, efeito, accent, escala, tam, tarjaOp, ordem, headline, banda, casa, data, inicio, ingresso, qr, festival, evento, lineup,
 }: {
-  estilo: Estilo; fam: string; efeito: Efeito; accent: string; escala: number; tam: Record<string, number>; tarjaOp: number; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
+  estilo: Estilo; fam: string; efeito: Efeito; accent: string; escala: number; tam: Record<string, number>; tarjaOp: number; ordem: string[]; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
 }) {
   const titleFx = fx(efeito, accent);
   const tituloPrincipal = festival ? (evento.trim() || "FESTIVAL") : banda;
   const dataTxt = data + (!festival && inicio ? ` · ${inicio}` : "");
-  const QR = qr ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={qr} alt="QR" className="size-14 shrink-0 rounded bg-white p-0.5" />
-  ) : null;
+  const pill = estilo === "festival"; // festival usa "pílulas" em chamada/ingresso
 
-  // fonte + efeito valem pra TODO texto; sz aplica tamanho geral (escala) ×
-  // tamanho individual do item (tam[key]).
   const t = (extra?: React.CSSProperties): React.CSSProperties => ({ fontFamily: fam, ...titleFx, ...extra });
   const sz = (key: string, basePx: number, extra?: React.CSSProperties): React.CSSProperties =>
     ({ ...t(extra), fontSize: Math.round(basePx * escala * (tam[key] ?? 1)) });
+  const bandaBase = estilo === "festival" ? (festival ? 36 : 48) : estilo === "minimal" ? 30 : 26;
 
-  const LineupList = festival && lineup.length > 0 ? (
-    <ul className="mt-2 space-y-0.5">
-      {lineup.map((b, i) => (
-        <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={sz("lineup", 14)}>
-          {b.hora && <span className="shrink-0 font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
-          <span className="font-semibold uppercase tracking-wide">{b.nome}</span>
-        </li>
-      ))}
-    </ul>
+  // Cada item de texto é um bloco; renderizamos na ordem escolhida (`ordem`).
+  const ITENS: Record<string, React.ReactNode> = {
+    chamada: headline ? (
+      pill ? (
+        <div key="chamada"><span className="inline-block px-2 py-0.5 font-bold uppercase tracking-[0.2em]" style={sz("chamada", 11, { background: accent, color: pillText(accent) })}>{headline}</span></div>
+      ) : (
+        <p key="chamada" className="uppercase tracking-[0.3em]" style={sz("chamada", 11, { color: accent })}>{headline}</p>
+      )
+    ) : null,
+    banda: <p key="banda" className="font-black uppercase leading-[0.9] text-zinc-50" style={sz("banda", bandaBase)}>{tituloPrincipal}</p>,
+    lineup: festival && lineup.length > 0 ? (
+      <ul key="lineup" className="space-y-0.5">
+        {lineup.map((b, i) => (
+          <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={sz("lineup", 14)}>
+            {b.hora && <span className="shrink-0 font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
+            <span className="font-semibold uppercase tracking-wide">{b.nome}</span>
+          </li>
+        ))}
+      </ul>
+    ) : null,
+    data: dataTxt.trim() ? <p key="data" className="font-bold" style={sz("data", estilo === "festival" ? 18 : 13, { color: estilo === "festival" ? accent : "#d4d4d8" })}>{dataTxt}</p> : null,
+    casa: casa.trim() ? <p key="casa" className="font-semibold uppercase tracking-wide text-zinc-100" style={sz("casa", 14)}>{casa}</p> : null,
+    ingresso: ingresso.trim() ? (
+      pill ? (
+        <div key="ingresso"><span className="inline-block rounded-full px-2.5 py-0.5 font-bold" style={sz("ingresso", 13, { background: accent, color: pillText(accent) })}>{ingresso}</span></div>
+      ) : (
+        <p key="ingresso" className="font-semibold" style={sz("ingresso", 12, { color: accent })}>{ingresso}</p>
+      )
+    ) : null,
+  };
+
+  const QR = qr ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img key="qr" src={qr} alt="QR" className="mt-1 size-14 rounded bg-white p-0.5" />
   ) : null;
 
-  if (estilo === "minimal") {
-    return (
-      <div className="w-full">
-        {headline && <p className="uppercase tracking-[0.35em]" style={sz("chamada", 11, { color: accent })}>{headline}</p>}
-        <p className="mt-1 font-bold uppercase leading-none text-zinc-50" style={sz("banda", 30)}>{tituloPrincipal}</p>
-        <div className="mt-3 h-px w-12" style={{ background: accent }} />
-        {LineupList}
-        <p className="mt-3 font-medium text-zinc-100" style={sz("casa", 15)}>{casa}</p>
-        <p className="text-zinc-300" style={sz("data", 12)}>{dataTxt}</p>
-        {ingresso && <p className="font-semibold" style={sz("ingresso", 12, { color: accent })}>{ingresso}</p>}
-        {QR && <div className="mt-3">{QR}</div>}
-      </div>
-    );
-  }
-
-  if (estilo === "tarja") {
-    return (
-      <div className="w-full rounded-lg p-3 backdrop-blur-sm" style={{ background: `rgba(9,9,11,${tarjaOp / 100})`, border: `1px solid ${accent}` }}>
-        {headline && <p className="uppercase tracking-[0.25em]" style={sz("chamada", 11, { color: accent })}>{headline}</p>}
-        <p className="font-black uppercase leading-none text-zinc-50" style={sz("banda", 24)}>{tituloPrincipal}</p>
-        {LineupList}
-        <div className="mt-1.5 flex items-end justify-between gap-2">
-          <div className="leading-tight text-zinc-200">
-            <p className="font-semibold" style={sz("casa", 12)}>{casa}</p>
-            <p className="text-zinc-400" style={sz("data", 11)}>{dataTxt}</p>
-            {ingresso && <p style={sz("ingresso", 12, { color: accent })}>Ingresso: {ingresso}</p>}
-          </div>
-          {QR}
-        </div>
-      </div>
-    );
-  }
+  const wrapper: React.CSSProperties | undefined =
+    estilo === "tarja" ? { background: `rgba(9,9,11,${tarjaOp / 100})`, border: `1px solid ${accent}`, borderRadius: 10, padding: 12, backdropFilter: "blur(2px)" } : undefined;
 
   return (
-    <div className="w-full">
-      {headline && (
-        <span className="inline-block px-2 py-0.5 font-bold uppercase tracking-[0.2em]" style={sz("chamada", 11, { background: accent, color: pillText(accent) })}>{headline}</span>
-      )}
-      <p className="mt-2 font-black uppercase leading-[0.85] text-zinc-50" style={sz("banda", festival ? 36 : 48)}>{tituloPrincipal}</p>
-      {LineupList}
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <div className="leading-tight">
-          <p className="font-bold" style={sz("data", 18, { color: accent })}>{dataTxt}</p>
-          <p className="font-semibold uppercase tracking-wide text-zinc-100" style={sz("casa", 14)}>{casa}</p>
-          {ingresso && (
-            <span className="mt-1 inline-block rounded-full px-2.5 py-0.5 font-bold" style={sz("ingresso", 13, { background: accent, color: pillText(accent) })}>{ingresso}</span>
-          )}
-        </div>
-        {QR}
-      </div>
+    <div className="w-full space-y-1.5" style={wrapper}>
+      {ordem.map((k) => ITENS[k]).filter(Boolean)}
+      {QR}
     </div>
   );
 }
