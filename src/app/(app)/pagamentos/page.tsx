@@ -18,6 +18,7 @@ import { Wallet } from "lucide-react";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { formatDataBR } from "@/lib/formatters";
 import { computePaymentBreakdown } from "@/lib/payment";
+import { FinanceReport, type FinanceReportData } from "@/components/pagamentos/finance-report";
 import {
   PagamentosHub,
   type CacheItem,
@@ -168,6 +169,51 @@ export default async function PagamentosPage() {
     }));
   }
 
+  // Relatório executivo do ano corrente (admin).
+  let report: FinanceReportData | null = null;
+  if (admin) {
+    const year = new Date().getFullYear();
+    let grossYTD = 0;
+    let managerYTD = 0;
+    const perMemberYTD = new Map<string, number>();
+    const venueAgg = new Map<string, { sum: number; count: number }>();
+    for (const s of payableShows) {
+      const va = venueAgg.get(s.casa.nome) ?? { sum: 0, count: 0 };
+      va.sum += s.cacheCentavos ?? 0;
+      va.count++;
+      venueAgg.set(s.casa.nome, va);
+      if (s.data.getFullYear() !== year) continue;
+      grossYTD += s.cacheCentavos ?? 0;
+      const confirmedMusicos = playable.filter((m) =>
+        (confirmedByShow.get(s.id) ?? new Set<string>()).has(m.id)
+      );
+      if (confirmedMusicos.length === 0) continue;
+      const bd = computePaymentBreakdown({
+        cacheCentavos: s.cacheCentavos ?? 0,
+        applyCommission: s.applyCommission,
+        commissionPct: s.commissionPct,
+        confirmedMusicos,
+        managerMember,
+        overrides: overridesByShow.get(s.id) ?? new Map(),
+      });
+      managerYTD += bd.managerCentavos;
+      for (const [mid, info] of bd.perMember)
+        perMemberYTD.set(mid, (perMemberYTD.get(mid) ?? 0) + info.valorCentavos);
+    }
+    report = {
+      year,
+      grossYTD,
+      managerYTD,
+      topVenues: [...venueAgg.entries()]
+        .map(([nome, v]) => ({ nome, avg: Math.round(v.sum / v.count), count: v.count }))
+        .sort((a, b) => b.avg - a.avg)
+        .slice(0, 3),
+      perMember: [...perMemberYTD.entries()]
+        .map(([mid, total]) => ({ nome: memberById.get(mid)?.nome ?? "—", total }))
+        .sort((a, b) => b.total - a.total),
+    };
+  }
+
   const isEmpty =
     cacheItems.length === 0 &&
     reembolsoItems.length === 0 &&
@@ -194,6 +240,7 @@ export default async function PagamentosPage() {
       />
 
       <div className="p-6 space-y-6">
+        {report && report.grossYTD > 0 && <FinanceReport data={report} />}
         {isEmpty ? (
           <Card>
             <EmptyState

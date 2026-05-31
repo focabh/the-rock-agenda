@@ -1,22 +1,39 @@
 import Link from "next/link";
-import { asc } from "drizzle-orm";
-import { Plus, Building2, MapPin, Phone, ChevronRight } from "lucide-react";
-import { formatRelativeBR } from "@/lib/formatters";
-import { cn } from "@/lib/utils";
+import { asc, lte } from "drizzle-orm";
+import { Plus, Building2 } from "lucide-react";
 import { db } from "@/db";
-import { venues } from "@/db/schema";
+import { venues, shows } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { DeleteButton } from "@/components/shared/delete-button";
-import { deleteCasaAction } from "./actions";
+import { CasasBrowser, type CasaItem } from "@/components/casas/casas-browser";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 export default async function CasasPage() {
   const user = await getCurrentUser();
   const admin = isAdmin(user);
   const lista = await db.select().from(venues).orderBy(asc(venues.nome));
+
+  // Casas com show passado → "Já tocamos" efetivo (mesmo sem o flag manual).
+  const pastRows = await db
+    .select({ casaId: shows.casaId })
+    .from(shows)
+    .where(lte(shows.data, new Date()));
+  const pastSet = new Set(pastRows.map((r) => r.casaId));
+
+  const casas: CasaItem[] = lista.map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    bairro: c.bairro,
+    cidade: c.cidade,
+    contatoPrincipal: c.contatoPrincipal,
+    telefone: c.telefone,
+    observacoes: c.observacoes,
+    querTocar: c.querTocar,
+    jaTocou: c.jaTocou || pastSet.has(c.id),
+    naoContatar: c.naoContatar,
+    ultimoContatoEmISO: c.ultimoContatoEm?.toISOString() ?? null,
+  }));
 
   return (
     <div>
@@ -47,106 +64,9 @@ export default async function CasasPage() {
             }
           />
         ) : (
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {lista.map((c) => (
-              <Card
-                key={c.id}
-                className="flex flex-col overflow-hidden p-0 transition-colors hover:border-primary/40"
-              >
-                <Link href={`/casas/${c.id}`} className="block flex-1 hover:bg-accent/30">
-                  <CardContent className="py-5 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="font-semibold truncate">{c.nome}</h3>
-                        {(c.bairro || c.cidade) && (
-                          <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <MapPin className="size-3.5" />
-                            {[c.bairro, c.cidade].filter(Boolean).join(" • ")}
-                          </p>
-                        )}
-                      </div>
-                      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                    </div>
-
-                    {(c.querTocar || c.jaTocou || c.naoContatar) && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {c.naoContatar && (
-                          <Tag className="bg-red-500/15 text-red-300 ring-red-500/30">
-                            Não contatar
-                          </Tag>
-                        )}
-                        {c.querTocar && (
-                          <Tag className="bg-primary/20 text-primary ring-primary/40">
-                            Quer tocar
-                          </Tag>
-                        )}
-                        {c.jaTocou && (
-                          <Tag className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">
-                            Já tocou
-                          </Tag>
-                        )}
-                      </div>
-                    )}
-
-                    {c.contatoPrincipal && (
-                      <p className="text-sm">
-                        <span className="text-muted-foreground">Contato:</span>{" "}
-                        {c.contatoPrincipal}
-                      </p>
-                    )}
-
-                    {c.telefone && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Phone className="size-3.5" />
-                        {c.telefone}
-                      </p>
-                    )}
-
-                    {c.observacoes && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {c.observacoes}
-                      </p>
-                    )}
-
-                    {c.ultimoContatoEm && (
-                      <p className="text-xs text-muted-foreground/70">
-                        Último contato: {formatRelativeBR(c.ultimoContatoEm)}
-                      </p>
-                    )}
-                  </CardContent>
-                </Link>
-                {admin && (
-                  <div className="flex items-center justify-end border-t border-border px-3 py-2">
-                    <DeleteButton
-                      itemName={c.nome}
-                      action={deleteCasaAction.bind(null, c.id)}
-                    />
-                  </div>
-                )}
-              </Card>
-            ))}
-          </div>
+          <CasasBrowser casas={casas} admin={admin} />
         )}
       </div>
     </div>
-  );
-}
-
-function Tag({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset",
-        className
-      )}
-    >
-      {children}
-    </span>
   );
 }

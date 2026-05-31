@@ -27,11 +27,13 @@ export function ShowResumo({
   casa,
   conflitos = [],
   admin = false,
+  gastosCentavos = 0,
 }: {
   show: Show;
   casa: Venue;
   conflitos?: Member[];
   admin?: boolean;
+  gastosCentavos?: number;
 }) {
   return (
     <div className="space-y-4">
@@ -192,6 +194,20 @@ export function ShowResumo({
                 : "—"}
             </p>
             <PagamentoStatusBadge status={show.pagamentoStatus} />
+            {gastosCentavos > 0 && (show.cacheCentavos ?? 0) > 0 && (
+              <div className="pt-2 mt-1 border-t border-border space-y-1 text-sm">
+                <p className="flex items-center justify-between text-muted-foreground">
+                  <span>Gastos do show</span>
+                  <span className="font-mono">− {formatBRL(gastosCentavos)}</span>
+                </p>
+                <p className="flex items-center justify-between font-medium">
+                  <span>Lucro líquido</span>
+                  <span className="font-mono text-amber-400">
+                    {formatBRL((show.cacheCentavos ?? 0) - gastosCentavos)}
+                  </span>
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

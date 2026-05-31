@@ -12,6 +12,7 @@ import {
   showMemberPresence,
   showMemberPayment,
   showMemberPaid,
+  gastos,
 } from "@/db/schema";
 import { membersUnavailableOn } from "@/lib/conflicts";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
@@ -114,6 +115,13 @@ export default async function ShowDetailPage({
       .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
   const jaTocouCasa = show.casa.jaTocou || pastOutras.length > 0;
 
+  // Gastos vinculados a este show → lucro líquido real (cachê − gastos).
+  const gastosShow = await db
+    .select({ v: gastos.valorCentavos })
+    .from(gastos)
+    .where(eq(gastos.showId, id));
+  const gastosCentavos = gastosShow.reduce((s, g) => s + (g.v ?? 0), 0);
+
   return (
     <div>
       <PageHeader
@@ -152,6 +160,7 @@ export default async function ShowDetailPage({
                 casa={show.casa}
                 conflitos={conflitos}
                 admin={admin}
+                gastosCentavos={gastosCentavos}
               />
               <VenueShowCard
                 casaId={show.casaId}
