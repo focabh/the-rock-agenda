@@ -103,6 +103,23 @@ export async function fetchPlaceWebsite(
   }
 }
 
+/** Baixa a mídia (foto) do Places por nome do recurso → data URL. */
+async function photoMediaDataUrl(photoName: string, key: string): Promise<string | null> {
+  try {
+    const mr = await fetch(
+      `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=512&maxWidthPx=512&key=${key}`,
+      { redirect: "follow" }
+    );
+    if (!mr.ok) return null;
+    const buf = Buffer.from(await mr.arrayBuffer());
+    if (buf.length < 200 || buf.length > 4_000_000) return null;
+    const mime = (mr.headers.get("content-type") || "image/jpeg").split(";")[0];
+    return `data:${mime};base64,${buf.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
 /** Busca no Google Places a FOTO da casa (vira logo/imagem) + o @ do Instagram
  *  (se o site oficial for um instagram). É o que funciona de graça hoje
  *  (unavatar/clearbit estão bloqueados). Custo: crédito do Google. */
@@ -127,22 +144,8 @@ export async function fetchPlaceMedia(
     };
     const p = data.places?.[0];
     const instagram = instagramFromUrl(p?.websiteUri);
-
-    let logoDataUrl: string | null = null;
     const photoName = p?.photos?.[0]?.name;
-    if (photoName) {
-      const mr = await fetch(
-        `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=512&maxWidthPx=512&key=${key}`,
-        { redirect: "follow" }
-      );
-      if (mr.ok) {
-        const buf = Buffer.from(await mr.arrayBuffer());
-        if (buf.length > 200 && buf.length < 4_000_000) {
-          const mime = (mr.headers.get("content-type") || "image/jpeg").split(";")[0];
-          logoDataUrl = `data:${mime};base64,${buf.toString("base64")}`;
-        }
-      }
-    }
+    const logoDataUrl = photoName ? await photoMediaDataUrl(photoName, key) : null;
     return { logoDataUrl, instagram };
   } catch {
     return { logoDataUrl: null, instagram: null };
@@ -157,6 +160,7 @@ export type CasaCandidata = {
   categoria: string;
   website: string | null;
   instagram: string | null;
+  logoDataUrl: string | null;
 };
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -184,7 +188,7 @@ export async function descobrirCasas(params: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": key,
         "X-Goog-FieldMask":
-          "places.displayName,places.formattedAddress,places.location,places.websiteUri,places.primaryTypeDisplayName",
+          "places.displayName,places.formattedAddress,places.location,places.websiteUri,places.primaryTypeDisplayName,places.photos",
       },
       body: JSON.stringify({
         textQuery: termo,
@@ -200,26 +204,32 @@ export async function descobrirCasas(params: {
         location?: { latitude?: number; longitude?: number };
         websiteUri?: string;
         primaryTypeDisplayName?: { text?: string };
+        photos?: { name?: string }[];
       }[];
     };
     const raioKm = raioM / 1000;
-    return (data.places ?? [])
-      .map((p) => {
-        const plat = p.location?.latitude ?? null;
-        const plng = p.location?.longitude ?? null;
-        return {
-          nome: p.displayName?.text ?? "",
-          endereco: p.formattedAddress ?? "",
-          lat: plat,
-          lng: plng,
-          categoria: p.primaryTypeDisplayName?.text ?? "",
-          website: p.websiteUri ?? null,
-          instagram: instagramFromUrl(p.websiteUri),
-        };
-      })
+    const base = (data.places ?? [])
+      .map((p) => ({
+        nome: p.displayName?.text ?? "",
+        endereco: p.formattedAddress ?? "",
+        lat: p.location?.latitude ?? null,
+        lng: p.location?.longitude ?? null,
+        categoria: p.primaryTypeDisplayName?.text ?? "",
+        website: p.websiteUri ?? null,
+        instagram: instagramFromUrl(p.websiteUri),
+        photoName: p.photos?.[0]?.name ?? null,
+      }))
       .filter((c) => c.nome)
-      // dentro do raio (o locationBias é só "viés" — filtramos de fato)
-      .filter((c) => c.lat == null || c.lng == null || haversineKm({ lat, lng }, { lat: c.lat, lng: c.lng }) <= raioKm * 1.2);
+      .filter((c) => c.lat == null || c.lng == null || haversineKm({ lat, lng }, { lat: c.lat, lng: c.lng }) <= raioKm * 1.2)
+      .slice(0, 12); // já trazemos a foto de cada → limita pra não pesar
+
+    // Baixa as fotos em paralelo (já vem a imagem na busca).
+    return await Promise.all(
+      base.map(async ({ photoName, ...c }) => ({
+        ...c,
+        logoDataUrl: photoName ? await photoMediaDataUrl(photoName, key) : null,
+      }))
+    );
   } catch {
     return [];
   }

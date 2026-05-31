@@ -109,14 +109,21 @@ export async function descobrirCasasAction(params: {
 export async function adicionarCasaDescobertaAction(c: CasaCandidata): Promise<{ ok: boolean }> {
   await requireAdmin();
   if (!c.nome?.trim()) return { ok: false };
-  const { logoDataUrl, instagram } = await fetchPlaceMedia(c.nome);
+  // a foto/@ já vieram da busca; só busca de novo se faltar algo.
+  let logoUrl = c.logoDataUrl ?? null;
+  let instagram = c.instagram ?? null;
+  if (!logoUrl || !instagram) {
+    const m = await fetchPlaceMedia(c.nome);
+    logoUrl = logoUrl ?? m.logoDataUrl;
+    instagram = instagram ?? m.instagram;
+  }
   await db.insert(venues).values({
     nome: c.nome.trim().slice(0, 120),
     endereco: c.endereco?.slice(0, 300) || null,
     latitude: c.lat ?? null,
     longitude: c.lng ?? null,
-    instagram: c.instagram || instagram || null,
-    logoUrl: logoDataUrl,
+    instagram: instagram || null,
+    logoUrl,
     querTocar: true, // descoberta = candidata pra tocar
   });
   revalidatePath("/casas");

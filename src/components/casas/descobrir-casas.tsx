@@ -90,8 +90,16 @@ export function DescobrirCasas() {
             const add = adicionadas.has(key);
             return (
               <Card key={i} className="border-zinc-800 bg-[#18181b]">
-                <CardContent className="flex items-start justify-between gap-3 py-4">
-                  <div className="min-w-0">
+                <CardContent className="flex items-start gap-3 py-4">
+                  {c.logoDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.logoDataUrl} alt="" className="size-12 shrink-0 rounded-md object-cover ring-1 ring-zinc-700" />
+                  ) : (
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-zinc-500 ring-1 ring-zinc-700">
+                      <MapPin className="size-5" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
                     <h3 className="truncate font-semibold text-zinc-100">{c.nome}</h3>
                     {c.categoria && <p className="text-xs text-zinc-400">{c.categoria}</p>}
                     {c.endereco && (

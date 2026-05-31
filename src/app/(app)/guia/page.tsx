@@ -74,8 +74,29 @@ export default async function GuiaPage() {
         actions={<PrintButton />}
       />
       <div className="p-6 max-w-2xl space-y-5">
+        {/* Guias em PDF pra enviar — em destaque, no topo */}
+        <Card className="border-red-600/60 bg-red-600/10">
+          <CardContent className="py-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <FileText className="size-5 text-amber-400" />
+              <h2 className="text-base font-bold text-zinc-100">Guias pra enviar (PDF)</h2>
+            </div>
+            <p className="text-sm text-zinc-300">
+              Abra, clique em <strong>“Salvar PDF”</strong> e mande pros músicos e pra manager.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button render={<Link href="/guia/musico" />} className="justify-start bg-red-600 hover:bg-red-700">
+                <FileText className="size-4" /> Guia do Músico
+              </Button>
+              <Button render={<Link href="/guia/admin" />} variant="outline" className="justify-start">
+                <FileText className="size-4" /> Guia do Admin / Manager
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Intro high-level */}
-        <Card className="border-red-600/40 bg-[#18181b]">
+        <Card className="border-zinc-800 bg-[#18181b]">
           <CardContent className="py-5 space-y-2">
             <p className="text-xs uppercase tracking-widest text-amber-400">
               StageBoss · {banda}
@@ -89,24 +110,6 @@ export default async function GuiaPage() {
               show espalhado em grupo de zap, áudio e planilha. O que vale é o que
               está aqui.
             </p>
-          </CardContent>
-        </Card>
-
-        {/* Guias em PDF pra enviar */}
-        <Card className="border-zinc-800 bg-[#18181b]">
-          <CardContent className="py-4 space-y-3">
-            <p className="text-sm text-zinc-300">
-              <span className="font-medium text-zinc-100">Guias prontos pra enviar (PDF):</span>{" "}
-              abra e clique em “Salvar PDF” pra mandar pros músicos e pra manager.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" render={<Link href="/guia/musico" />}>
-                <FileText className="size-4" /> Guia do Músico
-              </Button>
-              <Button variant="outline" size="sm" render={<Link href="/guia/admin" />}>
-                <FileText className="size-4" /> Guia do Admin / Manager
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
