@@ -11,6 +11,7 @@ import { requireCurrentUser, getBrand } from "@/lib/auth";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { PrintButton } from "@/components/shared/print-button";
+import { InviteCopy } from "@/components/guia/invite-copy";
 
 export default async function GuiaPage() {
   await requireCurrentUser();
@@ -107,6 +108,8 @@ export default async function GuiaPage() {
             );
           })}
         </div>
+
+        <InviteCopy banda={banda} />
 
         <Card className="border-zinc-800 bg-[#18181b]">
           <CardContent className="py-4 text-sm text-zinc-400">
