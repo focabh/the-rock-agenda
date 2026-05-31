@@ -37,14 +37,29 @@ export function CasasBrowser({
 }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<StatusFilter>("todos");
+  const [cidade, setCidade] = useState("");
   const [bairro, setBairro] = useState("");
 
-  const bairros = useMemo(
+  const cidades = useMemo(
     () =>
-      [...new Set(casas.map((c) => (c.bairro ?? "").trim()).filter(Boolean))].sort(
+      [...new Set(casas.map((c) => (c.cidade ?? "").trim()).filter(Boolean))].sort(
         (a, b) => a.localeCompare(b, "pt-BR")
       ),
     [casas]
+  );
+
+  // Bairros da cidade selecionada (ou de todas, se nenhuma cidade escolhida).
+  const bairros = useMemo(
+    () =>
+      [
+        ...new Set(
+          casas
+            .filter((c) => !cidade || (c.cidade ?? "").trim() === cidade)
+            .map((c) => (c.bairro ?? "").trim())
+            .filter(Boolean)
+        ),
+      ].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [casas, cidade]
   );
 
   const filtradas = useMemo(() => {
@@ -52,14 +67,15 @@ export function CasasBrowser({
     return casas.filter((c) => {
       if (status === "jaTocou" && !c.jaTocou) return false;
       if (status === "querTocar" && !c.querTocar) return false;
+      if (cidade && (c.cidade ?? "").trim() !== cidade) return false;
       if (bairro && (c.bairro ?? "").trim() !== bairro) return false;
       if (t) {
-        const hay = `${c.nome} ${c.contatoPrincipal ?? ""} ${c.bairro ?? ""}`.toLowerCase();
+        const hay = `${c.nome} ${c.contatoPrincipal ?? ""} ${c.bairro ?? ""} ${c.cidade ?? ""}`.toLowerCase();
         if (!hay.includes(t)) return false;
       }
       return true;
     });
-  }, [casas, q, status, bairro]);
+  }, [casas, q, status, cidade, bairro]);
 
   const STATUS: { key: StatusFilter; label: string }[] = [
     { key: "todos", label: "Todos" },
@@ -95,13 +111,32 @@ export function CasasBrowser({
               {s.label}
             </button>
           ))}
-          {bairros.length > 0 && (
+          {cidades.length > 1 && (
+            <select
+              value={cidade}
+              onChange={(e) => {
+                setCidade(e.target.value);
+                setBairro(""); // bairro depende da cidade
+              }}
+              className="shrink-0 h-9 rounded-full border border-zinc-700 bg-[#18181b] px-3 text-sm text-zinc-100"
+            >
+              <option value="">Todas as cidades</option>
+              {cidades.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          )}
+          {bairros.length > 1 && (
             <select
               value={bairro}
               onChange={(e) => setBairro(e.target.value)}
               className="shrink-0 h-9 rounded-full border border-zinc-700 bg-[#18181b] px-3 text-sm text-zinc-100"
             >
-              <option value="">Toda a cidade</option>
+              <option value="">
+                {cidade ? `Todo(a) ${cidade}` : "Todos os bairros"}
+              </option>
               {bairros.map((b) => (
                 <option key={b} value={b}>
                   {b}
