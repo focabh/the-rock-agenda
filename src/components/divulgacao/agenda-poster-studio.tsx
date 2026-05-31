@@ -260,13 +260,11 @@ export function AgendaPosterStudio({
     ].join("\n");
   }
 
-  async function copiarPrompt() {
-    try {
-      await navigator.clipboard.writeText(promptChatGPT());
-      toast.success("Prompt copiado! Cole no ChatGPT, gere a arte, baixe e use 'Enviar foto'.");
-    } catch {
-      toast.error("Não consegui copiar. Selecione e copie manualmente.");
-    }
+  async function abrirNoChatGPT() {
+    const p = promptChatGPT();
+    try { await navigator.clipboard.writeText(p); } catch { /* segue mesmo sem copiar */ }
+    window.open("https://chatgpt.com/?q=" + encodeURIComponent(p), "_blank", "noopener");
+    toast.success("Abrindo o ChatGPT (conta logada) com o prompt. Se ele não enviar sozinho, é só colar — já copiei.");
   }
 
   async function baixar() {
@@ -472,9 +470,9 @@ export function AgendaPosterStudio({
         </Bloco>
 
         <Bloco titulo="Gerar arte no ChatGPT (grátis)">
-          <p className="text-[11px] text-zinc-500">Usa a sua assinatura do ChatGPT — custo extra R$0. Copia um prompt pronto. Cole no ChatGPT, gere, baixe e suba em “Enviar foto”.</p>
-          <Button size="sm" variant="outline" className="mt-2" onClick={copiarPrompt}>
-            <Sparkles className="size-4 text-emerald-400" /> Copiar prompt p/ ChatGPT
+          <p className="text-[11px] text-zinc-500">Usa a sua assinatura do ChatGPT — custo extra R$0. Abre o ChatGPT (conta logada) já com o prompt pronto e enviado. Depois é só baixar a arte e subir em “Enviar foto”.</p>
+          <Button size="sm" variant="outline" className="mt-2" onClick={abrirNoChatGPT}>
+            <Sparkles className="size-4 text-emerald-400" /> Abrir no ChatGPT
           </Button>
         </Bloco>
 
