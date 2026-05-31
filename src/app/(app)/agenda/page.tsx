@@ -91,6 +91,9 @@ export default async function AgendaPage({
           shows={monthShows}
           blocks={monthBlocks}
           members={allMembers}
+          memberColorIndex={Object.fromEntries(
+            allMembers.map((m, i) => [m.id, i])
+          )}
           rehearsals={monthRehearsals}
           isAdmin={admin}
           currentMemberId={currentUser?.member?.id ?? null}
@@ -111,8 +114,8 @@ export default async function AgendaPage({
                 <span className="inline-block w-4 h-4 rounded bg-emerald-500/30 ring-1 ring-emerald-500/50" />
                 Ensaio
               </div>
-              {allMembers.map((m) => {
-                const c = colorForMember(m.id);
+              {allMembers.map((m, i) => {
+                const c = colorForMember(m.id, i);
                 return (
                   <div
                     key={m.id}

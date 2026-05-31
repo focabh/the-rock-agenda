@@ -30,6 +30,7 @@ export function MonthGrid({
   shows,
   blocks,
   members,
+  memberColorIndex = {},
   rehearsals = [],
   isAdmin = false,
   currentMemberId = null,
@@ -39,6 +40,8 @@ export function MonthGrid({
   shows: ShowItem[];
   blocks: MemberUnavailability[];
   members: Member[];
+  /** id do membro → posição (cor distinta na agenda) */
+  memberColorIndex?: Record<string, number>;
   rehearsals?: Rehearsal[];
   isAdmin?: boolean;
   currentMemberId?: string | null;
@@ -292,7 +295,7 @@ export function MonthGrid({
                 {dayBlocks.slice(0, 3).map((b) => {
                   const m = membersById.get(b.memberId);
                   if (!m) return null;
-                  const c = colorForMember(m.id);
+                  const c = colorForMember(m.id, memberColorIndex[m.id]);
                   return (
                     <div
                       key={b.id}
