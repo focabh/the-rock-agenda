@@ -41,6 +41,7 @@ type Rel = { querTocar: boolean; jaTocou: boolean; naoContatar: boolean };
 export function VenueActions({
   venueId,
   telefone,
+  grupoLink = null,
   rel,
   materialLinks,
   materialDate,
@@ -49,6 +50,8 @@ export function VenueActions({
 }: {
   venueId: string;
   telefone: string | null;
+  /** Link de convite do grupo de WhatsApp da casa (opcional). */
+  grupoLink?: string | null;
   rel: Rel;
   /** Caminhos/URLs do material da banda (anexados na divulgação). */
   materialLinks: string[];
@@ -146,6 +149,7 @@ export function VenueActions({
         <MessageDialog
           venueId={venueId}
           telefone={telefone}
+          grupoLink={grupoLink}
           template={active}
           materialLinks={materialLinks}
           onClose={() => setActive(null)}
@@ -192,12 +196,14 @@ function RelToggle({
 function MessageDialog({
   venueId,
   telefone,
+  grupoLink,
   template,
   materialLinks,
   onClose,
 }: {
   venueId: string;
   telefone: string | null;
+  grupoLink?: string | null;
   template: VenueMessageTemplate;
   materialLinks: string[];
   onClose: () => void;
@@ -217,6 +223,13 @@ function MessageDialog({
   const [text, setText] = useState(initial);
   const [pending, start] = useTransition();
 
+  function registrar() {
+    start(async () => {
+      await logVenueContactAction(venueId, template.tipo, text);
+      onClose();
+    });
+  }
+
   function send() {
     const digits = onlyDigits(telefone ?? "");
     const base = digits ? `https://wa.me/55${digits}` : "https://wa.me/";
@@ -225,11 +238,16 @@ function MessageDialog({
       "_blank",
       "noopener,noreferrer"
     );
-    start(async () => {
-      await logVenueContactAction(venueId, template.tipo, text);
-      toast.success("Contato registrado.");
-      onClose();
-    });
+    toast.success("Contato registrado.");
+    registrar();
+  }
+
+  function sendGroup() {
+    if (!grupoLink) return;
+    navigator.clipboard?.writeText(text).catch(() => {});
+    window.open(grupoLink, "_blank", "noopener,noreferrer");
+    toast.success("Texto copiado — cole no grupo e envie. Contato registrado.");
+    registrar();
   }
 
   return (
@@ -249,17 +267,23 @@ function MessageDialog({
             rows={9}
             autoFocus
           />
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
+            {grupoLink && (
+              <Button variant="outline" onClick={sendGroup} disabled={pending}>
+                <MessageCircle className="size-4" />
+                Abrir grupo da casa
+              </Button>
+            )}
             <Button onClick={send} disabled={pending}>
               {pending ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <MessageCircle className="size-4" />
               )}
-              Enviar pelo WhatsApp
+              {telefone ? "Enviar (contato direto)" : "Enviar pelo WhatsApp"}
             </Button>
           </div>
         </div>

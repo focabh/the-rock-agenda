@@ -200,6 +200,7 @@ export default async function CasaDetailPage({
         <VenueActions
           venueId={id}
           telefone={casa.telefone}
+          grupoLink={casa.whatsappGrupo}
           rel={{
             querTocar: casa.querTocar,
             jaTocou: casa.jaTocou,
