@@ -18,9 +18,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "StageBoss",
   description: "StageBoss — gestão de banda: shows, setlists, repertório e casas",
+  // Ícones via rota dinâmica (logo atual do admin), não o PNG estático antigo —
+  // assim o ícone na tela inicial do iOS acompanha a logo. (iOS guarda o ícone
+  // no momento de "Adicionar à tela inicial"; precisa re-adicionar pra atualizar.)
   icons: {
-    icon: "/the-rock-logo.png",
-    apple: "/the-rock-logo.png",
+    icon: "/api/icon/192",
+    apple: "/api/icon/180",
   },
 };
 
