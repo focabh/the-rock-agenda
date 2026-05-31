@@ -571,7 +571,7 @@ function SortableSetlistItem({
       </div>
 
       {item.song.dropada && (
-        <span className="hidden shrink-0 items-center rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-inset ring-amber-500/30 sm:inline-flex" title="Afinação dropada">
+        <span className="inline-flex shrink-0 items-center rounded bg-amber-500/10 px-1 py-0.5 text-[9px] font-bold text-amber-300 ring-1 ring-inset ring-amber-500/30 sm:px-1.5 sm:text-[10px]" title="Afinação dropada">
           DROP
         </span>
       )}

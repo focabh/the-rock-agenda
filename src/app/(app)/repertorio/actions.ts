@@ -440,3 +440,31 @@ export async function toggleFavoritaAction(id: string, favorita: boolean) {
   await db.update(songs).set({ favorita }).where(eq(songs.id, id));
   revalidatePath("/repertorio");
 }
+
+/** Marca/desmarca afinação dropada de uma música (reflete nos setlists). */
+export async function setSongDropAction(id: string, dropada: boolean) {
+  await requireAdmin();
+  await db.update(songs).set({ dropada }).where(eq(songs.id, id));
+  revalidatePath("/repertorio");
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+}
+
+/** Verifica o repertório e marca como drop as músicas detectadas (heurística).
+ *  Só adiciona (não desmarca) — o admin ajusta manualmente o que quiser. */
+export async function verificarDropsAction(): Promise<{ marcadas: number }> {
+  await requireAdmin();
+  const { isLikelyDrop } = await import("@/lib/drop-detect");
+  const rows = await db.select({ id: songs.id, titulo: songs.titulo, artista: songs.artista, dropada: songs.dropada }).from(songs);
+  let marcadas = 0;
+  for (const s of rows) {
+    if (!s.dropada && isLikelyDrop(s.titulo, s.artista)) {
+      await db.update(songs).set({ dropada: true }).where(eq(songs.id, s.id));
+      marcadas++;
+    }
+  }
+  revalidatePath("/repertorio");
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { marcadas };
+}

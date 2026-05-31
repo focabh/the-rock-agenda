@@ -47,6 +47,8 @@ import {
   bulkDeleteSongsAction,
   bulkSetStatusAction,
   bulkSetFavoritaAction,
+  setSongDropAction,
+  verificarDropsAction,
 } from "@/app/(app)/repertorio/actions";
 
 type ReadinessMap = Record<string, Record<string, string>>;
@@ -336,6 +338,20 @@ export function SongList({
             );
           })()}
 
+        {(admin || s.dropada) && (
+          <button
+            onClick={() => admin && startTransition(() => setSongDropAction(s.id, !s.dropada))}
+            disabled={!admin}
+            title={s.dropada ? "Afinação dropada — toque pra desmarcar" : "Marcar afinação dropada (Drop D/C…)"}
+            className={cn(
+              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ring-1 ring-inset transition-colors",
+              s.dropada ? "bg-amber-500/15 text-amber-300 ring-amber-500/30" : "text-muted-foreground ring-border hover:text-amber-300"
+            )}
+          >
+            DROP
+          </button>
+        )}
+
         {admin && (
           <>
             <Button
@@ -386,6 +402,20 @@ export function SongList({
                 <CheckSquare className="size-4" />
               )}
               {selectMode ? "Sair" : "Selecionar"}
+            </Button>
+          )}
+          {admin && (
+            <Button
+              variant="outline"
+              title="Detecta automaticamente as músicas com afinação dropada e marca pra você"
+              onClick={() =>
+                startTransition(async () => {
+                  const r = await verificarDropsAction();
+                  toast.success(r.marcadas > 0 ? `${r.marcadas} música(s) marcada(s) como DROP. Confira e ajuste.` : "Nenhuma nova música drop detectada.");
+                })
+              }
+            >
+              <Guitar className="size-4" /> Verificar drop
             </Button>
           )}
           <div className="ml-auto self-center text-sm text-muted-foreground">
