@@ -79,48 +79,7 @@ const GRADIENTES = [
   "linear-gradient(135deg, #1a0a1e, #09090b 70%)",
 ];
 
-function neutralizarCores(el: HTMLElement) {
-  try {
-    const ctx = document.createElement("canvas").getContext("2d");
-    if (!ctx) return;
-    const ruim = /lab|oklch|oklab|color-mix/i;
-    const norm = (v: string | null): string | null => {
-      if (!v || !ruim.test(v)) return null;
-      try {
-        ctx.fillStyle = "#000";
-        ctx.fillStyle = v;
-        return ctx.fillStyle;
-      } catch {
-        return null;
-      }
-    };
-    const nodes = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
-    for (const node of nodes) {
-      const cs = getComputedStyle(node);
-      const c = norm(cs.color);
-      if (c) node.style.color = c;
-      const bg = norm(cs.backgroundColor);
-      if (bg) node.style.backgroundColor = bg;
-      for (const side of ["top", "right", "bottom", "left"] as const) {
-        const bc = norm(cs.getPropertyValue(`border-${side}-color`));
-        if (bc) node.style.setProperty(`border-${side}-color`, bc);
-      }
-      node.style.outline = "none";
-      node.style.boxShadow = "none";
-    }
-  } catch {
-    /* nunca quebra a exportação */
-  }
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("canvas vazio"))), "image/png")
-  );
-}
-
-async function baixarCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
-  const blob = await canvasToBlob(canvas);
+async function baixarBlob(blob: Blob, filename: string): Promise<void> {
   const file = new File([blob], filename, { type: "image/png" });
   const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
   if (nav.canShare?.({ files: [file] }) && typeof nav.share === "function") {
@@ -237,14 +196,9 @@ export function AgendaPosterStudio({
     setDownloading(true);
     try {
       await garantirFonte(FONTES[fonte].family);
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(node, {
-        useCORS: true,
-        backgroundColor: "#09090b",
-        scale: 1080 / node.offsetWidth,
-        onclone: (_doc, el) => neutralizarCores(el),
-      });
-      await baixarCanvas(canvas, `agenda-${periodo}-${aspect === "9:16" ? "stories" : "feed"}.png`);
+      const { domToBlob } = await import("modern-screenshot");
+      const blob = await domToBlob(node, { scale: 1080 / node.offsetWidth, backgroundColor: "#09090b", type: "image/png" });
+      await baixarBlob(blob, `agenda-${periodo}-${aspect === "9:16" ? "stories" : "feed"}.png`);
     } catch (e) {
       toast.error("Falha ao exportar: " + (e instanceof Error ? e.message : "erro desconhecido") + ". Use 'Enviar foto' (link externo pode ser bloqueado).");
     } finally {
@@ -438,7 +392,10 @@ export function AgendaPosterStudio({
               return (
                 <button
                   key={m.nome}
-                  onClick={() => { setFonte(m.fonte); setEfeito(m.efeito); setAccent(m.accent); }}
+                  onClick={() => {
+                    if (ativo) { setFonte("anton"); setEfeito("sombra"); setAccent("#f59e0b"); }
+                    else { setFonte(m.fonte); setEfeito(m.efeito); setAccent(m.accent); }
+                  }}
                   className={cn("flex flex-col items-center gap-1 rounded-lg border p-2", ativo ? "border-primary ring-1 ring-primary" : "border-zinc-700 hover:border-zinc-500")}
                 >
                   <span className="text-xl font-black uppercase leading-none text-zinc-50" style={{ fontFamily: FONTES[m.fonte].family, ...fx(m.efeito, m.accent) }}>Aa</span>

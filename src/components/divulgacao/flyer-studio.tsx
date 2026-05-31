@@ -98,55 +98,11 @@ function fx(efeito: Efeito, accent: string): React.CSSProperties {
 }
 const pillText = (accent: string) => (accent === "#ef4444" ? "#fff" : "#09090b");
 
-/** html2canvas (1.4) não parseia lab()/oklch()/color-mix() — que o Tailwind v4
- *  gera. No onclone, convertemos essas cores pra rgb (o canvas normaliza) e
- *  zeramos outline/box-shadow, senão a exportação lança erro. */
-function neutralizarCores(el: HTMLElement) {
-  try {
-    const ctx = document.createElement("canvas").getContext("2d");
-    if (!ctx) return;
-    const ruim = /lab|oklch|oklab|color-mix/i;
-    const norm = (v: string | null): string | null => {
-      if (!v || !ruim.test(v)) return null;
-      try {
-        ctx.fillStyle = "#000";
-        ctx.fillStyle = v;
-        return ctx.fillStyle;
-      } catch {
-        return null;
-      }
-    };
-    const nodes = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
-    for (const node of nodes) {
-      const cs = getComputedStyle(node);
-      const c = norm(cs.color);
-      if (c) node.style.color = c;
-      const bg = norm(cs.backgroundColor);
-      if (bg) node.style.backgroundColor = bg;
-      for (const side of ["top", "right", "bottom", "left"] as const) {
-        const bc = norm(cs.getPropertyValue(`border-${side}-color`));
-        if (bc) node.style.setProperty(`border-${side}-color`, bc);
-      }
-      node.style.outline = "none";
-      node.style.boxShadow = "none";
-    }
-  } catch {
-    /* nunca quebra a exportação */
-  }
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("canvas vazio"))), "image/png")
-  );
-}
-
 /** Salva a imagem do jeito que funciona no aparelho:
  *  - Celular (iOS/Android): Web Share API → folha de compartilhar (Salvar
  *    imagem / mandar pro Instagram). Anchor download não funciona no iOS.
  *  - Desktop: download via Blob URL (data: URL grande é bloqueado pelo Chrome). */
-async function baixarCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
-  const blob = await canvasToBlob(canvas);
+async function baixarBlob(blob: Blob, filename: string): Promise<void> {
   const file = new File([blob], filename, { type: "image/png" });
   const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
   if (nav.canShare?.({ files: [file] }) && typeof nav.share === "function") {
@@ -282,9 +238,9 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
     setDownloading(true);
     try {
       await garantirFonte(fam);
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(ref.current, { useCORS: true, backgroundColor: "#09090b", scale: 1080 / ref.current.offsetWidth, onclone: (_doc, el) => neutralizarCores(el) });
-      await baixarCanvas(canvas, `flyer-${aspect === "9:16" ? "stories" : "feed"}.png`);
+      const { domToBlob } = await import("modern-screenshot");
+      const blob = await domToBlob(ref.current, { scale: 1080 / ref.current.offsetWidth, backgroundColor: "#09090b", type: "image/png" });
+      await baixarBlob(blob, `flyer-${aspect === "9:16" ? "stories" : "feed"}.png`);
     } catch (e) {
       toast.error("Falha ao exportar: " + (e instanceof Error ? e.message : "erro desconhecido") + ". Se usou link de imagem externo, envie a foto.");
     } finally {
@@ -348,7 +304,10 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
               return (
                 <button
                   key={m.nome}
-                  onClick={() => { setFonte(m.fonte); setEfeito(m.efeito); setAccent(m.accent); }}
+                  onClick={() => {
+                    if (ativo) { setFonte("anton"); setEfeito("sombra"); setAccent("#f59e0b"); }
+                    else { setFonte(m.fonte); setEfeito(m.efeito); setAccent(m.accent); }
+                  }}
                   className={cn("flex flex-col items-center gap-1 rounded-lg border p-2", ativo ? "border-primary ring-1 ring-primary" : "border-zinc-700 hover:border-zinc-500")}
                 >
                   <span className="text-xl font-black uppercase leading-none text-zinc-50" style={{ fontFamily: FONTES[m.fonte].family, ...fx(m.efeito, m.accent) }}>Aa</span>
