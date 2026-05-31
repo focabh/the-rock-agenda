@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { fileToDownscaledDataUrl } from "@/lib/image-resize";
-import { addImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
+import { addImagemDivulgacaoAction, deleteImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
 import { gerarImagemIAAction } from "@/app/(app)/shows/[id]/divulgacao/ia-actions";
 
 type Show = {
@@ -218,11 +218,20 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
       let first = true;
       for (const f of arr) {
         const url = await fileToDownscaledDataUrl(f, 1600, 0.82);
-        setImgs((p) => [{ id: `local-${Date.now()}-${Math.round(performance.now())}`, url }, ...p]);
+        const res = await addImagemDivulgacaoAction(url);
+        const id = res.id ?? `local-${Date.now()}-${Math.round(performance.now())}`;
+        setImgs((p) => [{ id, url }, ...p]);
         if (first) { setBg(url); first = false; }
-        await addImagemDivulgacaoAction(url);
       }
     });
+  }
+
+  async function excluirImg(id: string, url: string) {
+    setImgs((p) => p.filter((im) => im.id !== id));
+    if (bg === url) setBg(null);
+    if (!/^(local|ia|ex)-/.test(id)) {
+      try { await deleteImagemDivulgacaoAction(id); } catch { /* já saiu da lista */ }
+    }
   }
 
   async function gerarModelos() {
@@ -250,6 +259,27 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
     if (escopo === "imagem") {
       setGrad(m.grad);
       setBg(null);
+    }
+  }
+
+  function promptChatGPT() {
+    const tipo = festival ? `pôster de line-up do evento "${evento.trim() || banda}"` : `flyer de show da banda "${banda}"`;
+    const linhas = lineupValido.map((b) => `${b.hora ? b.hora + " " : ""}${b.nome}`).join(", ");
+    return [
+      `Crie uma arte de ${tipo} no formato vertical 9:16 (Instagram Stories), 1080x1920px.`,
+      `Estilo visual: moderno e impactante, cara de post de Instagram (referência "${estilo}"). Fonte/letras estilo "${FONTES[fonte].label}".`,
+      `Cor de destaque predominante: ${accent}.`,
+      festival && linhas ? `Line-up: ${linhas}.` : `Data: ${data}. Local: ${casa}.${ingresso ? ` Ingresso: ${ingresso}.` : ""}`,
+      `IMPORTANTE: deixe áreas limpas/escuras pra eu sobrepor o texto depois, e NÃO escreva texto na imagem (eu adiciono no app). Se preferir já com texto, escreva exatamente os dados acima.`,
+    ].join("\n");
+  }
+
+  async function copiarPrompt() {
+    try {
+      await navigator.clipboard.writeText(promptChatGPT());
+      toast.success("Prompt copiado! Cole no ChatGPT, gere a arte, baixe e use 'Enviar foto'.");
+    } catch {
+      toast.error("Não consegui copiar. Selecione e copie manualmente.");
     }
   }
 
@@ -306,8 +336,14 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
       <div className="flex flex-col items-center gap-3">
         <div ref={ref} className="relative overflow-hidden rounded-xl ring-1 ring-zinc-800" style={{ width: W, height: H, background: bg ? "#000" : grad }}>
           {bg && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={bg} alt="" crossOrigin="anonymous" className="absolute inset-0 size-full object-cover" />
+            <>
+              {/* preenchimento borrado atrás pra não sobrar barra preta */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={bg} alt="" aria-hidden crossOrigin="anonymous" className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-lg" />
+              {/* foto inteira, sem cortar */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={bg} alt="" crossOrigin="anonymous" className="absolute inset-0 size-full object-contain" />
+            </>
           )}
           <div className="absolute inset-0" style={{ background: scrimBg }} />
           <div
@@ -431,13 +467,25 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           {imgs.length > 0 && (
             <div className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-7">
               {imgs.map((im) => (
-                <button key={im.id} onClick={() => setBg(im.url)} className={cn("aspect-square overflow-hidden rounded-md border", bg === im.url ? "border-primary ring-1 ring-primary" : "border-zinc-700")}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={im.url} alt="" className="size-full object-cover" />
-                </button>
+                <div key={im.id} className="relative">
+                  <button onClick={() => setBg(im.url)} className={cn("aspect-square w-full overflow-hidden rounded-md border", bg === im.url ? "border-primary ring-1 ring-primary" : "border-zinc-700")}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={im.url} alt="" className="size-full object-cover" />
+                  </button>
+                  <button onClick={() => excluirImg(im.id, im.url)} className="absolute -right-1.5 -top-1.5 rounded-full bg-zinc-900/90 p-0.5 text-zinc-300 ring-1 ring-zinc-700 hover:text-red-400" title="Excluir foto">
+                    <X className="size-3" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
+        </Bloco>
+
+        <Bloco titulo="Gerar arte no ChatGPT (grátis)">
+          <p className="text-[11px] text-zinc-500">Usa a sua assinatura do ChatGPT — custo extra R$0. Copia um prompt pronto (banda, data, estilo, 9:16). Cole no ChatGPT, gere, baixe e suba em “Enviar foto”.</p>
+          <Button size="sm" variant="outline" className="mt-2" onClick={copiarPrompt}>
+            <Sparkles className="size-4 text-emerald-400" /> Copiar prompt p/ ChatGPT
+          </Button>
         </Bloco>
 
         <Bloco titulo="Inspiração: gerar modelos a partir de um exemplo">
@@ -526,10 +574,13 @@ function Conteudo({
     <img src={qr} alt="QR" className="size-14 shrink-0 rounded bg-white p-0.5" />
   ) : null;
 
+  // fonte + efeito escolhidos valem pra TODO texto do flyer.
+  const t = (extra?: React.CSSProperties): React.CSSProperties => ({ fontFamily: fam, ...titleFx, ...extra });
+
   const LineupList = festival && lineup.length > 0 ? (
     <ul className="mt-2 space-y-0.5">
       {lineup.map((b, i) => (
-        <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>
+        <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={t()}>
           {b.hora && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
           <span className="text-sm font-semibold uppercase tracking-wide">{b.nome}</span>
         </li>
@@ -540,12 +591,12 @@ function Conteudo({
   if (estilo === "minimal") {
     return (
       <div className="w-full">
-        {headline && <p className="text-[10px] uppercase tracking-[0.35em]" style={{ color: accent }}>{headline}</p>}
-        <p className="mt-1 font-bold uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleSize(30), ...titleFx }}>{tituloPrincipal}</p>
+        {headline && <p className="text-[10px] uppercase tracking-[0.35em]" style={t({ color: accent })}>{headline}</p>}
+        <p className="mt-1 font-bold uppercase leading-none text-zinc-50" style={t(titleSize(30))}>{tituloPrincipal}</p>
         <div className="mt-3 h-px w-12" style={{ background: accent }} />
         {LineupList}
-        <p className="mt-3 text-sm font-medium text-zinc-100" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{casa}</p>
-        <p className="text-xs text-zinc-300" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{data}{!festival && inicio ? ` · ${inicio}` : ""}{ingresso ? ` · ${ingresso}` : ""}</p>
+        <p className="mt-3 text-sm font-medium text-zinc-100" style={t()}>{casa}</p>
+        <p className="text-xs text-zinc-300" style={t()}>{data}{!festival && inicio ? ` · ${inicio}` : ""}{ingresso ? ` · ${ingresso}` : ""}</p>
         {QR && <div className="mt-3">{QR}</div>}
       </div>
     );
@@ -554,14 +605,14 @@ function Conteudo({
   if (estilo === "tarja") {
     return (
       <div className="w-full rounded-lg p-3 backdrop-blur-sm" style={{ background: `rgba(9,9,11,${tarjaOp / 100})`, border: `1px solid ${accent}` }}>
-        {headline && <p className="text-[10px] uppercase tracking-[0.25em]" style={{ color: accent }}>{headline}</p>}
-        <p className="font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleSize(24), ...titleFx }}>{tituloPrincipal}</p>
+        {headline && <p className="text-[10px] uppercase tracking-[0.25em]" style={t({ color: accent })}>{headline}</p>}
+        <p className="font-black uppercase leading-none text-zinc-50" style={t(titleSize(24))}>{tituloPrincipal}</p>
         {LineupList}
         <div className="mt-1.5 flex items-end justify-between gap-2">
           <div className="text-[11px] leading-tight text-zinc-200">
-            <p className="font-semibold">{casa}</p>
-            <p className="text-zinc-400">{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
-            {ingresso && <p style={{ color: accent }}>Ingresso: {ingresso}</p>}
+            <p className="font-semibold" style={t()}>{casa}</p>
+            <p className="text-zinc-400" style={t()}>{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
+            {ingresso && <p style={t({ color: accent })}>Ingresso: {ingresso}</p>}
           </div>
           {QR}
         </div>
@@ -572,16 +623,16 @@ function Conteudo({
   return (
     <div className="w-full">
       {headline && (
-        <span className="inline-block px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.2em]" style={{ background: accent, color: pillText(accent) }}>{headline}</span>
+        <span className="inline-block px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.2em]" style={t({ background: accent, color: pillText(accent) })}>{headline}</span>
       )}
-      <p className="mt-2 font-black uppercase leading-[0.85] text-zinc-50" style={{ fontFamily: fam, ...titleSize(festival ? 36 : 48), ...titleFx }}>{tituloPrincipal}</p>
+      <p className="mt-2 font-black uppercase leading-[0.85] text-zinc-50" style={t(titleSize(festival ? 36 : 48))}>{tituloPrincipal}</p>
       {LineupList}
       <div className="mt-3 flex items-end justify-between gap-3">
         <div className="leading-tight">
-          <p className="text-lg font-bold" style={{ fontFamily: fam, color: accent, ...titleFx }}>{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
-          <p className="text-sm font-semibold uppercase tracking-wide text-zinc-100" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{casa}</p>
+          <p className="text-lg font-bold" style={t({ color: accent })}>{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-zinc-100" style={t()}>{casa}</p>
           {ingresso && (
-            <span className="mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold" style={{ background: accent, color: pillText(accent) }}>{ingresso}</span>
+            <span className="mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold" style={t({ background: accent, color: pillText(accent) })}>{ingresso}</span>
           )}
         </div>
         {QR}

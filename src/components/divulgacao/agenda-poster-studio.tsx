@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { fileToDownscaledDataUrl } from "@/lib/image-resize";
-import { addImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
+import { addImagemDivulgacaoAction, deleteImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
 import { gerarImagemIAAction } from "@/app/(app)/shows/[id]/divulgacao/ia-actions";
 
 export type PosterShow = {
@@ -189,12 +189,21 @@ export function AgendaPosterStudio({
       let primeira = true;
       for (const file of arr) {
         const url = await fileToDownscaledDataUrl(file);
-        setImgs((p) => [{ id: `local-${Date.now()}-${Math.round(performance.now())}`, url }, ...p]);
+        const res = await addImagemDivulgacaoAction(url);
+        const id = res.id ?? `local-${Date.now()}-${Math.round(performance.now())}`;
+        setImgs((p) => [{ id, url }, ...p]);
         if (primeira) { setBg(url); primeira = false; }
-        await addImagemDivulgacaoAction(url);
       }
       if (arr.length > 1) toast.success(`${arr.length} fotos adicionadas.`);
     });
+  }
+
+  async function excluirImg(id: string, url: string) {
+    setImgs((p) => p.filter((im) => im.id !== id));
+    if (bg === url) setBg(null);
+    if (!/^(local|ia|ex)-/.test(id)) {
+      try { await deleteImagemDivulgacaoAction(id); } catch { /* já saiu da lista */ }
+    }
   }
 
   async function gerarModelos() {
@@ -239,6 +248,27 @@ export function AgendaPosterStudio({
     }
   }
 
+  function promptChatGPT() {
+    const linhas = lineupValido.map((b) => `${b.hora ? b.hora + " " : ""}${b.nome}`).join(", ");
+    return [
+      festival
+        ? `Crie a arte de um pôster de line-up do evento "${evento.trim() || banda}"${dataEvento ? ` (${dataEvento})` : ""} no formato vertical 9:16 (Instagram Stories), 1080x1920px.`
+        : `Crie a arte de um pôster de agenda de shows da banda "${banda}" no formato vertical 9:16 (Instagram Stories), 1080x1920px.`,
+      `Estilo: moderno, impactante, cara de post de Instagram. Cor de destaque: ${accent}.`,
+      festival && linhas ? `Line-up: ${linhas}.` : `Vou listar vários shows (datas + locais) por cima.`,
+      `IMPORTANTE: deixe áreas limpas/escuras pra eu sobrepor a lista de texto depois, e NÃO escreva texto na imagem (eu adiciono no app).`,
+    ].join("\n");
+  }
+
+  async function copiarPrompt() {
+    try {
+      await navigator.clipboard.writeText(promptChatGPT());
+      toast.success("Prompt copiado! Cole no ChatGPT, gere a arte, baixe e use 'Enviar foto'.");
+    } catch {
+      toast.error("Não consegui copiar. Selecione e copie manualmente.");
+    }
+  }
+
   async function baixar() {
     const node = document.getElementById("agenda-poster");
     if (!node) return;
@@ -279,8 +309,12 @@ export function AgendaPosterStudio({
           style={{ width: W, height: H, background: bg ? "#000" : grad }}
         >
           {bg && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={bg} alt="" crossOrigin="anonymous" className="absolute inset-0 size-full object-cover" />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={bg} alt="" aria-hidden crossOrigin="anonymous" className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-lg" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={bg} alt="" crossOrigin="anonymous" className="absolute inset-0 size-full object-contain" />
+            </>
           )}
           <div
             className="absolute inset-0"
@@ -289,7 +323,7 @@ export function AgendaPosterStudio({
 
           <div className="absolute inset-0 flex flex-col p-4">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.3em]" style={{ color: accent }}>
+              <p className="text-[11px] uppercase tracking-[0.3em]" style={{ fontFamily: fam, color: accent, ...titleFx }}>
                 {festival ? (dataEvento.trim() || "Line-up") : "Agenda"}
               </p>
               <p className="font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, fontSize: Math.round(30 * escalaTitulo), ...titleFx }}>
@@ -303,7 +337,7 @@ export function AgendaPosterStudio({
                   <li className="text-sm text-zinc-400">Adicione as bandas do line-up.</li>
                 ) : (
                   lineupValido.map((b, i) => (
-                    <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>
+                    <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>
                       {b.hora && <span className="shrink-0 text-sm font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold uppercase tracking-wide">{b.nome}</span>
                     </li>
@@ -316,7 +350,7 @@ export function AgendaPosterStudio({
                   <li className="text-sm text-zinc-400">Sem shows no período.</li>
                 ) : (
                   filtrados.map((s, i) => (
-                    <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>
+                    <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>
                       <span className="shrink-0 text-sm font-bold tabular-nums" style={{ color: accent }}>{s.shortData}</span>
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.casa}</span>
                       <span className="shrink-0 text-xs text-zinc-300">{s.hora}</span>
@@ -325,7 +359,7 @@ export function AgendaPosterStudio({
                 )}
               </ul>
             )}
-            <p className="mt-2 text-center text-[9px] uppercase tracking-widest text-zinc-400">
+            <p className="mt-2 text-center text-[9px] uppercase tracking-widest text-zinc-400" style={{ fontFamily: fam }}>
               {banda} · ao vivo
             </p>
           </div>
@@ -423,17 +457,25 @@ export function AgendaPosterStudio({
           {imgs.length > 0 && (
             <div className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-7">
               {imgs.map((im) => (
-                <button
-                  key={im.id}
-                  onClick={() => setBg(im.url)}
-                  className={cn("aspect-square overflow-hidden rounded-md border", bg === im.url ? "border-primary ring-1 ring-primary" : "border-zinc-700")}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={im.url} alt="" className="size-full object-cover" />
-                </button>
+                <div key={im.id} className="relative">
+                  <button onClick={() => setBg(im.url)} className={cn("aspect-square w-full overflow-hidden rounded-md border", bg === im.url ? "border-primary ring-1 ring-primary" : "border-zinc-700")}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={im.url} alt="" className="size-full object-cover" />
+                  </button>
+                  <button onClick={() => excluirImg(im.id, im.url)} className="absolute -right-1.5 -top-1.5 rounded-full bg-zinc-900/90 p-0.5 text-zinc-300 ring-1 ring-zinc-700 hover:text-red-400" title="Excluir foto">
+                    <X className="size-3" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
+        </Bloco>
+
+        <Bloco titulo="Gerar arte no ChatGPT (grátis)">
+          <p className="text-[11px] text-zinc-500">Usa a sua assinatura do ChatGPT — custo extra R$0. Copia um prompt pronto. Cole no ChatGPT, gere, baixe e suba em “Enviar foto”.</p>
+          <Button size="sm" variant="outline" className="mt-2" onClick={copiarPrompt}>
+            <Sparkles className="size-4 text-emerald-400" /> Copiar prompt p/ ChatGPT
+          </Button>
         </Bloco>
 
         <Bloco titulo="Inspiração: gerar modelos a partir de um exemplo">
