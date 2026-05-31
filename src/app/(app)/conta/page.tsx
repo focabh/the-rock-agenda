@@ -57,6 +57,7 @@ export default async function ContaPage() {
           <BrandSettings
             initialName={brand.bandName ?? ""}
             initialBg={brand.backgroundUrl ?? ""}
+            initialGrupo={brand.whatsappGrupo ?? ""}
           />
         )}
         {admin && <LogoUploader currentLogo={logo} />}

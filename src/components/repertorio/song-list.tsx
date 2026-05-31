@@ -16,6 +16,7 @@ import {
   Guitar,
   Drum,
   Piano,
+  Search,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -324,15 +325,26 @@ export function SongList({
           (() => {
             const Icon = MATERIAL_ICON[material.play.kind];
             return (
-              <a
-                href={material.play.href(s.artista, s.titulo)}
-                target="_blank"
-                rel="noreferrer"
-                className="shrink-0 inline-flex size-8 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
-                title={`${material.play.label} — ${material.play.provider}`}
-              >
-                <Icon className="size-4" />
-              </a>
+              <span className="shrink-0 inline-flex items-center">
+                <a
+                  href={material.play.href(s.artista, s.titulo)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex size-8 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
+                  title={`${material.play.label} — ${material.play.provider}`}
+                >
+                  <Icon className="size-4" />
+                </a>
+                <a
+                  href={material.play.altHref(s.artista, s.titulo)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-accent/50 hover:text-foreground"
+                  title="Outra fonte (busca grátis no Google)"
+                >
+                  <Search className="size-3" />
+                </a>
+              </span>
             );
           })()}
 

@@ -132,22 +132,24 @@ export async function removeLogoAction() {
   return { ok: true };
 }
 
-/** Define a identidade do login (nome da banda + URL da imagem de fundo). */
+/** Define a identidade (nome, fundo do login) e o link do grupo da banda no WhatsApp. */
 export async function setBrandAction(
   bandName: string,
-  backgroundUrl: string
+  backgroundUrl: string,
+  whatsappGrupo = ""
 ): Promise<{ ok: boolean }> {
   await requireAdmin();
   const name = bandName.trim().slice(0, 80) || null;
   const bg = backgroundUrl.trim().slice(0, 2000) || null;
+  const grupo = whatsappGrupo.trim().slice(0, 300) || null;
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) {
     await db
       .update(appSettings)
-      .set({ bandName: name, backgroundUrl: bg })
+      .set({ bandName: name, backgroundUrl: bg, whatsappGrupo: grupo })
       .where(eq(appSettings.id, row.id));
   } else {
-    await db.insert(appSettings).values({ bandName: name, backgroundUrl: bg });
+    await db.insert(appSettings).values({ bandName: name, backgroundUrl: bg, whatsappGrupo: grupo });
   }
   revalidatePath("/", "layout");
   return { ok: true };

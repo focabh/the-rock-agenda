@@ -12,12 +12,15 @@ import { setBrandAction } from "@/app/(app)/conta/actions";
 export function BrandSettings({
   initialName,
   initialBg,
+  initialGrupo,
 }: {
   initialName: string;
   initialBg: string;
+  initialGrupo: string;
 }) {
   const [name, setName] = useState(initialName);
   const [bg, setBg] = useState(initialBg);
+  const [grupo, setGrupo] = useState(initialGrupo);
   const [pending, start] = useTransition();
 
   return (
@@ -48,13 +51,26 @@ export function BrandSettings({
             placeholder="https://…/foto-da-banda.jpg"
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="whatsappGrupo">Link do grupo da banda no WhatsApp</Label>
+          <Input
+            id="whatsappGrupo"
+            value={grupo}
+            onChange={(e) => setGrupo(e.target.value)}
+            placeholder="https://chat.whatsapp.com/…"
+          />
+          <p className="text-xs text-muted-foreground">
+            No WhatsApp: grupo → Convidar via link → Copiar. Cole aqui uma vez. Os
+            avisos abrem o grupo já (você cola a mensagem e envia).
+          </p>
+        </div>
         <div className="flex justify-end">
           <Button
             disabled={pending}
             onClick={() =>
               start(async () => {
-                const r = await setBrandAction(name, bg);
-                if (r.ok) toast.success("Identidade salva.");
+                const r = await setBrandAction(name, bg, grupo);
+                if (r.ok) toast.success("Salvo.");
                 else toast.error("Não foi possível salvar.");
               })
             }

@@ -44,6 +44,7 @@ export function PresenceCard({
   currentMemberId,
   admin,
   wa,
+  groupLink = null,
 }: {
   eventId: string;
   action: PresenceAction;
@@ -52,6 +53,8 @@ export function PresenceCard({
   currentMemberId: string | null;
   admin: boolean;
   wa: PresenceWa;
+  /** Link de convite do grupo da banda no WhatsApp (opcional). */
+  groupLink?: string | null;
 }) {
   const [, startTransition] = useTransition();
   const byMember = new Map(presences.map((p) => [p.memberId, p]));
@@ -76,7 +79,14 @@ export function PresenceCard({
     const msg = `🎸 ${L} da banda ${wa.quando}${localTxt}!\nConfirmem presença: ${url}`;
     navigator.clipboard
       .writeText(msg)
-      .then(() => toast.success("Mensagem copiada — cole no grupo da banda."))
+      .then(() => {
+        if (groupLink) {
+          toast.success("Mensagem copiada — abrindo o grupo. Cole e envie.");
+          window.open(groupLink, "_blank");
+        } else {
+          toast.success("Mensagem copiada — cole no grupo da banda.");
+        }
+      })
       .catch(() => toast.error("Não consegui copiar."));
   }
 

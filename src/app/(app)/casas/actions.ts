@@ -29,6 +29,7 @@ const casaSchema = z.object({
     ),
   instagram: z.string().max(200).optional(),
   infraestrutura: z.string().max(2000).optional(),
+  whatsappGrupo: z.string().max(300).optional(),
   observacoes: z.string().max(2000).optional(),
 });
 

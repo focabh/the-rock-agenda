@@ -15,7 +15,7 @@ import {
   gastos,
 } from "@/db/schema";
 import { membersUnavailableOn } from "@/lib/conflicts";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser, isAdmin, getBrand } from "@/lib/auth";
 import { PresenceCard } from "@/components/shows/presence-card";
 import { setPresenceAction } from "@/app/(app)/shows/[id]/actions-presence";
 import { PaymentBreakdown } from "@/components/shows/payment-breakdown";
@@ -122,6 +122,7 @@ export default async function ShowDetailPage({
     .from(gastos)
     .where(eq(gastos.showId, id));
   const gastosCentavos = gastosShow.reduce((s, g) => s + (g.v ?? 0), 0);
+  const brand = await getBrand();
 
   return (
     <div>
@@ -198,6 +199,7 @@ export default async function ShowDetailPage({
                   local: show.casa.nome,
                   path: `/shows/${show.id}`,
                 }}
+                groupLink={brand.whatsappGrupo}
               />
               <PaymentBreakdown
                 showId={show.id}

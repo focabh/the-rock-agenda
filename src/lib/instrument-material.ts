@@ -14,6 +14,8 @@ export type PlayMaterial = {
   label: string;
   provider: string;
   href: (artista: string, titulo: string) => string;
+  /** Plano B (busca grátis no Google) caso a 1ª fonte só tenha versão paga. */
+  altHref: (artista: string, titulo: string) => string;
 };
 
 export type InstrumentMaterial = {
@@ -38,8 +40,11 @@ const ug = (a: string, t: string) =>
     `${a} ${tituloLimpo(t)}`.trim()
   )}`;
 
-const cifra = ug;
-const drumTab = ug;
+const buscaGoogle = (termos: string) =>
+  `https://www.google.com/search?q=${encodeURIComponent(termos)}`;
+const cifraGoogle = (a: string, t: string) => buscaGoogle(`cifra ${a} ${tituloLimpo(t)}`);
+const drumGoogle = (a: string, t: string) =>
+  buscaGoogle(`${a} ${tituloLimpo(t)} drum tab partitura`);
 
 export function materialForPosicao(
   posicao: string | null | undefined
@@ -51,19 +56,19 @@ export function materialForPosicao(
 
   if (/bateria|bateirist|baterist|drum|percuss/.test(p))
     return {
-      play: { kind: "drum", label: "Bateria (tab)", provider: "Ultimate Guitar", href: drumTab },
+      play: { kind: "drum", label: "Bateria (tab)", provider: "Ultimate Guitar", href: ug, altHref: drumGoogle },
       letrasRelevante: false,
     };
 
   if (/teclad|piano|keys|sintet/.test(p))
     return {
-      play: { kind: "keys", label: "Cifra / teclado", provider: "Ultimate Guitar", href: cifra },
+      play: { kind: "keys", label: "Cifra / teclado", provider: "Ultimate Guitar", href: ug, altHref: cifraGoogle },
       letrasRelevante: false,
     };
 
   // Guitarra, violão, baixo e demais → cifra/tab.
   return {
-    play: { kind: "string", label: "Cifra / tab", provider: "Ultimate Guitar", href: cifra },
+    play: { kind: "string", label: "Cifra / tab", provider: "Ultimate Guitar", href: ug, altHref: cifraGoogle },
     letrasRelevante: false,
   };
 }

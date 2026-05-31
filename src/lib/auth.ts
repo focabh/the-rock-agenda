@@ -162,6 +162,7 @@ export async function getBrand(): Promise<{
   backgroundUrl: string | null;
   bandName: string | null;
   bioTexto: string | null;
+  whatsappGrupo: string | null;
 }> {
   try {
     const [s] = await db
@@ -170,6 +171,7 @@ export async function getBrand(): Promise<{
         backgroundUrl: appSettings.backgroundUrl,
         bandName: appSettings.bandName,
         bioTexto: appSettings.bioTexto,
+        whatsappGrupo: appSettings.whatsappGrupo,
       })
       .from(appSettings)
       .limit(1);
@@ -178,9 +180,10 @@ export async function getBrand(): Promise<{
       backgroundUrl: s?.backgroundUrl ?? null,
       bandName: s?.bandName ?? null,
       bioTexto: s?.bioTexto ?? null,
+      whatsappGrupo: s?.whatsappGrupo ?? null,
     };
   } catch {
-    return { logoUrl: null, backgroundUrl: null, bandName: null, bioTexto: null };
+    return { logoUrl: null, backgroundUrl: null, bandName: null, bioTexto: null, whatsappGrupo: null };
   }
 }
 

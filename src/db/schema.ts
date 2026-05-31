@@ -78,6 +78,7 @@ export const appSettings = sqliteTable("app_settings", {
   backgroundUrl: text("background_url"), // imagem de fundo do login (URL)
   bandName: text("band_name"), // nome da banda/conta (login dinâmico StageBoss)
   bioTexto: text("bio_texto"), // bio institucional (manual ou IA) — cache definitivo
+  whatsappGrupo: text("whatsapp_grupo"), // link de convite do grupo da banda no WhatsApp
   // Quando true, o ADMIN também vê só o material da sua posição (ex.: baterista
   // não vê letras). Quando false (padrão), o admin sempre vê letras p/ gerenciar.
   adminMaterialPorPosicao: integer("admin_material_por_posicao", {
@@ -177,6 +178,8 @@ export const venues = sqliteTable("venues", {
   // Infraestrutura técnica que a casa oferece (PA, canais, energia, palco...).
   // Texto livre — usado no check de compatibilidade técnica do show.
   infraestrutura: text("infraestrutura"),
+  // Link de convite do grupo de WhatsApp com a casa/contratante (custo zero).
+  whatsappGrupo: text("whatsapp_grupo"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

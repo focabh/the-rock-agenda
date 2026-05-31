@@ -87,6 +87,17 @@ export function CasaForm({ casa, action, submitLabel = "Salvar" }: Props) {
           </div>
 
           <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="whatsappGrupo">Grupo no WhatsApp (com a casa)</Label>
+            <Input
+              id="whatsappGrupo"
+              name="whatsappGrupo"
+              defaultValue={casa?.whatsappGrupo ?? ""}
+              placeholder="https://chat.whatsapp.com/… (link de convite do grupo)"
+            />
+            <FieldError state={state} name="whatsappGrupo" />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="infraestrutura">Infraestrutura técnica (da casa)</Label>
             <Textarea
               id="infraestrutura"
