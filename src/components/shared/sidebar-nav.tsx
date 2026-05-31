@@ -43,7 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/equipamentos", label: "Equipamentos", icon: Boxes },
   { href: "/pagamentos", label: "Cachês", icon: Wallet },
   { href: "/gastos", label: "Gastos", icon: Receipt, adminOnly: true },
-  { href: "/financeiro", label: "Financeiro", icon: PieChart, adminOnly: true },
+  { href: "/financeiro", label: "Financeiro", icon: PieChart },
   { href: "/divulgacao", label: "Material da banda", icon: Megaphone },
   { href: "/contratantes", label: "Divulgação", icon: Share2 },
   { href: "/cadastros", label: "Convites", icon: Ticket, adminOnly: true },

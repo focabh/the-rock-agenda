@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
 import { TrendingUp, CalendarClock, Send, CheckCircle2, Trophy, Wallet } from "lucide-react";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { loadFinanceReport } from "@/lib/finance-report";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,8 +17,8 @@ export default async function FinanceiroPage({
 }: {
   searchParams: Promise<{ ano?: string; membro?: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!isAdmin(user)) redirect("/pagamentos");
+  // Acesso a TODOS (transparência financeira da banda).
+  await getCurrentUser();
   const { ano: anoParam, membro: membroParam } = await searchParams;
 
   const r = await loadFinanceReport(anoParam);

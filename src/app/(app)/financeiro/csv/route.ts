@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { loadFinanceReport } from "@/lib/finance-report";
 
 const brl = (c: number) => (c / 100).toFixed(2).replace(".", ",");
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!isAdmin(user)) return NextResponse.json({}, { status: 403 });
+  if (!user) return NextResponse.json({}, { status: 401 });
 
   const ano = req.nextUrl.searchParams.get("ano") ?? undefined;
   const r = await loadFinanceReport(ano);

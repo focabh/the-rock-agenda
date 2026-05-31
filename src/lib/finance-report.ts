@@ -124,6 +124,10 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     va.count++;
     venueAgg.set(s.casa.nome, va);
 
+    // Dívida com músicos/manager só existe depois que o show ACONTECEU
+    // (participou). Show futuro confirmado é só renda esperada da banda.
+    if (s.status !== "concluido") continue;
+
     const confirmados = playable.filter((m) =>
       (confirmedByShow.get(s.id) ?? new Set<string>()).has(m.id)
     );

@@ -36,12 +36,10 @@ export default async function PagamentosPage() {
   const managerMember = allMembers.find((m) => m.isManager) ?? null;
   const playable = allMembers.filter((m) => !m.isManager && m.ativo);
 
-  // Shows com cachê definido e em estados pagáveis (confirmado/concluído).
+  // Cachê a pagar a músico só depois que o show ACONTECEU (concluído). Show
+  // futuro confirmado ainda não gera pagamento — é renda esperada (ver Financeiro).
   const payableShows = await db.query.shows.findMany({
-    where: and(
-      gt(shows.cacheCentavos, 0),
-      inArray(shows.status, ["confirmado", "concluido"])
-    ),
+    where: and(gt(shows.cacheCentavos, 0), eq(shows.status, "concluido")),
     with: { casa: { columns: { nome: true } } },
     orderBy: (s, { desc }) => [desc(s.data)],
   });
