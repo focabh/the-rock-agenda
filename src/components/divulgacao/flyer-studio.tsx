@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { fileToDownscaledDataUrl } from "@/lib/image-resize";
 import { addImagemDivulgacaoAction, deleteImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
-import { gerarImagemIAAction } from "@/app/(app)/shows/[id]/divulgacao/ia-actions";
 
 type Show = {
   banda: string;
@@ -87,10 +86,17 @@ function fx(efeito: Efeito, accent: string): React.CSSProperties {
 }
 const pillText = (accent: string) => (accent === "#ef4444" ? "#fff" : "#09090b");
 
-// Estimativa de custo da recriação por IA (fal.ai Flux img2img). Aproximada —
-// varia com provedor e câmbio. Mostrada antes de gerar pra decisão informada.
-const CUSTO_IA_IMG = 0.2; // R$ por imagem (teto conservador)
-const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+/** Converte um data URL (jpeg/png) em Blob PNG, pra copiar pro clipboard. */
+async function dataUrlToPngBlob(dataUrl: string): Promise<Blob> {
+  const img = new Image();
+  img.src = dataUrl;
+  await img.decode();
+  const c = document.createElement("canvas");
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  c.getContext("2d")?.drawImage(img, 0, 0);
+  return await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("blob"))), "image/png"));
+}
 
 /** Garante que a fonte foi baixada antes de rasterizar (html2canvas não
  *  espera web fonts sozinho → exportava com fallback). */
@@ -162,8 +168,6 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [ref0, setRef0] = useState<string | null>(null);
   const [modelos, setModelos] = useState<Modelo[]>([]);
   const [escopo, setEscopo] = useState<Escopo>("imagem");
-  const [iaImgs, setIaImgs] = useState<string[]>([]);
-  const [iaLoading, setIaLoading] = useState(false);
 
   const [headline, setHeadline] = useState("AO VIVO");
   const [banda, setBanda] = useState(show.banda);
@@ -263,39 +267,38 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   }
 
   function promptChatGPT() {
-    const tipo = festival ? `pôster de line-up do evento "${evento.trim() || banda}"` : `flyer de show da banda "${banda}"`;
-    const linhas = lineupValido.map((b) => `${b.hora ? b.hora + " " : ""}${b.nome}`).join(", ");
+    const tipo = festival ? `pôster de festival/line-up "${evento.trim() || banda}"` : `flyer de show da banda "${banda}"`;
+    const infos =
+      festival && lineupValido.length
+        ? `Line-up: ${lineupValido.map((b) => `${b.hora ? b.hora + " — " : ""}${b.nome}`).join("; ")}.`
+        : `Data: ${data}${!festival && show.inicio ? ` às ${show.inicio}` : ""}. Local: ${casa}.${ingresso ? ` Ingresso: ${ingresso}.` : ""}`;
     return [
-      `Crie uma arte de ${tipo} no formato vertical 9:16 (Instagram Stories), 1080x1920px.`,
-      `Estilo visual: moderno e impactante, cara de post de Instagram (referência "${estilo}"). Fonte/letras estilo "${FONTES[fonte].label}".`,
-      `Cor de destaque predominante: ${accent}.`,
-      festival && linhas ? `Line-up: ${linhas}.` : `Data: ${data}. Local: ${casa}.${ingresso ? ` Ingresso: ${ingresso}.` : ""}`,
-      `IMPORTANTE: deixe áreas limpas/escuras pra eu sobrepor o texto depois, e NÃO escreva texto na imagem (eu adiciono no app). Se preferir já com texto, escreva exatamente os dados acima.`,
+      `Você é diretor de arte especialista em cartazes de show. Crie 3 VARIAÇÕES distintas de arte para um ${tipo}.`,
+      `Formato: vertical 9:16 (Instagram Stories), 1080x1920px, alta resolução.`,
+      `Vou colar/anexar uma IMAGEM DE REFERÊNCIA de estilo — use-a como guia de paleta, clima e composição (não copie literalmente; recrie no mesmo espírito).`,
+      `Direção: moderno, impactante, profissional, cara de post de Instagram, com tipografia forte e atual. Cor de destaque sugerida: ${accent}.`,
+      infos,
+      `As 3 variações devem ser nitidamente diferentes entre si (ex.: uma com foto em destaque, uma mais tipográfica, uma mais minimalista/elegante).`,
+      `IMPORTANTE: deixe áreas limpas/escuras pra sobrepor texto depois e, de preferência, gere SEM texto embutido (eu adiciono os textos no app). Se incluir texto, use exatamente os dados acima, sem inventar.`,
     ].join("\n");
   }
 
   async function abrirNoChatGPT() {
-    const p = promptChatGPT();
-    try { await navigator.clipboard.writeText(p); } catch { /* segue mesmo sem copiar */ }
-    window.open("https://chatgpt.com/?q=" + encodeURIComponent(p), "_blank", "noopener");
-    toast.success("Abrindo o ChatGPT (conta logada) com o prompt. Se ele não enviar sozinho, é só colar — já copiei.");
-  }
-
-  async function recriarIA() {
     if (!ref0) return toast.error("Envie um exemplo primeiro.");
-    if (!confirm(`Recriar 3 artes por IA. Custo estimado: ${brl(CUSTO_IA_IMG)} por imagem (≈ ${brl(CUSTO_IA_IMG * 3)} as 3). Continuar?`)) return;
-    setIaLoading(true);
+    let copiouImg = false;
     try {
-      const r = await gerarImagemIAAction(ref0, `${banda} concert flyer, instagram style, bold modern poster art, space for text`, 3);
-      if (!r.ok) {
-        toast.error(r.erro);
-        return;
-      }
-      setIaImgs(r.imagens);
-      toast.success(`${r.imagens.length} arte(s) recriada(s). Toque pra usar como fundo.`);
-    } finally {
-      setIaLoading(false);
+      const blob = await dataUrlToPngBlob(ref0);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      copiouImg = true;
+    } catch {
+      /* navegador sem suporte a copiar imagem — usuário anexa manualmente */
     }
+    window.open("https://chatgpt.com/?q=" + encodeURIComponent(promptChatGPT()), "_blank", "noopener");
+    toast.success(
+      copiouImg
+        ? "ChatGPT aberto pedindo 3 modelos. Cole a imagem de exemplo no chat (Ctrl+V) e envie."
+        : "ChatGPT aberto pedindo 3 modelos. Anexe a imagem de exemplo no chat e envie."
+    );
   }
 
   async function baixar() {
@@ -479,24 +482,17 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           )}
         </Bloco>
 
-        <Bloco titulo="Gerar arte no ChatGPT (grátis)">
-          <p className="text-[11px] text-zinc-500">Usa a sua assinatura do ChatGPT — custo extra R$0. Abre o ChatGPT (conta logada) já com o prompt pronto e enviado. Depois é só baixar a arte e subir em “Enviar foto”.</p>
-          <Button size="sm" variant="outline" className="mt-2" onClick={abrirNoChatGPT}>
-            <Sparkles className="size-4 text-emerald-400" /> Abrir no ChatGPT
-          </Button>
-        </Bloco>
-
         <Bloco titulo="Inspiração: gerar modelos a partir de um exemplo">
           <div className="flex flex-wrap items-center gap-3">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
               <ImageIcon className="size-4" /> Enviar exemplo
-              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setRef0(await fileToDownscaledDataUrl(f, 900, 0.7)); setModelos([]); setIaImgs([]); } }} />
+              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setRef0(await fileToDownscaledDataUrl(f, 900, 0.7)); setModelos([]); } }} />
             </label>
             {ref0 && (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={ref0} alt="referência" className="h-16 w-12 rounded object-cover ring-1 ring-zinc-700" />
-                <button onClick={() => { setRef0(null); setModelos([]); setIaImgs([]); }} className="text-xs text-zinc-500 hover:text-foreground">remover</button>
+                <button onClick={() => { setRef0(null); setModelos([]); }} className="text-xs text-zinc-500 hover:text-foreground">remover</button>
               </>
             )}
           </div>
@@ -513,22 +509,9 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
                 <Button size="sm" variant="outline" onClick={() => { setImgs((p) => [{ id: `ex-${Date.now()}`, url: ref0 }, ...p]); setBg(ref0); toast.success("Exemplo aplicado como fundo."); }}>
                   <ImageIcon className="size-4" /> Usar como fundo (grátis)
                 </Button>
-                <Button size="sm" variant="outline" onClick={recriarIA} disabled={iaLoading} className="border-amber-600/50">
-                  {iaLoading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4 text-amber-400" />} Recriar com IA · ~{brl(CUSTO_IA_IMG * 3)}
+                <Button size="sm" variant="outline" onClick={abrirNoChatGPT} className="border-emerald-600/50">
+                  <Sparkles className="size-4 text-emerald-400" /> Pedir 3 ao ChatGPT
                 </Button>
-              </div>
-            </div>
-          )}
-          {iaImgs.length > 0 && (
-            <div className="mt-3">
-              <p className="mb-1.5 text-[11px] text-zinc-400">Artes recriadas por IA — toque pra usar como fundo:</p>
-              <div className="grid grid-cols-3 gap-2">
-                {iaImgs.map((u, i) => (
-                  <button key={i} onClick={() => { setImgs((p) => [{ id: `ia-${i}-${Date.now()}`, url: u }, ...p]); setBg(u); }} className="aspect-9/16 overflow-hidden rounded-md ring-1 ring-zinc-700 hover:ring-primary">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={u} alt="" crossOrigin="anonymous" className="size-full object-cover" />
-                  </button>
-                ))}
               </div>
             </div>
           )}
@@ -551,7 +534,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             </div>
           )}
           <p className="mt-2 text-[11px] text-zinc-500">
-            <strong>Grátis:</strong> “Gerar 3 modelos” usa só as cores/clima; “Usar como fundo” põe o próprio exemplo de fundo. <strong>Pago:</strong> “Recriar com IA” desenha arte nova parecida (img2img/fal.ai) — custo estimado {brl(CUSTO_IA_IMG)}/imagem, precisa da env FAL_KEY; sem a key, avisa e não cobra.
+            Tudo grátis: <strong>Gerar 3 modelos</strong> usa as cores/clima; <strong>Usar como fundo</strong> põe o próprio exemplo de fundo; <strong>Pedir 3 ao ChatGPT</strong> abre o ChatGPT (sua conta) pedindo 3 variações e copia a imagem de exemplo pro clipboard — é só colar (Ctrl+V) no chat e enviar.
           </p>
         </Bloco>
       </div>
