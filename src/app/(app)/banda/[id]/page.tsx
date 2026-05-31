@@ -8,7 +8,7 @@ import { UnavailabilitySection } from "@/components/banda/unavailability-section
 import { AccessSection } from "@/components/banda/access-section";
 import { Card, CardContent } from "@/components/ui/card";
 import { updateMemberAction } from "../actions";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser, isAdmin, getAvailablePositions } from "@/lib/auth";
 import { formatDataBR } from "@/lib/formatters";
 
 export default async function EditarMembroPage({
@@ -46,13 +46,19 @@ export default async function EditarMembroPage({
   const action = updateMemberAction.bind(null, id);
   const isSelf = currentUser?.member?.id === member.id;
   const canEditUnavailability = admin || isSelf;
+  const positions = admin ? await getAvailablePositions() : [];
 
   return (
     <div>
       <PageHeader title={member.nome} description={member.funcao} />
       <div className="p-6 max-w-3xl space-y-6">
         {admin ? (
-          <MemberForm member={member} action={action} submitLabel="Salvar alterações" />
+          <MemberForm
+            member={member}
+            action={action}
+            submitLabel="Salvar alterações"
+            positions={positions}
+          />
         ) : (
           <ReadOnlyMember member={member} />
         )}

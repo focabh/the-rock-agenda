@@ -13,15 +13,25 @@ import type { ActionState } from "@/lib/form";
 import type { Member } from "@/db/schema";
 import { maskPhone, telefoneValido } from "@/lib/validators";
 
+const selectCls =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 export function MemberForm({
   member,
   action,
   submitLabel = "Salvar",
+  positions = [],
 }: {
   member?: Member;
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   submitLabel?: string;
+  positions?: string[];
 }) {
+  // Preserva uma função custom/legada que não esteja mais na lista de posições.
+  const funcaoOptions =
+    member?.funcao && !positions.includes(member.funcao)
+      ? [member.funcao, ...positions]
+      : positions;
   const [state, formAction, pending] = useActionState(action, null);
   const [isManager, setIsManager] = useState(member?.isManager ?? false);
   const [pct, setPct] = useState<string>(
@@ -86,13 +96,29 @@ export function MemberForm({
 
           <div className="space-y-2">
             <Label htmlFor="funcao">Função *</Label>
-            <Input
+            <select
               id="funcao"
               name="funcao"
+              className={selectCls}
               defaultValue={member?.funcao ?? ""}
-              placeholder="Vocal, Guitarra, Baixo, Manager..."
               required
-            />
+            >
+              <option value="" disabled>
+                Selecione...
+              </option>
+              {funcaoOptions.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Gerencie as opções em{" "}
+              <Link href="/posicoes" className="underline hover:text-foreground">
+                Posições
+              </Link>
+              .
+            </p>
             <ErrLine name="funcao" />
           </div>
 
