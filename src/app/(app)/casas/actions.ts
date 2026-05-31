@@ -34,32 +34,63 @@ const casaSchema = z.object({
   observacoes: z.string().max(2000).optional(),
 });
 
-/** Tenta puxar a logo (foto de perfil) do Instagram da casa a partir do @,
- *  via unavatar.io (grátis, best-effort). Devolve data URL ou erro amigável. */
-export async function buscarLogoInstagramAction(
-  instagram: string
-): Promise<{ ok: true; dataUrl: string } | { ok: false; erro: string }> {
-  await requireAdmin();
-  const handle = (instagram || "")
+function igHandle(instagram: string): string {
+  return (instagram || "")
     .trim()
     .replace(/^@/, "")
     .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
     .replace(/[/?#].*$/, "")
     .trim();
-  if (!handle) return { ok: false, erro: "Preencha o @ do Instagram primeiro." };
+}
+
+/** Busca a foto de perfil do Instagram via unavatar.io (grátis). null se falhar. */
+async function fetchInstagramLogo(instagram: string): Promise<string | null> {
+  const handle = igHandle(instagram);
+  if (!handle) return null;
   try {
     const r = await fetch(`https://unavatar.io/instagram/${encodeURIComponent(handle)}?fallback=false`, {
       headers: { "User-Agent": "Mozilla/5.0" },
     });
-    if (!r.ok) return { ok: false, erro: "Não achei a logo desse @ (o Instagram pode ter bloqueado). Envie a imagem à mão." };
+    if (!r.ok) return null;
     const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length < 200) return { ok: false, erro: "Logo não encontrada nesse @." };
-    if (buf.length > 4_000_000) return { ok: false, erro: "Imagem muito grande." };
+    if (buf.length < 200 || buf.length > 4_000_000) return null;
     const mime = (r.headers.get("content-type") || "image/jpeg").split(";")[0];
-    return { ok: true, dataUrl: `data:${mime};base64,${buf.toString("base64")}` };
+    return `data:${mime};base64,${buf.toString("base64")}`;
   } catch {
-    return { ok: false, erro: "Falha ao buscar. Tente de novo ou envie à mão." };
+    return null;
   }
+}
+
+/** Tenta puxar a logo do Instagram da casa a partir do @ (best-effort). */
+export async function buscarLogoInstagramAction(
+  instagram: string
+): Promise<{ ok: true; dataUrl: string } | { ok: false; erro: string }> {
+  await requireAdmin();
+  if (!igHandle(instagram)) return { ok: false, erro: "Preencha o @ do Instagram primeiro." };
+  const dataUrl = await fetchInstagramLogo(instagram);
+  if (!dataUrl) return { ok: false, erro: "Não achei a logo desse @ (o Instagram pode ter bloqueado). Envie a imagem à mão." };
+  return { ok: true, dataUrl };
+}
+
+/** Lote: percorre as casas que têm @ e ainda não têm logo, e tenta puxar de
+ *  cada uma (grátis). Limita por execução pra não estourar o tempo do servidor. */
+export async function buscarLogosCasasAction(): Promise<{ tentadas: number; ok: number; restantes: number }> {
+  await requireAdmin();
+  const rows = await db
+    .select({ id: venues.id, instagram: venues.instagram, logoUrl: venues.logoUrl })
+    .from(venues);
+  const alvo = rows.filter((v) => igHandle(v.instagram || "") && !(v.logoUrl || "").trim());
+  const lote = alvo.slice(0, 25);
+  let ok = 0;
+  for (const v of lote) {
+    const logo = await fetchInstagramLogo(v.instagram || "");
+    if (logo) {
+      await db.update(venues).set({ logoUrl: logo }).where(eq(venues.id, v.id));
+      ok++;
+    }
+  }
+  revalidatePath("/casas");
+  return { tentadas: lote.length, ok, restantes: alvo.length - lote.length };
 }
 
 /** Normaliza o telefone pra máscara padrão (ou null se vazio). */

@@ -137,12 +137,17 @@ export function AgendaPosterStudio({
   banda,
   shows,
   galeria,
+  bandLogoUrl = null,
 }: {
   banda: string;
   shows: PosterShow[];
   galeria: { id: string; url: string }[];
+  bandLogoUrl?: string | null;
 }) {
   const [periodo, setPeriodo] = useState("mensal");
+  const [mostrarLogo, setMostrarLogo] = useState(false);
+  const [logoTam, setLogoTam] = useState(56);
+  const [arroba, setArroba] = useState("");
   const [imgs, setImgs] = useState(galeria);
   const [bg, setBg] = useState<string | null>(null);
   const [grad, setGrad] = useState(GRADIENTES[0]);
@@ -274,9 +279,13 @@ export function AgendaPosterStudio({
               </ul>
             )}
             <p className="mt-2 text-center text-[9px] uppercase tracking-widest text-zinc-400" style={{ fontFamily: fam }}>
-              {banda} · ao vivo
+              {banda}{arroba.trim() ? ` · ${arroba.trim()}` : " · ao vivo"}
             </p>
           </div>
+          {mostrarLogo && bandLogoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={bandLogoUrl} alt="logo" crossOrigin="anonymous" className="absolute right-3 top-3 rounded-md object-contain" style={{ width: logoTam, height: logoTam }} />
+          )}
         </div>
         <Button onClick={baixar} disabled={downloading} className="w-full bg-red-600 hover:bg-red-700">
           {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
@@ -341,6 +350,28 @@ export function AgendaPosterStudio({
               <button key={c} onClick={() => setAccent(c)} className={cn("size-8 rounded-full ring-2", accent === c ? "ring-white" : "ring-transparent")} style={{ background: c }} />
             ))}
           </div>
+        </Bloco>
+        <Bloco titulo="Logo & @ (opcional)">
+          <div className="space-y-1">
+            <Label className="text-[11px] text-zinc-400">@ do perfil (aparece no rodapé)</Label>
+            <Input value={arroba} onChange={(e) => setArroba(e.target.value)} placeholder="@suabanda" className="h-9 bg-[#0f0f11]" />
+          </div>
+          {bandLogoUrl ? (
+            <div className="mt-2 space-y-1">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-200">
+                <input type="checkbox" checked={mostrarLogo} onChange={(e) => setMostrarLogo(e.target.checked)} className="size-4 accent-red-600" />
+                Mostrar a logo (canto superior direito)
+              </label>
+              {mostrarLogo && (
+                <div className="flex items-center gap-1.5 px-0.5">
+                  <span className="text-[9px] uppercase tracking-wide text-zinc-500">tam logo {logoTam}px</span>
+                  <input type="range" min={32} max={120} value={logoTam} onChange={(e) => setLogoTam(Number(e.target.value))} className="h-1 flex-1 accent-red-600" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="mt-1 text-[11px] text-zinc-500">Defina a logo da banda em Conta pra poder mostrá-la aqui.</p>
+          )}
         </Bloco>
         <Bloco titulo="Formato">
           <Chips value={aspect} onChange={(v) => setAspect(v as "9:16" | "1:1")} options={[["9:16", "Stories"], ["1:1", "Feed"]]} />

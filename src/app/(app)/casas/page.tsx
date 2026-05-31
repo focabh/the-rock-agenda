@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { CasasBrowser, type CasaItem } from "@/components/casas/casas-browser";
+import { CapturarLogosButton } from "@/components/casas/capturar-logos-button";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 export default async function CasasPage() {
@@ -42,9 +43,12 @@ export default async function CasasPage() {
         description="Lugares onde a banda toca ou já tocou."
         actions={
           admin && (
-            <Button render={<Link href="/casas/novo" />}>
-              <Plus className="size-4" /> Nova casa
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <CapturarLogosButton />
+              <Button render={<Link href="/casas/novo" />}>
+                <Plus className="size-4" /> Nova casa
+              </Button>
+            </div>
           )
         }
       />
