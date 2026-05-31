@@ -6,7 +6,6 @@ import { db } from "@/db";
 import {
   shows,
   songs,
-  checklistTemplates,
   members,
   memberUnavailability,
   showMemberPresence,
@@ -26,8 +25,6 @@ import { VenueShowCard } from "@/components/casas/venue-show-card";
 import { CompatCheck } from "@/components/shows/compat-check";
 import { parseTags } from "@/lib/venue-tags";
 import { SetlistTab } from "@/components/shows/setlist-tab";
-import { ChecklistTab } from "@/components/shows/checklist-tab";
-import { AvaliacaoTab } from "@/components/shows/avaliacao-tab";
 import { PropostaTab } from "@/components/shows/proposta-tab";
 import { Button } from "@/components/ui/button";
 import { NotifyBandButton } from "@/components/shared/notify-band-button";
@@ -56,9 +53,8 @@ export default async function ShowDetailPage({
     where: (sp, { eq }) => eq(sp.showId, id),
   });
 
-  const [allSongs, allTemplates, allMembers, dayBlocks, presences, payments, paidRows] = await Promise.all([
+  const [allSongs, allMembers, dayBlocks, presences, payments, paidRows] = await Promise.all([
     db.select().from(songs).orderBy(asc(songs.titulo)),
-    db.select().from(checklistTemplates).orderBy(asc(checklistTemplates.nome)),
     db.select().from(members).where(eq(members.ativo, true)).orderBy(asc(members.nome)),
     // Janela ampla (±2 dias) — depois filtramos com precisão via brDateKey
     db
@@ -132,16 +128,6 @@ export default async function ShowDetailPage({
         actions={
           <div className="flex items-center gap-2">
             {admin && (
-              <Button
-                variant="outline"
-                size="sm"
-                render={<Link href={`/shows/${show.id}/divulgacao`} />}
-              >
-                <ImageIcon className="size-4" />
-                Flyer
-              </Button>
-            )}
-            {admin && (
               <NotifyBandButton
                 title={`Show: ${show.casa.nome}`}
                 body={`${formatDataBR(show.data, true)}${
@@ -174,6 +160,18 @@ export default async function ShowDetailPage({
                 admin={admin}
                 gastosCentavos={gastosCentavos}
               />
+              {/* Proposta/contrato (antes era aba) — agora card no Resumo. */}
+              <PropostaTab showId={show.id} proposta={proposta ?? null} />
+              {admin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<Link href={`/shows/${show.id}/divulgacao`} />}
+                >
+                  <ImageIcon className="size-4" />
+                  Gerar flyer do show
+                </Button>
+              )}
               <VenueShowCard
                 casaId={show.casaId}
                 tags={parseTags(show.casa.caracteristicas)}
@@ -230,19 +228,6 @@ export default async function ShowDetailPage({
               canEdit={admin}
               defaultDuracaoMin={show.duracaoMin ?? 60}
             />
-          }
-          checklist={
-            <ChecklistTab
-              showId={show.id}
-              templates={allTemplates}
-              checklists={show.checklists}
-            />
-          }
-          avaliacao={
-            <AvaliacaoTab showId={show.id} avaliacao={show.avaliacao ?? null} />
-          }
-          proposta={
-            <PropostaTab showId={show.id} proposta={proposta ?? null} />
           }
         />
       </div>
