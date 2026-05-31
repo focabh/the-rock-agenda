@@ -18,7 +18,7 @@ export default async function DivulgacaoShowPage({
 
   const show = await db.query.shows.findFirst({
     where: eq(shows.id, id),
-    with: { casa: { columns: { nome: true } } },
+    with: { casa: { columns: { nome: true, instagram: true, logoUrl: true } } },
   });
   if (!show) notFound();
 
@@ -45,6 +45,8 @@ export default async function DivulgacaoShowPage({
             valorIngresso: show.valorIngresso,
             linkVendas: show.linkVendas,
             logoUrl,
+            casaInstagram: show.casa.instagram,
+            casaLogoUrl: show.casa.logoUrl,
           }}
           galeria={galeria.map((g) => ({ id: g.id, url: g.url }))}
         />

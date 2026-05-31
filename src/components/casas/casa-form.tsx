@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import { AtSign, Upload, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +12,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
 import { AddressAutocomplete } from "@/components/shared/address-autocomplete";
 import { PhoneInput } from "@/components/shared/phone-input";
+import { fileToDownscaledDataUrl } from "@/lib/image-resize";
+import { buscarLogoInstagramAction } from "@/app/(app)/casas/actions";
 import type { ActionState } from "@/lib/form";
 import type { Venue } from "@/db/schema";
 
@@ -87,6 +91,11 @@ export function CasaForm({ casa, action, submitLabel = "Salvar" }: Props) {
           </div>
 
           <div className="space-y-2 sm:col-span-2">
+            <Label>Logo da casa (pro flyer)</Label>
+            <LogoCasaField initial={casa?.logoUrl ?? null} />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="whatsappGrupo">Grupo no WhatsApp (com a casa)</Label>
             <Input
               id="whatsappGrupo"
@@ -137,5 +146,63 @@ export function CasaForm({ casa, action, submitLabel = "Salvar" }: Props) {
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+function LogoCasaField({ initial }: { initial: string | null }) {
+  const [logo, setLogo] = useState<string | null>(initial);
+  const [busca, startBusca] = useTransition();
+
+  function buscarDoInstagram() {
+    const ig = (document.getElementById("instagram") as HTMLInputElement | null)?.value ?? "";
+    if (!ig.trim()) {
+      toast.error("Preencha o @ do Instagram acima primeiro.");
+      return;
+    }
+    startBusca(async () => {
+      const r = await buscarLogoInstagramAction(ig);
+      if (r.ok) {
+        setLogo(r.dataUrl);
+        toast.success("Logo do Instagram encontrada!");
+      } else {
+        toast.error(r.erro);
+      }
+    });
+  }
+
+  async function onUpload(file: File) {
+    setLogo(await fileToDownscaledDataUrl(file, 512, 0.85));
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="logoUrl" value={logo ?? ""} />
+      {logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logo} alt="logo da casa" className="size-16 rounded-md object-contain ring-1 ring-border" />
+      ) : (
+        <div className="flex size-16 items-center justify-center rounded-md text-xs text-muted-foreground ring-1 ring-dashed ring-border">
+          sem logo
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={buscarDoInstagram} disabled={busca}>
+          {busca ? <Loader2 className="size-4 animate-spin" /> : <AtSign className="size-4" />}
+          Buscar do Instagram
+        </Button>
+        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-sm hover:bg-accent">
+          <Upload className="size-4" /> Enviar imagem
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
+        </label>
+        {logo && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setLogo(null)} className="text-muted-foreground">
+            <X className="size-4" /> Remover
+          </Button>
+        )}
+      </div>
+      <p className="w-full text-[11px] text-muted-foreground">
+        Tenta puxar a foto de perfil do Instagram pelo @ (nem sempre o IG deixa). O flyer do show usa essa logo automaticamente.
+      </p>
+    </div>
   );
 }

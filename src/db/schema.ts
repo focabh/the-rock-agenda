@@ -176,6 +176,9 @@ export const venues = sqliteTable("venues", {
   // Perfil/características (preenchidas à mão ou sugeridas por IA — fase futura)
   caracteristicas: text("caracteristicas"), // JSON array de tags
   instagram: text("instagram"),
+  // Logo da casa (data URL ou link) — usada nos flyers do show. Pode ser puxada
+  // do Instagram (unavatar) a partir do @, ou enviada à mão.
+  logoUrl: text("logo_url"),
   perfilPublico: text("perfil_publico"), // resumo do público/estilo
   // Infraestrutura técnica que a casa oferece (PA, canais, energia, palco...).
   // Texto livre — usado no check de compatibilidade técnica do show.

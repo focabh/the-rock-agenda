@@ -37,7 +37,20 @@ type Show = {
   valorIngresso: string | null;
   linkVendas: string | null;
   logoUrl: string | null;
+  casaInstagram?: string | null;
+  casaLogoUrl?: string | null;
 };
+
+/** "@bardozé" a partir de "@bardozé", "bardozé" ou "instagram.com/bardozé". */
+function arrobaCasa(raw?: string | null): string {
+  const h = (raw || "")
+    .trim()
+    .replace(/^@/, "")
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+    .replace(/[/?#].*$/, "")
+    .trim();
+  return h ? `@${h}` : "";
+}
 
 type Estilo = "festival" | "minimal" | "tarja";
 type Pos = "top" | "center" | "bottom";
@@ -214,9 +227,9 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [accent, setAccent] = useState("#f59e0b");
   const [scrim, setScrim] = useState(62);
   const [escala, setEscala] = useState(1);
-  const [tam, setTam] = useState<Record<string, number>>({ chamada: 1, banda: 1, casa: 1, data: 1, ingresso: 1, lineup: 1 });
+  const [tam, setTam] = useState<Record<string, number>>({ chamada: 1, banda: 1, casa: 1, data: 1, ingresso: 1, lineup: 1, instagram: 1 });
   const setTamKey = (k: string, v: number) => setTam((p) => ({ ...p, [k]: v }));
-  const [ordem, setOrdem] = useState<string[]>(["chamada", "banda", "lineup", "data", "casa", "ingresso"]);
+  const [ordem, setOrdem] = useState<string[]>(["chamada", "banda", "lineup", "data", "casa", "ingresso", "instagram"]);
   const ordemSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -235,6 +248,10 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   }
   const [tarjaOp, setTarjaOp] = useState(78);
   const [textPos, setTextPos] = useState({ x: 20, y: 0 });
+
+  const [instagram, setInstagram] = useState(arrobaCasa(show.casaInstagram));
+  const [mostrarLogoCasa, setMostrarLogoCasa] = useState<boolean>(!!show.casaLogoUrl);
+  const [logoCasaTam, setLogoCasaTam] = useState(64);
 
   const [headline, setHeadline] = useState("AO VIVO");
   const [banda, setBanda] = useState(show.banda);
@@ -348,6 +365,11 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             </>
           )}
           <div className="absolute inset-0" style={{ background: scrimBg }} />
+          {mostrarLogoCasa && show.casaLogoUrl && (
+            // logo da casa — canto superior direito
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={show.casaLogoUrl} alt="logo da casa" crossOrigin="anonymous" className="absolute right-3 top-3 rounded-md object-contain" style={{ width: logoCasaTam, height: logoCasaTam }} />
+          )}
           <div
             onPointerDown={onDragStart}
             onPointerMove={onDragMove}
@@ -356,7 +378,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             style={{ left: textPos.x, top: textPos.y, width: W - 40 }}
             title="Arraste para posicionar o texto"
           >
-            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} escala={escala} tam={tam} tarjaOp={tarjaOp} ordem={ordem} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
+            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} escala={escala} tam={tam} tarjaOp={tarjaOp} ordem={ordem} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} instagram={instagram} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
           </div>
         </div>
         <Button onClick={baixar} disabled={downloading} className="w-full bg-red-600 hover:bg-red-700">
@@ -466,8 +488,26 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             <Campo label="Casa / local" value={casa} onChange={setCasa} size={tam.casa} onSize={(v) => setTamKey("casa", v)} />
             <Campo label="Data" value={data} onChange={setData} size={tam.data} onSize={(v) => setTamKey("data", v)} />
             <Campo label="Ingresso" value={ingresso} onChange={setIngresso} placeholder="R$ 20 / Gratuito" size={tam.ingresso} onSize={(v) => setTamKey("ingresso", v)} />
+            <Campo label="Instagram da casa" value={instagram} onChange={setInstagram} placeholder="@bardozé" size={tam.instagram} onSize={(v) => setTamKey("instagram", v)} />
             <Campo label="Link de venda (vira QR)" value={link} onChange={setLink} placeholder="https://…" />
           </div>
+          {show.casaLogoUrl && (
+            <div className="mt-1 space-y-1 border-t border-zinc-800 pt-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-200">
+                <input type="checkbox" checked={mostrarLogoCasa} onChange={(e) => setMostrarLogoCasa(e.target.checked)} className="size-4 accent-red-600" />
+                Mostrar a logo da casa (canto superior direito)
+              </label>
+              {mostrarLogoCasa && (
+                <div className="flex items-center gap-1.5 px-0.5">
+                  <span className="text-[9px] uppercase tracking-wide text-zinc-500">tam logo {logoCasaTam}px</span>
+                  <input type="range" min={32} max={120} value={logoCasaTam} onChange={(e) => setLogoCasaTam(Number(e.target.value))} className="h-1 flex-1 accent-red-600" />
+                </div>
+              )}
+            </div>
+          )}
+          {!show.casaLogoUrl && (
+            <p className="text-[11px] text-zinc-500">Dica: cadastre a <strong>logo da casa</strong> na ficha da casa (busca no Instagram) pra ela entrar aqui automaticamente.</p>
+          )}
           <p className="text-[11px] text-zinc-500">Cada texto tem seu próprio tamanho (mini-barra abaixo do campo). A barra “Tamanho do texto” lá em cima escala todos de uma vez.</p>
         </Bloco>
 
@@ -478,7 +518,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
                 {ordem
                   .filter((k) => k !== "lineup" || festival)
                   .map((k) => (
-                    <OrdemItem key={k} id={k} label={{ chamada: "Chamada", banda: festival ? "Evento" : "Banda", lineup: "Line-up", data: "Data", casa: "Casa / local", ingresso: "Ingresso" }[k] ?? k} />
+                    <OrdemItem key={k} id={k} label={{ chamada: "Chamada", banda: festival ? "Evento" : "Banda", lineup: "Line-up", data: "Data", casa: "Casa / local", ingresso: "Ingresso", instagram: "Instagram" }[k] ?? k} />
                   ))}
               </div>
             </SortableContext>
@@ -530,9 +570,9 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 }
 
 function Conteudo({
-  estilo, fam, efeito, accent, escala, tam, tarjaOp, ordem, headline, banda, casa, data, inicio, ingresso, qr, festival, evento, lineup,
+  estilo, fam, efeito, accent, escala, tam, tarjaOp, ordem, headline, banda, casa, data, inicio, ingresso, instagram, qr, festival, evento, lineup,
 }: {
-  estilo: Estilo; fam: string; efeito: Efeito; accent: string; escala: number; tam: Record<string, number>; tarjaOp: number; ordem: string[]; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
+  estilo: Estilo; fam: string; efeito: Efeito; accent: string; escala: number; tam: Record<string, number>; tarjaOp: number; ordem: string[]; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; instagram: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
 }) {
   const tituloPrincipal = festival ? (evento.trim() || "FESTIVAL") : banda;
   const dataTxt = data + (!festival && inicio ? ` · ${inicio}` : "");
@@ -580,6 +620,9 @@ function Conteudo({
       ) : (
         <div key="ingresso"><TextoFx efeito={efeito} accent={accent} className="font-semibold" style={sz("ingresso", 12, { color: accent })}>{ingresso}</TextoFx></div>
       )
+    ) : null,
+    instagram: instagram.trim() ? (
+      <div key="instagram"><TextoFx efeito={efeito} accent={accent} className="font-semibold lowercase tracking-wide text-zinc-200" style={sz("instagram", 12)}>{instagram}</TextoFx></div>
     ) : null,
   };
 
