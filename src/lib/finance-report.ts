@@ -18,6 +18,7 @@ export const MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out",
 export type FinanceMember = {
   id: string;
   nome: string;
+  isManager: boolean;
   devido: number;
   repassado: number;
   aReceber: number; // devido - repassado (banda deve a ele)
@@ -142,6 +143,14 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
       if (repassadoSet.has(`${s.id}-${mid}`))
         repassadoM.set(mid, (repassadoM.get(mid) ?? 0) + info.valorCentavos);
     }
+    // A comissão também é renda — da PESSOA que é manager. Entra como destinatário.
+    if (managerMember && bd.managerCentavos > 0) {
+      const mid = managerMember.id;
+      devidoM.set(mid, (devidoM.get(mid) ?? 0) + bd.managerCentavos);
+      showsM.set(mid, (showsM.get(mid) ?? 0) + 1);
+      if (repassadoSet.has(`${s.id}-${mid}`))
+        repassadoM.set(mid, (repassadoM.get(mid) ?? 0) + bd.managerCentavos);
+    }
   }
 
   // A receber do contratante = comprometido (confirmado/concluído) e ainda não pago.
@@ -166,6 +175,7 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
       return {
         id,
         nome: memberById.get(id)?.nome ?? "—",
+        isManager: memberById.get(id)?.isManager ?? false,
         devido,
         repassado,
         aReceber: Math.max(0, devido - repassado),
@@ -174,8 +184,9 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     })
     .sort((a, b) => b.devido - a.devido);
 
-  const devidoMusicos = perMember.reduce((t, m) => t + m.devido, 0);
-  const repassadoMusicos = perMember.reduce((t, m) => t + m.repassado, 0);
+  // "Músicos" exclui o manager (a comissão dele tem o card próprio).
+  const devidoMusicos = perMember.filter((m) => !m.isManager).reduce((t, m) => t + m.devido, 0);
+  const repassadoMusicos = perMember.filter((m) => !m.isManager).reduce((t, m) => t + m.repassado, 0);
 
   return {
     anos,

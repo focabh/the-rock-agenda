@@ -123,6 +123,35 @@ export async function createPromoAction(
   return null;
 }
 
+/** Sobe várias FOTOS de uma vez (data URLs já comprimidos no cliente). */
+export async function createFotosBatchAction(
+  urls: string[]
+): Promise<{ ok: boolean; added: number; error?: string }> {
+  await requireAdmin();
+  const lim = LIMITS.foto;
+  const validas = urls
+    .filter((u) => lim.accept.test(u) && (!lim.sizeBytes || u.length <= lim.sizeBytes))
+    .slice(0, 10); // máx 10 por vez
+  if (validas.length === 0) return { ok: false, added: 0, error: "Nenhuma foto válida." };
+
+  const existentes = await db
+    .select({ id: promoItems.id })
+    .from(promoItems)
+    .where(eq(promoItems.tipo, "foto"));
+  const espaco = Math.max(0, lim.max - existentes.length);
+  if (espaco === 0)
+    return { ok: false, added: 0, error: `Limite de ${lim.max} fotos atingido.` };
+
+  const aInserir = validas.slice(0, espaco);
+  let n = existentes.length;
+  await db.insert(promoItems).values(
+    aInserir.map((url) => ({ tipo: "foto" as const, titulo: `Foto ${++n}`, url }))
+  );
+  revalidatePath("/divulgacao");
+  revalidatePath("/show");
+  return { ok: true, added: aInserir.length };
+}
+
 export async function updatePromoAction(
   id: string,
   _prev: ActionState,

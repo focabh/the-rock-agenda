@@ -26,14 +26,10 @@ export default async function FinanceiroPage({
   const membroId = membroParam ?? "";
 
   const distrib: DonutSeg[] = r.perMember.map((m, i) => ({
-    label: m.nome,
+    label: m.isManager ? `${m.nome} (comissão)` : m.nome,
     value: m.devido,
-    color: PALETTE[i % PALETTE.length],
+    color: m.isManager ? "#f59e0b" : PALETTE[i % PALETTE.length],
   }));
-  if (r.managerTotal > 0) {
-    const mgr = r.membros.find((m) => !r.perMember.some((p) => p.id === m.id));
-    distrib.push({ label: `${mgr?.nome ?? "Manager"} (comissão)`, value: r.managerTotal, color: "#f59e0b" });
-  }
 
   const maxVenue = Math.max(1, ...r.topVenues.map((v) => v.total));
   const foco = membroId ? r.perMember.find((m) => m.id === membroId) : null;
@@ -155,7 +151,9 @@ export default async function FinanceiroPage({
                             .map((m) => (
                               <tr key={m.id}>
                                 <td className="py-1.5 text-zinc-100">
-                                  {m.nome} <span className="text-zinc-500">· {m.shows}</span>
+                                  {m.nome}
+                                  {m.isManager && <span className="ml-1 text-[10px] uppercase text-amber-400">manager</span>}
+                                  <span className="text-zinc-500"> · {m.shows}</span>
                                 </td>
                                 <td className="py-1.5 text-right font-mono text-zinc-300">{formatBRL(m.devido)}</td>
                                 <td className="py-1.5 text-right font-mono text-emerald-400">{formatBRL(m.repassado)}</td>

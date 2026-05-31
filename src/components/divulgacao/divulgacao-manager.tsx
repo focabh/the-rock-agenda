@@ -15,6 +15,7 @@ import {
   Wrench,
   RefreshCw,
   Star,
+  Loader2,
 } from "lucide-react";
 import { InstagramIcon } from "@/components/shared/icons";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { fileToDataUrl } from "@/lib/upload-helpers";
 import {
   createPromoAction,
+  createFotosBatchAction,
   updatePromoAction,
   deletePromoAction,
   togglePromoObrigatorioAction,
@@ -166,6 +168,22 @@ export function DivulgacaoManager({
 }) {
   const [editing, setEditing] = useState<PromoLite | null>(null);
   const [addingTipo, setAddingTipo] = useState<Tipo | null>(null);
+  const [batching, startBatch] = useTransition();
+
+  function onPickFotos(files: FileList) {
+    const arr = Array.from(files).slice(0, 10);
+    startBatch(async () => {
+      const urls: string[] = [];
+      for (const f of arr) {
+        if (!f.type.startsWith("image/")) continue;
+        urls.push(await fileToDataUrl(f, { maxDim: 1600, quality: 0.8 }));
+      }
+      if (urls.length === 0) return;
+      const r = await createFotosBatchAction(urls);
+      if (r.ok) toast.success(`${r.added} foto(s) adicionada(s).`);
+      else toast.error(r.error ?? "Falha ao enviar.");
+    });
+  }
 
   const byTipo: Record<Tipo, PromoLite[]> = {
     video: [],
@@ -205,15 +223,31 @@ export function DivulgacaoManager({
                   <p className="text-xs text-muted-foreground">{meta.helper}</p>
                 )}
               </div>
-              {admin && (!atLimit || meta.singleton) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAddingTipo(tipo)}
-                >
-                  <AddIcon className="size-4" /> {addLabel}
-                </Button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {admin && tipo === "foto" && !atLimit && (
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-sm hover:bg-muted">
+                    {batching ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                    Enviar várias
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={batching}
+                      onChange={(e) => e.target.files?.length && onPickFotos(e.target.files)}
+                    />
+                  </label>
+                )}
+                {admin && (!atLimit || meta.singleton) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddingTipo(tipo)}
+                  >
+                    <AddIcon className="size-4" /> {addLabel}
+                  </Button>
+                )}
+              </div>
             </div>
 
             {list.length === 0 ? (
