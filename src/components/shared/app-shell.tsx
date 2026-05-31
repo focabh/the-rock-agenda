@@ -87,18 +87,32 @@ export function AppShell({
   role,
   displayName,
   logoUrl,
+  appBackgroundUrl,
   children,
 }: {
   username?: string;
   role?: string;
   displayName?: string | null;
   logoUrl: string;
+  appBackgroundUrl?: string | null;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex">
+      {/* Fundo geral do app (atrás de tudo, sem alterar o layout). Overlay escuro
+          pra manter cards/textos legíveis. */}
+      {appBackgroundUrl && (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
+          style={{
+            backgroundImage: `linear-gradient(rgba(9,9,11,0.86), rgba(9,9,11,0.86)), url(${appBackgroundUrl})`,
+            backgroundAttachment: "fixed",
+          }}
+        />
+      )}
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar print:hidden">
         <SidebarContent

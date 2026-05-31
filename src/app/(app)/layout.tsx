@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/shared/app-shell";
-import { getLogoUrl, requireCurrentUser, userDisplayName } from "@/lib/auth";
+import { getLogoUrl, getBrand, requireCurrentUser, userDisplayName } from "@/lib/auth";
 
 export default async function AppLayout({
   children,
@@ -7,13 +7,14 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireCurrentUser();
-  const logoUrl = await getLogoUrl();
+  const [logoUrl, brand] = await Promise.all([getLogoUrl(), getBrand()]);
   return (
     <AppShell
       username={user.username}
       role={user.role}
       displayName={userDisplayName(user)}
       logoUrl={logoUrl}
+      appBackgroundUrl={brand.appBackgroundUrl}
     >
       {children}
     </AppShell>

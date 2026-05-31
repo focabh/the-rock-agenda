@@ -6,6 +6,7 @@ import { PushManager } from "@/components/conta/push-manager";
 import { ProfileSettings } from "@/components/conta/profile-settings";
 import { MaterialPrefToggle } from "@/components/conta/material-pref-toggle";
 import { BrandSettings } from "@/components/conta/brand-settings";
+import { BackgroundCard } from "@/components/conta/background-card";
 import {
   adminMaterialPorPosicao,
   getAvailablePositions,
@@ -58,11 +59,26 @@ export default async function ContaPage() {
         {admin && (
           <BrandSettings
             initialName={brand.bandName ?? ""}
-            initialBg={brand.backgroundUrl ?? ""}
             initialGrupo={brand.whatsappGrupo ?? ""}
           />
         )}
         {admin && <LogoUploader currentLogo={logo} />}
+        {admin && (
+          <BackgroundCard
+            kind="login"
+            initial={brand.backgroundUrl}
+            titulo="Fundo da tela de login"
+            hint="Aparece atrás do formulário de acesso. Sem imagem, fundo escuro neutro."
+          />
+        )}
+        {admin && (
+          <BackgroundCard
+            kind="app"
+            initial={brand.appBackgroundUrl}
+            titulo="Fundo geral do app"
+            hint="Aparece em todas as telas internas, atrás do conteúdo. O layout continua igual."
+          />
+        )}
       </div>
     </div>
   );

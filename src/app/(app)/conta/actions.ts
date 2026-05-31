@@ -132,26 +132,49 @@ export async function removeLogoAction() {
   return { ok: true };
 }
 
-/** Define a identidade (nome, fundo do login) e o link do grupo da banda no WhatsApp. */
+/** Define o nome da banda e o link do grupo no WhatsApp. (Os fundos têm ação própria.) */
 export async function setBrandAction(
   bandName: string,
-  backgroundUrl: string,
   whatsappGrupo = ""
 ): Promise<{ ok: boolean }> {
   await requireAdmin();
   const name = bandName.trim().slice(0, 80) || null;
-  // Aceita URL ou foto enviada (data URL, bem maior).
-  const bg = backgroundUrl.trim().slice(0, 4_000_000) || null;
   const grupo = whatsappGrupo.trim().slice(0, 300) || null;
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) {
-    await db
-      .update(appSettings)
-      .set({ bandName: name, backgroundUrl: bg, whatsappGrupo: grupo })
-      .where(eq(appSettings.id, row.id));
+    await db.update(appSettings).set({ bandName: name, whatsappGrupo: grupo }).where(eq(appSettings.id, row.id));
   } else {
-    await db.insert(appSettings).values({ bandName: name, backgroundUrl: bg, whatsappGrupo: grupo });
+    await db.insert(appSettings).values({ bandName: name, whatsappGrupo: grupo });
   }
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+const ALLOWED_BG = /^data:image\/(png|jpe?g|webp);base64,/;
+
+/** Salva o fundo do LOGIN (kind="login") ou o fundo GERAL do app (kind="app"). */
+export async function setBackgroundAction(
+  kind: "login" | "app",
+  dataUrl: string
+): Promise<{ ok: boolean; error?: string }> {
+  await requireAdmin();
+  const u = dataUrl.trim();
+  if (!ALLOWED_BG.test(u)) return { ok: false, error: "Use JPG, PNG ou WebP." };
+  if (u.length > 4_000_000) return { ok: false, error: "Imagem muito grande." };
+  const patch = kind === "app" ? { appBackgroundUrl: u } : { backgroundUrl: u };
+  const [row] = await db.select().from(appSettings).limit(1);
+  if (row) await db.update(appSettings).set(patch).where(eq(appSettings.id, row.id));
+  else await db.insert(appSettings).values(patch);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Remove o fundo do login ou do app. */
+export async function removeBackgroundAction(kind: "login" | "app"): Promise<{ ok: boolean }> {
+  await requireAdmin();
+  const patch = kind === "app" ? { appBackgroundUrl: null } : { backgroundUrl: null };
+  const [row] = await db.select().from(appSettings).limit(1);
+  if (row) await db.update(appSettings).set(patch).where(eq(appSettings.id, row.id));
   revalidatePath("/", "layout");
   return { ok: true };
 }

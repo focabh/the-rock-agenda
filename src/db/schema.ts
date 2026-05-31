@@ -75,7 +75,8 @@ export const appSettings = sqliteTable("app_settings", {
     .notNull()
     .default(true),
   logoUrl: text("logo_url"), // data URL (base64) da logo personalizada
-  backgroundUrl: text("background_url"), // imagem de fundo do login (URL)
+  backgroundUrl: text("background_url"), // imagem de fundo do LOGIN
+  appBackgroundUrl: text("app_background_url"), // imagem de fundo GERAL do app (após login)
   bandName: text("band_name"), // nome da banda/conta (login dinâmico StageBoss)
   bioTexto: text("bio_texto"), // bio institucional (manual ou IA) — cache definitivo
   whatsappGrupo: text("whatsapp_grupo"), // link de convite do grupo da banda no WhatsApp

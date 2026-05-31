@@ -160,6 +160,7 @@ export async function getLogoUrl(): Promise<string> {
 export async function getBrand(): Promise<{
   logoUrl: string | null;
   backgroundUrl: string | null;
+  appBackgroundUrl: string | null;
   bandName: string | null;
   bioTexto: string | null;
   whatsappGrupo: string | null;
@@ -169,6 +170,7 @@ export async function getBrand(): Promise<{
       .select({
         logoUrl: appSettings.logoUrl,
         backgroundUrl: appSettings.backgroundUrl,
+        appBackgroundUrl: appSettings.appBackgroundUrl,
         bandName: appSettings.bandName,
         bioTexto: appSettings.bioTexto,
         whatsappGrupo: appSettings.whatsappGrupo,
@@ -178,12 +180,13 @@ export async function getBrand(): Promise<{
     return {
       logoUrl: s?.logoUrl ?? null,
       backgroundUrl: s?.backgroundUrl ?? null,
+      appBackgroundUrl: s?.appBackgroundUrl ?? null,
       bandName: s?.bandName ?? null,
       bioTexto: s?.bioTexto ?? null,
       whatsappGrupo: s?.whatsappGrupo ?? null,
     };
   } catch {
-    return { logoUrl: null, backgroundUrl: null, bandName: null, bioTexto: null, whatsappGrupo: null };
+    return { logoUrl: null, backgroundUrl: null, appBackgroundUrl: null, bandName: null, bioTexto: null, whatsappGrupo: null };
   }
 }
 
