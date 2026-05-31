@@ -28,6 +28,7 @@ const casaSchema = z.object({
       "Telefone inválido — use DDD + número, ex: (31) 99999-9999"
     ),
   instagram: z.string().max(200).optional(),
+  infraestrutura: z.string().max(2000).optional(),
   observacoes: z.string().max(2000).optional(),
 });
 

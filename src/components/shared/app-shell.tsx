@@ -100,7 +100,7 @@ export function AppShell({
   return (
     <div className="min-h-screen flex">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar print:hidden">
         <SidebarContent
           username={username}
           role={role}
@@ -111,7 +111,7 @@ export function AppShell({
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile topbar */}
-        <header className="md:hidden flex items-center gap-3 border-b border-border px-4 py-3 bg-card">
+        <header className="md:hidden flex items-center gap-3 border-b border-border px-4 py-3 bg-card print:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger render={<Button variant="ghost" size="icon" />}>
               <Menu className="size-5" />

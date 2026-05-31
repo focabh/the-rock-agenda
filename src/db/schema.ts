@@ -173,6 +173,9 @@ export const venues = sqliteTable("venues", {
   caracteristicas: text("caracteristicas"), // JSON array de tags
   instagram: text("instagram"),
   perfilPublico: text("perfil_publico"), // resumo do público/estilo
+  // Infraestrutura técnica que a casa oferece (PA, canais, energia, palco...).
+  // Texto livre — usado no check de compatibilidade técnica do show.
+  infraestrutura: text("infraestrutura"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -366,6 +369,26 @@ export const showMemberPaid = sqliteTable(
     ),
   }),
 );
+
+// ---------------- INVENTÁRIO DE EQUIPAMENTOS ----------------
+
+// Inventário estruturado da banda (substitui o texto livre em members.equipamentos).
+export const equipamentos = sqliteTable("equipamentos", {
+  id: id(),
+  nome: text("nome").notNull(),
+  categoria: text("categoria", {
+    enum: ["individual", "infraestrutura_coletiva"],
+  }).notNull(),
+  tipo: text("tipo", {
+    enum: ["mesa_som", "pa", "retorno_palco", "in_ear", "microfone", "periferico", "outro"],
+  }).notNull(),
+  // Dono (se individual); null = da banda (infraestrutura coletiva).
+  proprietarioId: text("proprietario_id").references(() => members.id, {
+    onDelete: "set null",
+  }),
+  especificacoes: text("especificacoes"), // canais, potência, etc.
+  createdAt: createdAt(),
+});
 
 // ---------------- REHEARSALS (ENSAIOS) ----------------
 
@@ -913,6 +936,7 @@ export type ShowMemberPayment = typeof showMemberPayment.$inferSelect;
 export type ShowMemberPaid = typeof showMemberPaid.$inferSelect;
 export type Gasto = typeof gastos.$inferSelect;
 export type Reembolso = typeof reembolsos.$inferSelect;
+export type Equipamento = typeof equipamentos.$inferSelect;
 export type ContractorLink = typeof contractorLinks.$inferSelect;
 export type ContractorLinkVisit = typeof contractorLinkVisits.$inferSelect;
 export type SiteVisit = typeof siteVisits.$inferSelect;

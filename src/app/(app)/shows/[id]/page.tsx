@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ShowDetailTabs } from "@/components/shows/show-detail-tabs";
 import { ShowResumo } from "@/components/shows/show-resumo";
 import { VenueShowCard } from "@/components/casas/venue-show-card";
+import { CompatCheck } from "@/components/shows/compat-check";
 import { parseTags } from "@/lib/venue-tags";
 import { SetlistTab } from "@/components/shows/setlist-tab";
 import { ChecklistTab } from "@/components/shows/checklist-tab";
@@ -171,6 +172,7 @@ export default async function ShowDetailPage({
                   ultimaAprCasa ? formatDataBR(ultimaAprCasa) : null
                 }
               />
+              {admin && <CompatCheck showId={show.id} />}
               <PresenceCard
                 eventId={show.id}
                 action={setPresenceAction}

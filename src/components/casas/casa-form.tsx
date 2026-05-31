@@ -87,6 +87,18 @@ export function CasaForm({ casa, action, submitLabel = "Salvar" }: Props) {
           </div>
 
           <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="infraestrutura">Infraestrutura técnica (da casa)</Label>
+            <Textarea
+              id="infraestrutura"
+              name="infraestrutura"
+              rows={2}
+              defaultValue={casa?.infraestrutura ?? ""}
+              placeholder="Ex.: PA próprio 2x15, mesa 16 canais, palco 4x3m, 2 tomadas 110V, sem retorno..."
+            />
+            <FieldError state={state} name="infraestrutura" />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="observacoes">Observações</Label>
             <Textarea
               id="observacoes"
