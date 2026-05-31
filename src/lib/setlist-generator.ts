@@ -86,7 +86,22 @@ export function generateSetlist(songs: GenSong[], o: GenOptions): GenResult {
     total += dur(s);
   }
 
-  // Ordena: abertura → meio → fechamento → Final Boss (munição pesada no fim).
+  const ordered = orderSetlistCurve(picked);
+
+  return {
+    orderedIds: ordered.map((s) => s.id),
+    totalSeg: ordered.reduce((t, s) => t + dur(s), 0),
+  };
+}
+
+/**
+ * Ordena um conjunto de músicas numa curva de energia: abertura → meio
+ * (energia ascendente) → fechamento → Final Boss (munição pesada no fim).
+ * Não adiciona nem remove nada — só reorganiza. Usado tanto na geração quanto
+ * no "Aplicar melhorias" (reorganizar o set atual). PURA.
+ */
+export function orderSetlistCurve(picked: GenSong[]): GenSong[] {
+  const energy = (s: GenSong) => s.energia ?? 2;
   const fb = picked.filter((s) => s.finalBoss);
   const rest = picked.filter((s) => !s.finalBoss);
   const abertura = rest.filter((s) => s.momento === "abertura");
@@ -94,8 +109,7 @@ export function generateSetlist(songs: GenSong[], o: GenOptions): GenResult {
   const meio = rest.filter(
     (s) => s.momento !== "abertura" && s.momento !== "fechamento"
   );
-  // Energia subindo (começa mais leve, fecha mais forte). "Leves no começo"
-  // reforça isso; nos dois casos ordenamos por energia ascendente.
+  // Energia subindo (começa mais leve, fecha mais forte).
   meio.sort((a, b) => energy(a) - energy(b));
 
   const ordered = [...abertura, ...meio, ...fechamento, ...fb];
@@ -115,8 +129,5 @@ export function generateSetlist(songs: GenSong[], o: GenOptions): GenResult {
     ordered.push(closer);
   }
 
-  return {
-    orderedIds: ordered.map((s) => s.id),
-    totalSeg: ordered.reduce((t, s) => t + dur(s), 0),
-  };
+  return ordered;
 }

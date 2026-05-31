@@ -21,7 +21,11 @@ import {
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { parseTags } from "@/lib/venue-tags";
-import { generateSetlist, type GenOptions } from "@/lib/setlist-generator";
+import {
+  generateSetlist,
+  orderSetlistCurve,
+  type GenOptions,
+} from "@/lib/setlist-generator";
 import { fitToTarget, SONG_DEFAULT_SEG } from "@/lib/setlist-fit";
 import {
   generateSetlistAI,
@@ -385,6 +389,75 @@ export async function renameSetlistAction(
     .set({ nome: nome.trim() || "Setlist" })
     .where(eq(setlists.id, setlistId));
   revalidatePath(`/shows/${showId}`);
+}
+
+/** Edita nome + duração-alvo (min) do set. duracaoAlvoMin null = usar a do show. */
+export async function updateSetlistAction(
+  showId: string,
+  setlistId: string,
+  data: { nome: string; duracaoAlvoMin: number | null }
+) {
+  await requireAdmin();
+  const alvo =
+    data.duracaoAlvoMin != null && data.duracaoAlvoMin > 0
+      ? Math.min(600, Math.round(data.duracaoAlvoMin))
+      : null;
+  await db
+    .update(setlists)
+    .set({ nome: data.nome.trim() || "Setlist", duracaoAlvoMin: alvo })
+    .where(eq(setlists.id, setlistId));
+  revalidatePath(`/shows/${showId}`);
+}
+
+/**
+ * "Aplicar melhorias": reorganiza as músicas ATUAIS do set numa curva de
+ * energia (abertura → meio ascendente → fechamento → Final Boss). Não adiciona
+ * nem remove — só reordena. GRÁTIS (determinístico, sem IA).
+ */
+export async function reorganizeSetlistAction(
+  showId: string,
+  setlistId: string
+): Promise<{ ok: boolean; count: number }> {
+  await requireAdmin();
+  const items = await db
+    .select({ id: setlistItems.id, songId: setlistItems.songId })
+    .from(setlistItems)
+    .where(eq(setlistItems.setlistId, setlistId));
+  if (items.length === 0) return { ok: true, count: 0 };
+
+  const songIds = items.map((i) => i.songId);
+  const rows = await db.select().from(songs).where(inArray(songs.id, songIds));
+  const songById = new Map(rows.map((s) => [s.id, s]));
+
+  const ordered = orderSetlistCurve(
+    items.map((i) => {
+      const s = songById.get(i.songId);
+      return {
+        id: i.songId,
+        status: s?.status ?? "ativa",
+        duracaoSeg: s?.duracaoSeg ?? null,
+        energia: s?.energia ?? null,
+        conhecida: s?.conhecida ?? false,
+        exigeVocal: s?.exigeVocal ?? false,
+        momento: s?.momento ?? "qualquer",
+        finalBoss: s?.finalBoss ?? false,
+      };
+    })
+  );
+
+  // songId → itemId (pode haver a mesma música? não — set não repete). Mapeia.
+  const itemBySong = new Map(items.map((i) => [i.songId, i.id]));
+  let ordem = 0;
+  for (const s of ordered) {
+    const itemId = itemBySong.get(s.id);
+    if (!itemId) continue;
+    await db
+      .update(setlistItems)
+      .set({ ordem: ordem++ })
+      .where(eq(setlistItems.id, itemId));
+  }
+  revalidatePath(`/shows/${showId}`);
+  return { ok: true, count: ordered.length };
 }
 
 export async function deleteSetlistAction(showId: string, setlistId: string) {

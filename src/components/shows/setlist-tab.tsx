@@ -38,6 +38,8 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { NumberStepper } from "@/components/shared/number-stepper";
 import { Card } from "@/components/ui/card";
 import {
   Dialog,
@@ -66,7 +68,7 @@ import {
   updateSetlistItemAction,
   reorderSetlistItemsAction,
   createSetlistAction,
-  renameSetlistAction,
+  updateSetlistAction,
   deleteSetlistAction,
 } from "@/app/(app)/shows/[id]/actions-setlist";
 import type { Song, SetlistItem, Setlist } from "@/db/schema";
@@ -102,7 +104,7 @@ export function SetlistTab({
   const [mgrPending, startMgr] = useTransition();
 
   const [newOpen, setNewOpen] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
 
   // Reconcilia a seleção quando a lista muda (criar/excluir).
@@ -172,11 +174,12 @@ export function SetlistTab({
     });
   }
 
-  function handleRename(nome: string) {
+  function handleEdit(nome: string, duracaoAlvoMin: number | null) {
     if (!selected) return;
     startMgr(async () => {
-      await renameSetlistAction(showId, selected.id, nome);
-      setRenameOpen(false);
+      await updateSetlistAction(showId, selected.id, { nome, duracaoAlvoMin });
+      setEditOpen(false);
+      toast.success("Setlist atualizado.");
     });
   }
 
@@ -265,9 +268,9 @@ export function SetlistTab({
               {canEdit && selected && (
                 <>
                   <button
-                    onClick={() => setRenameOpen(true)}
+                    onClick={() => setEditOpen(true)}
                     className="text-muted-foreground hover:text-foreground"
-                    title="Renomear setlist"
+                    title="Editar setlist (nome e duração)"
                   >
                     <Pencil className="size-3.5" />
                   </button>
@@ -287,11 +290,15 @@ export function SetlistTab({
                   showId={showId}
                   setlistId={selected.id}
                   hasItems={localItems.length > 0}
-                  defaultMin={defaultDuracaoMin}
+                  defaultMin={selected.duracaoAlvoMin ?? defaultDuracaoMin}
                 />
               )}
               {selected && localItems.length > 0 && (
-                <SetlistCritiqueDialog setlistId={selected.id} />
+                <SetlistCritiqueDialog
+                  showId={showId}
+                  setlistId={selected.id}
+                  canEdit={canEdit}
+                />
               )}
               {canEdit && selected && (
                 <SpotifyImportDialog
@@ -451,13 +458,13 @@ export function SetlistTab({
         pending={mgrPending}
         onSubmit={handleCreate}
       />
-      <NameDialog
-        open={renameOpen}
-        onOpenChange={setRenameOpen}
-        title="Renomear setlist"
-        initial={selected?.nome ?? ""}
+      <EditSetlistDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        initialNome={selected?.nome ?? ""}
+        initialDuracao={selected?.duracaoAlvoMin ?? defaultDuracaoMin}
         pending={mgrPending}
-        onSubmit={handleRename}
+        onSubmit={handleEdit}
       />
       <AlertDialog open={delOpen} onOpenChange={setDelOpen}>
         <AlertDialogContent>
@@ -534,6 +541,81 @@ function NameDialog({
               disabled={pending || !value.trim()}
             >
               Salvar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditSetlistDialog({
+  open,
+  onOpenChange,
+  initialNome,
+  initialDuracao,
+  pending,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  initialNome: string;
+  initialDuracao: number;
+  pending: boolean;
+  onSubmit: (nome: string, duracaoAlvoMin: number | null) => void;
+}) {
+  const [nome, setNome] = useState(initialNome);
+  const [dur, setDur] = useState(initialDuracao);
+  useEffect(() => {
+    if (open) {
+      setNome(initialNome);
+      setDur(initialDuracao);
+    }
+  }, [open, initialNome, initialDuracao]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar setlist</DialogTitle>
+          <DialogDescription>
+            Nome e duração-alvo deste set. A duração vira o padrão ao gerar.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-nome">Nome</Label>
+            <Input
+              id="edit-nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              placeholder="Ex.: 1º set, Bis, Acústico…"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-dur">Duração-alvo do set</Label>
+            <div className="flex items-center gap-2">
+              <NumberStepper
+                id="edit-dur"
+                value={dur}
+                onChange={setDur}
+                min={5}
+                max={300}
+                step={5}
+              />
+              <span className="text-sm text-muted-foreground">min</span>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => nome.trim() && onSubmit(nome.trim(), dur)}
+              disabled={pending || !nome.trim()}
+            >
+              {pending ? "Salvando…" : "Salvar"}
             </Button>
           </div>
         </div>

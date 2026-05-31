@@ -6,7 +6,9 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
+  Wand2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   critiqueSetlistAction,
+  reorganizeSetlistAction,
   type CritiqueResult,
 } from "@/app/(app)/shows/[id]/actions-setlist";
 
@@ -28,9 +31,18 @@ const VEREDITO = {
   fraco: { label: "Curva fraca", cls: "bg-red-500/15 text-red-300 ring-red-500/30" },
 } as const;
 
-export function SetlistCritiqueDialog({ setlistId }: { setlistId: string }) {
+export function SetlistCritiqueDialog({
+  showId,
+  setlistId,
+  canEdit = false,
+}: {
+  showId: string;
+  setlistId: string;
+  canEdit?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [loading, start] = useTransition();
+  const [applying, startApply] = useTransition();
   const [result, setResult] = useState<CritiqueResult | null>(null);
 
   useEffect(() => {
@@ -44,6 +56,18 @@ export function SetlistCritiqueDialog({ setlistId }: { setlistId: string }) {
     });
   }, [open, setlistId]);
 
+  function aplicar() {
+    startApply(async () => {
+      const r = await reorganizeSetlistAction(showId, setlistId);
+      if (r.ok) {
+        toast.success("Setlist reorganizado na curva de energia. 🤘");
+        setOpen(false);
+      } else {
+        toast.error("Não foi possível reorganizar.");
+      }
+    });
+  }
+
   const v = result?.veredito ? VEREDITO[result.veredito] : null;
 
   return (
@@ -56,7 +80,8 @@ export function SetlistCritiqueDialog({ setlistId }: { setlistId: string }) {
         <DialogHeader>
           <DialogTitle>Avaliação do setlist</DialogTitle>
           <DialogDescription>
-            A IA analisa a curva do show (não reordena nada — só aponta).
+            A IA aponta os problemas da curva. Use “Aplicar melhorias” pra
+            reorganizar na hora — grátis, sem custo de IA.
           </DialogDescription>
         </DialogHeader>
 
@@ -100,6 +125,23 @@ export function SetlistCritiqueDialog({ setlistId }: { setlistId: string }) {
             )}
           </div>
         ) : null}
+
+        {canEdit && (
+          <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+            <Button onClick={aplicar} disabled={applying || loading}>
+              {applying ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Wand2 className="size-4" />
+              )}
+              {applying ? "Reorganizando…" : "Aplicar melhorias (reorganizar)"}
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Reordena as mesmas músicas na curva (abre leve → sobe → fecha
+              forte → Final Boss no fim). Depois é só arrastar e add/remover.
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -239,6 +239,9 @@ export const setlists = sqliteTable("setlists", {
   nome: text("nome").notNull(),
   showId: text("show_id").references(() => shows.id, { onDelete: "set null" }),
   duracaoEstimadaSeg: integer("duracao_estimada_seg").default(0),
+  // Duração-alvo deste set (min). Null → usa a duração do show. Permite
+  // 1º set 60min, bis 20min etc.
+  duracaoAlvoMin: integer("duracao_alvo_min"),
   observacoesGerais: text("observacoes_gerais"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
