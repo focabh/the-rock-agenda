@@ -156,6 +156,31 @@ export async function getLogoUrl(): Promise<string> {
   }
 }
 
+/** Identidade dinâmica do login (StageBoss multi-banda). Valores crus (nullable). */
+export async function getBrand(): Promise<{
+  logoUrl: string | null;
+  backgroundUrl: string | null;
+  bandName: string | null;
+}> {
+  try {
+    const [s] = await db
+      .select({
+        logoUrl: appSettings.logoUrl,
+        backgroundUrl: appSettings.backgroundUrl,
+        bandName: appSettings.bandName,
+      })
+      .from(appSettings)
+      .limit(1);
+    return {
+      logoUrl: s?.logoUrl ?? null,
+      backgroundUrl: s?.backgroundUrl ?? null,
+      bandName: s?.bandName ?? null,
+    };
+  } catch {
+    return { logoUrl: null, backgroundUrl: null, bandName: null };
+  }
+}
+
 export async function verifyPassword(input: string, hash: string) {
   return bcrypt.compare(input, hash);
 }

@@ -132,6 +132,27 @@ export async function removeLogoAction() {
   return { ok: true };
 }
 
+/** Define a identidade do login (nome da banda + URL da imagem de fundo). */
+export async function setBrandAction(
+  bandName: string,
+  backgroundUrl: string
+): Promise<{ ok: boolean }> {
+  await requireAdmin();
+  const name = bandName.trim().slice(0, 80) || null;
+  const bg = backgroundUrl.trim().slice(0, 2000) || null;
+  const [row] = await db.select().from(appSettings).limit(1);
+  if (row) {
+    await db
+      .update(appSettings)
+      .set({ bandName: name, backgroundUrl: bg })
+      .where(eq(appSettings.id, row.id));
+  } else {
+    await db.insert(appSettings).values({ bandName: name, backgroundUrl: bg });
+  }
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Liga/desliga: admin também vê só o material da sua posição (esconde letras). */
 export async function setAdminMaterialPorPosicaoAction(value: boolean) {
   await requireAdmin();
