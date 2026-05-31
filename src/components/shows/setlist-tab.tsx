@@ -680,6 +680,14 @@ function SortableSetlistItem({
           {item.song.artista}
         </p>
       </div>
+      {item.song.afinacao && (
+        <span
+          className="shrink-0 hidden sm:inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset ring-amber-500/30 bg-amber-500/10 text-amber-300"
+          title="Afinação (agrupada pra minimizar reafinações)"
+        >
+          {item.song.afinacao}
+        </span>
+      )}
       {(() => {
         const dur = item.duracaoSeg ?? item.song.duracaoSeg ?? 0;
         return dur > 0 ? (
@@ -689,8 +697,9 @@ function SortableSetlistItem({
         ) : null;
       })()}
       <Input
-        defaultValue={item.tom ?? ""}
+        defaultValue={item.tom ?? item.song.tom ?? ""}
         placeholder="Tom"
+        title="Tom (tonalidade)"
         disabled={!canEdit}
         className="w-16 h-7 text-xs font-mono"
         onBlur={(e) =>

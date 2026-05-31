@@ -17,6 +17,7 @@ export type AISong = {
   exigeVocal: boolean;
   momento: string;
   tom: string | null;
+  afinacao: string | null;
   finalBoss: boolean;
 };
 
@@ -61,6 +62,7 @@ export async function generateSetlistAI(
     exigeVocal: s.exigeVocal,
     finalBoss: s.finalBoss,
     tom: s.tom ?? "",
+    afinacao: s.afinacao ?? "",
   }));
 
   const prefs: string[] = [];
@@ -76,7 +78,7 @@ export async function generateSetlistAI(
 BANDA: The Rock — covers de rock alternativo dos anos 90 e 2000, de BH.
 
 CONTEXTO:
-- Duração-alvo: ${i.targetMin} min (conte ~60s de fala/transição por música).
+- Duração-alvo: ${i.targetMin} min (conte ~10s de transição por música).
 - Dia: ${i.diaSemana}. Início: ${i.horario || "não informado"}.
 - Casa: ${i.casaNome} — ${i.casaPerfil || "sem perfil"}. Características: ${i.casaTags.join(", ") || "—"}.
 - Última vez nesta casa (NÃO repita abre/fecha nem a ordem): ${i.setlistAnterior.join(", ") || "nenhuma"}.
@@ -99,12 +101,14 @@ DRAMATURGIA:
 4. Conhecidas abrem/fecham; faixas menos óbvias ficam nos vales do meio.
 5. Vocal: não emende duas que exigem muito do vocal; as difíceis nos picos.
 6. Transições suaves (evite saltos bruscos de andamento/tom entre vizinhas).
-7. Ajuste ao contexto: sex/sáb à noite ou tarde → +energia/+hits, menos respiros; quinta/happy-hour/cedo/público 30+ → comece ameno e suba; comercial → +conhecidas; pesado → +energia; alternativo → +b-sides; ≤45min → só bala, 1 respiro; ≥120min → blocos com respiros entre eles.
-8. PREENCHA o tempo-alvo (tolerância ~1 música).
+7. AFINAÇÃO (hardware): agrupe músicas de mesma "afinacao" em blocos contíguos pra MINIMIZAR reafinações no palco — não fique alternando E Standard ↔ Eb ↔ Drop. Use a curva de energia DENTRO/ENTRE esses blocos.
+8. ARTISTA: no máximo 2 músicas seguidas do mesmo artista. Intercale bandas.
+9. Ajuste ao contexto: sex/sáb à noite ou tarde → +energia/+hits, menos respiros; quinta/happy-hour/cedo/público 30+ → comece ameno e suba; comercial → +conhecidas; pesado → +energia; alternativo → +b-sides; ≤45min → só bala, 1 respiro; ≥120min → blocos com respiros entre eles.
+10. PREENCHA o tempo-alvo (tolerância ~1 música).
 
-RESPONDA SOMENTE COM JSON VÁLIDO:
-{"ordem":[{"id":"<id do repertório>"}],"racional":"1-3 frases sobre a estratégia da curva pra este dia/horário/casa"}
-Não use id fora do repertório. Não repita id.`;
+SAÍDA EXECUTIVA — responda SÓ com JSON compacto, NADA de texto fora dele, SEM justificativa por faixa, SEM introdução/conclusão:
+{"perfil":["3 palavras-chave do bar"],"ordem":["<id>","<id>",...],"racional":"≤2 frases sobre a curva"}
+"ordem" é um array de ids (strings puras, NÃO objetos). Só ids do repertório, sem repetir.`;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -115,7 +119,7 @@ Não use id fora do repertório. Não repita id.`;
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2000,
+      max_tokens: 1500,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -130,18 +134,26 @@ Não use id fora do repertório. Não repita id.`;
   const m = text.match(/\{[\s\S]*\}/);
   if (!m) throw new Error("IA não devolveu JSON.");
   const parsed = JSON.parse(m[0]) as {
-    ordem?: { id: string }[];
+    perfil?: unknown;
+    ordem?: (string | { id?: string })[];
     racional?: string;
   };
 
   const valid = new Set(i.songs.map((s) => s.id));
   const seen = new Set<string>();
   const orderedIds = (parsed.ordem ?? [])
-    .map((x) => x?.id)
+    .map((x) => (typeof x === "string" ? x : x?.id))
     .filter((id): id is string => !!id && valid.has(id) && !seen.has(id) && (seen.add(id), true));
 
   if (orderedIds.length === 0) throw new Error("IA não selecionou músicas válidas.");
-  return { orderedIds, racional: (parsed.racional ?? "").slice(0, 600) };
+
+  // 3 palavras-chave do bar viram prefixo do racional (curva já vem enxuta).
+  const perfil = Array.isArray(parsed.perfil)
+    ? parsed.perfil.filter((x) => typeof x === "string").slice(0, 3).join(" · ")
+    : "";
+  const racionalBase = (parsed.racional ?? "").slice(0, 400);
+  const racional = perfil ? `Casa: ${perfil}. ${racionalBase}`.trim() : racionalBase;
+  return { orderedIds, racional };
 }
 
 // ---- Crítica de setlist (validação humana): a IA avalia a ORDEM atual ----

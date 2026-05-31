@@ -279,6 +279,7 @@ export async function generateSetlistAction(
           exigeVocal: s.exigeVocal,
           momento: s.momento,
           tom: s.tom,
+          afinacao: s.afinacao,
           finalBoss: s.finalBoss,
         })),
         targetMin: Math.max(1, opts.targetMin),

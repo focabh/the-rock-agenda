@@ -86,12 +86,22 @@ export function SongForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tom">Tom / afinação</Label>
+            <Label htmlFor="tom">Tom (tonalidade)</Label>
             <Input
               id="tom"
               name="tom"
               defaultValue={song?.tom ?? ""}
-              placeholder="Ex.: Em, A, Drop D"
+              placeholder="Ex.: Em, A, F#m"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="afinacao">Afinação</Label>
+            <Input
+              id="afinacao"
+              name="afinacao"
+              defaultValue={song?.afinacao ?? ""}
+              placeholder="Ex.: E Standard, Eb, Drop D"
             />
           </div>
 

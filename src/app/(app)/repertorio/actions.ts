@@ -61,6 +61,7 @@ function extractSongMeta(fd: FormData) {
     exigeVocal: fd.get("exigeVocal") === "on",
     finalBoss: fd.get("finalBoss") === "on",
     tom: String(fd.get("tom") ?? "").trim() || null,
+    afinacao: String(fd.get("afinacao") ?? "").trim() || null,
     estilo: String(fd.get("estilo") ?? "").trim() || null,
   };
 }
