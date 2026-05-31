@@ -2,7 +2,7 @@ import { and, gte, inArray, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { shows } from "@/db/schema";
 import { requireCurrentUser, getBrand, getLogoUrl } from "@/lib/auth";
-import { formatDataBR, formatHoraBR } from "@/lib/formatters";
+import { formatHoraBR } from "@/lib/formatters";
 import { listImagensDivulgacao } from "@/app/(app)/shows/[id]/divulgacao/actions";
 import { PageHeader } from "@/components/shared/page-header";
 import { AgendaPosterStudio, type PosterShow } from "@/components/divulgacao/agenda-poster-studio";
@@ -30,7 +30,7 @@ export default async function CartazAgendaPage() {
 
   const lista: PosterShow[] = proximos.map((s) => ({
     ts: s.data.getTime(),
-    shortData: formatDataBR(s.data),
+    shortData: `${String(s.data.getDate()).padStart(2, "0")}/${String(s.data.getMonth() + 1).padStart(2, "0")}`,
     dia: DIAS[s.data.getDay()],
     hora: s.inicio || formatHoraBR(s.data),
     casa: s.casa.nome,

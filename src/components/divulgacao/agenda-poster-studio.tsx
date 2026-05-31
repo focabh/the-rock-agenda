@@ -129,7 +129,7 @@ export function AgendaPosterStudio({
               ) : (
                 filtrados.map((s, i) => (
                   <li key={i} className="flex items-baseline gap-2 text-zinc-100">
-                    <span className="w-14 shrink-0 font-mono text-sm font-bold text-amber-400">{s.shortData}</span>
+                    <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-amber-400">{s.shortData}</span>
                     <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.casa}</span>
                     <span className="shrink-0 font-mono text-xs text-zinc-400">{s.hora}</span>
                   </li>

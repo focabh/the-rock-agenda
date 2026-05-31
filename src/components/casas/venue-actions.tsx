@@ -42,6 +42,7 @@ export function VenueActions({
   venueId,
   telefone,
   grupoLink = null,
+  pixInfo = null,
   rel,
   materialLinks,
   materialDate,
@@ -52,6 +53,8 @@ export function VenueActions({
   telefone: string | null;
   /** Link de convite do grupo de WhatsApp da casa (opcional). */
   grupoLink?: string | null;
+  /** Bloco de PIX de quem está logado (pra cobrança de cachê). */
+  pixInfo?: string | null;
   rel: Rel;
   /** Caminhos/URLs do material da banda (anexados na divulgação). */
   materialLinks: string[];
@@ -150,6 +153,7 @@ export function VenueActions({
           venueId={venueId}
           telefone={telefone}
           grupoLink={grupoLink}
+          pixInfo={pixInfo}
           template={active}
           materialLinks={materialLinks}
           onClose={() => setActive(null)}
@@ -197,6 +201,7 @@ function MessageDialog({
   venueId,
   telefone,
   grupoLink,
+  pixInfo,
   template,
   materialLinks,
   onClose,
@@ -204,6 +209,7 @@ function MessageDialog({
   venueId: string;
   telefone: string | null;
   grupoLink?: string | null;
+  pixInfo?: string | null;
   template: VenueMessageTemplate;
   materialLinks: string[];
   onClose: () => void;
@@ -219,6 +225,10 @@ function MessageDialog({
               : l
           )
           .join("\n")
+      : "") +
+    (template.incluiPix && pixInfo ? `\n\n${pixInfo}` : "") +
+    (template.incluiPix && !pixInfo
+      ? "\n\n(Cadastre sua chave PIX em Conta pra ela entrar aqui automaticamente.)"
       : "");
   const [text, setText] = useState(initial);
   const [pending, start] = useTransition();

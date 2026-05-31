@@ -140,7 +140,8 @@ export async function setBrandAction(
 ): Promise<{ ok: boolean }> {
   await requireAdmin();
   const name = bandName.trim().slice(0, 80) || null;
-  const bg = backgroundUrl.trim().slice(0, 2000) || null;
+  // Aceita URL ou foto enviada (data URL, bem maior).
+  const bg = backgroundUrl.trim().slice(0, 4_000_000) || null;
   const grupo = whatsappGrupo.trim().slice(0, 300) || null;
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) {
@@ -272,6 +273,8 @@ const updateMemberSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome").max(120),
   telefone: optionalTelefone,
   chavePix: optionalPix,
+  pixTipo: z.string().trim().max(20).optional(),
+  pixBanco: z.string().trim().max(60).optional(),
   avatar: optionalAvatar,
   removerAvatar: z.string().optional(),
 });
@@ -287,8 +290,14 @@ export async function updateMyMemberAction(
   }
   const parsed = parseForm(updateMemberSchema, formData);
   if (!parsed.ok) return parsed.state;
-  const { nome, telefone, chavePix, avatar, removerAvatar } = parsed.data;
-  const update: Record<string, unknown> = { nome, telefone, chavePix };
+  const { nome, telefone, chavePix, pixTipo, pixBanco, avatar, removerAvatar } = parsed.data;
+  const update: Record<string, unknown> = {
+    nome,
+    telefone,
+    chavePix,
+    pixTipo: pixTipo || null,
+    pixBanco: pixBanco || null,
+  };
   if (removerAvatar === "1") update.avatar = null;
   else if (avatar) update.avatar = avatar;
   await db.update(members).set(update).where(eq(members.id, user.member.id));

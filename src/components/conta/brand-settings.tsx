@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { fileToDownscaledDataUrl } from "@/lib/image-resize";
 import { setBrandAction } from "@/app/(app)/conta/actions";
 
 export function BrandSettings({
@@ -43,13 +44,38 @@ export function BrandSettings({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="backgroundUrl">URL da imagem de fundo (opcional)</Label>
-          <Input
-            id="backgroundUrl"
-            value={bg}
-            onChange={(e) => setBg(e.target.value)}
-            placeholder="https://…/foto-da-banda.jpg"
-          />
+          <Label>Foto de fundo do login (opcional)</Label>
+          {bg ? (
+            <div className="relative w-40 overflow-hidden rounded-md ring-1 ring-border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={bg} alt="" className="h-24 w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setBg("")}
+                className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-black"
+                title="Remover"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-input px-3 py-2 text-sm hover:bg-muted">
+              <Upload className="size-4" /> Enviar foto
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setBg(await fileToDownscaledDataUrl(f, 1600, 0.8));
+                }}
+              />
+            </label>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Uma foto só, usada atrás do formulário de login. Sem foto, fundo
+            escuro neutro.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="whatsappGrupo">Link do grupo da banda no WhatsApp</Label>

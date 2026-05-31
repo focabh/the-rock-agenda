@@ -25,6 +25,8 @@ export type MusicoProfileMember = {
   funcao: string;
   telefone: string | null;
   chavePix: string | null;
+  pixTipo: string | null;
+  pixBanco: string | null;
   avatar: string | null;
   isManager: boolean;
 };
@@ -111,6 +113,33 @@ function LinkedView({ member }: { member: MusicoProfileMember }) {
               placeholder="email, telefone ou chave aleatória"
             />
             <ErrLine name="chavePix" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="pixTipo">Tipo da chave</Label>
+              <select
+                id="pixTipo"
+                name="pixTipo"
+                defaultValue={member.pixTipo ?? ""}
+                className={selectCls}
+              >
+                <option value="">—</option>
+                <option value="CPF">CPF</option>
+                <option value="CNPJ">CNPJ</option>
+                <option value="E-mail">E-mail</option>
+                <option value="Telefone">Telefone</option>
+                <option value="Aleatória">Aleatória</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pixBanco">Banco</Label>
+              <Input
+                id="pixBanco"
+                name="pixBanco"
+                defaultValue={member.pixBanco ?? ""}
+                placeholder="Ex.: Nubank, Inter…"
+              />
+            </div>
           </div>
           {state?.error && !state.fieldErrors && (
             <p className="text-sm text-destructive">{state.error}</p>

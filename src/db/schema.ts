@@ -109,6 +109,8 @@ export const members = sqliteTable("members", {
   telefone: text("telefone"),
   cpf: text("cpf"),
   chavePix: text("chave_pix"),
+  pixTipo: text("pix_tipo"), // CPF | CNPJ | E-mail | Telefone | Aleatória
+  pixBanco: text("pix_banco"), // banco/instituição da chave
   equipamentos: text("equipamentos"),
   disponibilidade: text("disponibilidade"),
   percentualDivisao: real("percentual_divisao").default(0),

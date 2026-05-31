@@ -32,6 +32,8 @@ export default async function ContaPage() {
         funcao: user.member.funcao,
         telefone: user.member.telefone,
         chavePix: user.member.chavePix,
+        pixTipo: user.member.pixTipo,
+        pixBanco: user.member.pixBanco,
         avatar: user.member.avatar,
         isManager: user.member.isManager,
       }

@@ -15,6 +15,8 @@ export type VenueMessageTemplate = {
   texto: string;
   /** Anexa os links de material da banda (vídeo, PDF, página) à mensagem. */
   incluiMaterial?: boolean;
+  /** Anexa os dados PIX de quem está enviando (cobrança de cachê). */
+  incluiPix?: boolean;
 };
 
 export const VENUE_MESSAGES: VenueMessageTemplate[] = [
@@ -53,6 +55,14 @@ export const VENUE_MESSAGES: VenueMessageTemplate[] = [
     tipo: "nova_data",
     texto:
       "Fala, pessoal! Aqui é o Foca, da banda The Rock. A gente está com saudade de tocar aí de novo. Bora marcar uma nova data com a banda?",
+  },
+  {
+    key: "cobrar_cache",
+    label: "Cobrar cachê (PIX)",
+    tipo: "followup",
+    incluiPix: true,
+    texto:
+      "Fala, pessoal! Tudo certo? Sobre o cachê do show da The Rock, segue o PIX pra pagamento. Qualquer coisa, é só chamar. Valeu demais!",
   },
 ];
 

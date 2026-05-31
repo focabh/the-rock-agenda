@@ -201,6 +201,11 @@ export default async function CasaDetailPage({
           venueId={id}
           telefone={casa.telefone}
           grupoLink={casa.whatsappGrupo}
+          pixInfo={
+            user?.member?.chavePix
+              ? `PIX: ${user.member.chavePix}${user.member.pixTipo ? ` (${user.member.pixTipo})` : ""}\nNome: ${user.member.nome}${user.member.pixBanco ? `\nBanco: ${user.member.pixBanco}` : ""}`
+              : null
+          }
           rel={{
             querTocar: casa.querTocar,
             jaTocou: casa.jaTocou,
