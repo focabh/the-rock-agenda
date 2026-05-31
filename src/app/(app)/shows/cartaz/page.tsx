@@ -1,7 +1,7 @@
 import { and, gte, inArray, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { shows } from "@/db/schema";
-import { requireCurrentUser, getBrand, getLogoUrl } from "@/lib/auth";
+import { requireCurrentUser, getBrand } from "@/lib/auth";
 import { formatHoraBR } from "@/lib/formatters";
 import { listImagensDivulgacao } from "@/app/(app)/shows/[id]/divulgacao/actions";
 import { PageHeader } from "@/components/shared/page-header";
@@ -22,9 +22,8 @@ export default async function CartazAgendaPage() {
     limit: 60,
   });
 
-  const [brand, logoUrl, galeria] = await Promise.all([
+  const [brand, galeria] = await Promise.all([
     getBrand(),
-    getLogoUrl(),
     listImagensDivulgacao(),
   ]);
 
@@ -46,7 +45,6 @@ export default async function CartazAgendaPage() {
       <div className="p-6">
         <AgendaPosterStudio
           banda={brand.bandName?.trim() || "The Rock"}
-          logoUrl={logoUrl}
           shows={lista}
           galeria={galeria.map((g) => ({ id: g.id, url: g.url }))}
         />
