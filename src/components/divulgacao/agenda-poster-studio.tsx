@@ -25,9 +25,17 @@ type Banda = { nome: string; hora: string };
 
 const FONTES: Record<string, { label: string; family: string }> = {
   anton: { label: "Impacto", family: "'Anton', system-ui, sans-serif" },
-  poppins: { label: "Moderna", family: "'Poppins', system-ui, sans-serif" },
+  bebas: { label: "Alta", family: "'Bebas Neue', system-ui, sans-serif" },
+  archivo: { label: "Bloco", family: "'Archivo Black', system-ui, sans-serif" },
+  oswald: { label: "Estádio", family: "'Oswald', system-ui, sans-serif" },
   barlow: { label: "Condensada", family: "'Barlow Condensed', system-ui, sans-serif" },
+  poppins: { label: "Moderna", family: "'Poppins', system-ui, sans-serif" },
+  montserrat: { label: "Geométrica", family: "'Montserrat', system-ui, sans-serif" },
+  righteous: { label: "Retrô", family: "'Righteous', system-ui, sans-serif" },
   serif: { label: "Elegante", family: "'Playfair Display', Georgia, serif" },
+  abril: { label: "Glamour", family: "'Abril Fatface', Georgia, serif" },
+  pacifico: { label: "Manuscrita", family: "'Pacifico', cursive" },
+  marker: { label: "Marcador", family: "'Permanent Marker', cursive" },
 };
 
 const ACCENTS = ["#f59e0b", "#ef4444", "#fafafa", "#22d3ee", "#f472b6", "#a3e635"];

@@ -30,9 +30,17 @@ type Modelo = { estilo: Estilo; fonte: string; efeito: Efeito; accent: string; g
 
 const FONTES: Record<string, { label: string; family: string }> = {
   anton: { label: "Impacto", family: "'Anton', system-ui, sans-serif" },
-  poppins: { label: "Moderna", family: "'Poppins', system-ui, sans-serif" },
+  bebas: { label: "Alta", family: "'Bebas Neue', system-ui, sans-serif" },
+  archivo: { label: "Bloco", family: "'Archivo Black', system-ui, sans-serif" },
+  oswald: { label: "Estádio", family: "'Oswald', system-ui, sans-serif" },
   barlow: { label: "Condensada", family: "'Barlow Condensed', system-ui, sans-serif" },
+  poppins: { label: "Moderna", family: "'Poppins', system-ui, sans-serif" },
+  montserrat: { label: "Geométrica", family: "'Montserrat', system-ui, sans-serif" },
+  righteous: { label: "Retrô", family: "'Righteous', system-ui, sans-serif" },
   serif: { label: "Elegante", family: "'Playfair Display', Georgia, serif" },
+  abril: { label: "Glamour", family: "'Abril Fatface', Georgia, serif" },
+  pacifico: { label: "Manuscrita", family: "'Pacifico', cursive" },
+  marker: { label: "Marcador", family: "'Permanent Marker', cursive" },
 };
 
 const ACCENTS = ["#f59e0b", "#ef4444", "#fafafa", "#22d3ee", "#f472b6", "#a3e635"];
@@ -113,6 +121,8 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [efeito, setEfeito] = useState<Efeito>("sombra");
   const [accent, setAccent] = useState("#f59e0b");
   const [scrim, setScrim] = useState(62);
+  const [escala, setEscala] = useState(1);
+  const [textPos, setTextPos] = useState({ x: 20, y: 0 });
   const [ref0, setRef0] = useState<string | null>(null);
   const [modelos, setModelos] = useState<Modelo[]>([]);
 
@@ -132,12 +142,38 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [downloading, setDownloading] = useState(false);
   const [pending, start] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const dragStart = useRef({ mx: 0, my: 0, px: 0, py: 0 });
 
   useEffect(() => {
     const l = link.trim();
     if (!l) return setQr(null);
     import("qrcode").then((Q) => Q.toDataURL(l, { margin: 1, width: 240 }).then(setQr).catch(() => setQr(null)));
   }, [link]);
+
+  // Ao escolher um preset de posição (ou trocar o formato), encaixa o bloco
+  // de texto na região correspondente. Arrastar depois ajusta fino.
+  useEffect(() => {
+    const h = aspect === "9:16" ? Math.round((300 * 16) / 9) : 300;
+    const y = pos === "top" ? 18 : pos === "center" ? Math.round(h / 2 - 70) : h - 175;
+    setTextPos({ x: 20, y });
+  }, [pos, aspect]);
+
+  function onDragStart(e: React.PointerEvent) {
+    dragging.current = true;
+    dragStart.current = { mx: e.clientX, my: e.clientY, px: textPos.x, py: textPos.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function onDragMove(e: React.PointerEvent) {
+    if (!dragging.current) return;
+    setTextPos({
+      x: dragStart.current.px + (e.clientX - dragStart.current.mx),
+      y: dragStart.current.py + (e.clientY - dragStart.current.my),
+    });
+  }
+  function onDragEnd() {
+    dragging.current = false;
+  }
 
   function onUpload(files: FileList) {
     const arr = Array.from(files);
@@ -194,7 +230,6 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 
   const W = 300;
   const H = aspect === "9:16" ? Math.round((W * 16) / 9) : W;
-  const justify = pos === "top" ? "justify-start" : pos === "center" ? "justify-center" : "justify-end";
   const a = scrim / 100;
   const scrimBg =
     pos === "top"
@@ -215,8 +250,15 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             <img src={bg} alt="" crossOrigin="anonymous" className="absolute inset-0 size-full object-cover" />
           )}
           <div className="absolute inset-0" style={{ background: scrimBg }} />
-          <div className={cn("absolute inset-0 flex flex-col p-5", justify)}>
-            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
+          <div
+            onPointerDown={onDragStart}
+            onPointerMove={onDragMove}
+            onPointerUp={onDragEnd}
+            className="absolute cursor-move touch-none select-none"
+            style={{ left: textPos.x, top: textPos.y, width: W - 40 }}
+            title="Arraste para posicionar o texto"
+          >
+            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} escala={escala} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
           </div>
         </div>
         <Button onClick={baixar} disabled={downloading} className="w-full bg-red-600 hover:bg-red-700">
@@ -251,6 +293,10 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             <Chips value={aspect} onChange={(v) => setAspect(v as "9:16" | "1:1")} options={[["9:16", "Stories"], ["1:1", "Feed"]]} />
             <Chips value={pos} onChange={(v) => setPos(v as Pos)} options={[["top", "Topo"], ["center", "Centro"], ["bottom", "Rodapé"]]} />
           </div>
+          <p className="text-[11px] text-zinc-500">Escolha uma região e depois <strong>arraste o texto</strong> direto no preview pra posicionar livremente.</p>
+        </Bloco>
+        <Bloco titulo={`Tamanho do texto · ${Math.round(escala * 100)}%`}>
+          <input type="range" min={60} max={170} value={Math.round(escala * 100)} onChange={(e) => setEscala(Number(e.target.value) / 100)} className="w-full accent-red-600" />
         </Bloco>
         <Bloco titulo={`Transparência do fundo · ${scrim}%`}>
           <input type="range" min={0} max={95} value={scrim} onChange={(e) => setScrim(Number(e.target.value))} className="w-full accent-red-600" />
@@ -375,12 +421,13 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 }
 
 function Conteudo({
-  estilo, fam, efeito, accent, headline, banda, casa, data, inicio, ingresso, qr, festival, evento, lineup,
+  estilo, fam, efeito, accent, escala, headline, banda, casa, data, inicio, ingresso, qr, festival, evento, lineup,
 }: {
-  estilo: Estilo; fam: string; efeito: Efeito; accent: string; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
+  estilo: Estilo; fam: string; efeito: Efeito; accent: string; escala: number; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
 }) {
   const titleFx = fx(efeito, accent);
   const tituloPrincipal = festival ? (evento.trim() || "FESTIVAL") : banda;
+  const titleSize = (basePx: number) => ({ fontSize: Math.round(basePx * escala) });
   const QR = qr ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={qr} alt="QR" className="size-14 shrink-0 rounded bg-white p-0.5" />
@@ -401,7 +448,7 @@ function Conteudo({
     return (
       <div className="w-full">
         {headline && <p className="text-[10px] uppercase tracking-[0.35em]" style={{ color: accent }}>{headline}</p>}
-        <p className="mt-1 text-3xl font-bold uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>{tituloPrincipal}</p>
+        <p className="mt-1 font-bold uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleSize(30), ...titleFx }}>{tituloPrincipal}</p>
         <div className="mt-3 h-px w-12" style={{ background: accent }} />
         {LineupList}
         <p className="mt-3 text-sm font-medium text-zinc-100" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{casa}</p>
@@ -415,7 +462,7 @@ function Conteudo({
     return (
       <div className="w-full rounded-lg bg-zinc-950/80 p-3 backdrop-blur-sm" style={{ border: `1px solid ${accent}` }}>
         {headline && <p className="text-[10px] uppercase tracking-[0.25em]" style={{ color: accent }}>{headline}</p>}
-        <p className="text-2xl font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>{tituloPrincipal}</p>
+        <p className="font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleSize(24), ...titleFx }}>{tituloPrincipal}</p>
         {LineupList}
         <div className="mt-1.5 flex items-end justify-between gap-2">
           <div className="text-[11px] leading-tight text-zinc-200">
@@ -434,7 +481,7 @@ function Conteudo({
       {headline && (
         <span className="inline-block px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.2em]" style={{ background: accent, color: pillText(accent) }}>{headline}</span>
       )}
-      <p className={cn("mt-2 font-black uppercase leading-[0.85] text-zinc-50", festival ? "text-4xl" : "text-5xl")} style={{ fontFamily: fam, ...titleFx }}>{tituloPrincipal}</p>
+      <p className="mt-2 font-black uppercase leading-[0.85] text-zinc-50" style={{ fontFamily: fam, ...titleSize(festival ? 36 : 48), ...titleFx }}>{tituloPrincipal}</p>
       {LineupList}
       <div className="mt-3 flex items-end justify-between gap-3">
         <div className="leading-tight">
