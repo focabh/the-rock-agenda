@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { desc } from "drizzle-orm";
-import { Plus, CalendarDays, ChevronRight } from "lucide-react";
+import { Plus, CalendarDays, ChevronRight, ImageIcon } from "lucide-react";
 import { db } from "@/db";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -28,11 +28,16 @@ export default async function ShowsPage() {
         title="Shows"
         description="Agenda, status, contatos e financeiro de cada apresentação."
         actions={
-          admin && (
-            <Button render={<Link href="/shows/novo" />}>
-              <Plus className="size-4" /> Novo show
+          <div className="flex items-center gap-2">
+            <Button variant="outline" render={<Link href="/shows/cartaz" />}>
+              <ImageIcon className="size-4" /> Cartaz da agenda
             </Button>
-          )
+            {admin && (
+              <Button render={<Link href="/shows/novo" />}>
+                <Plus className="size-4" /> Novo show
+              </Button>
+            )}
+          </div>
         }
       />
 
