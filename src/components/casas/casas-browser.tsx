@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { MapPin, Phone, ChevronRight, Search, Check, ThumbsUp, ThumbsDown } from "lucide-react";
+import { MapPin, Phone, ChevronRight, Search, Check, ThumbsUp, ThumbsDown, Building2 } from "lucide-react";
 import { formatRelativeBR } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +17,7 @@ export type CasaItem = {
   contatoPrincipal: string | null;
   telefone: string | null;
   observacoes: string | null;
+  logoUrl: string | null;
   querTocar: boolean;
   jaTocou: boolean; // efetivo (flag OU tem show passado)
   jaTocouManual: boolean;
@@ -174,8 +175,16 @@ export function CasasBrowser({
             >
               <Link href={`/casas/${c.id}`} className="block flex-1 hover:bg-accent/30">
                 <CardContent className="py-5 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                  <div className="flex items-start gap-2.5">
+                    {c.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.logoUrl} alt="" className="size-10 shrink-0 rounded-md object-cover ring-1 ring-zinc-700" />
+                    ) : (
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-zinc-500 ring-1 ring-zinc-700">
+                        <Building2 className="size-5" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
                       <h3 className="font-semibold truncate text-zinc-100">
                         {c.nome}
                       </h3>

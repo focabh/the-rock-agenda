@@ -1,4 +1,4 @@
-import { Mic, Music, Music2, Music3, Music4, Briefcase } from "lucide-react";
+import { Mic, Music2, Guitar, Drum, Piano, Briefcase } from "lucide-react";
 import { colorForMember } from "@/lib/conflicts";
 import { cn } from "@/lib/utils";
 
@@ -62,17 +62,15 @@ export function MemberAvatar({
   );
 }
 
-/** Escolhe um ícone com base na função. Lucide v1.16 não tem Guitar/Drum. */
+/** Ícone que representa o instrumento/função do músico. */
 function iconForFuncao(
   funcao: string
 ): React.ComponentType<{ className?: string; style?: React.CSSProperties }> {
   const f = funcao.toLowerCase();
-  if (f.includes("vocal") || f.includes("voc")) return Mic;
-  if (f.includes("guitarra solo") || f.includes("solo")) return Music3;
-  if (f.includes("guitarra")) return Music2;
-  if (f.includes("baixo") || f.includes("bass")) return Music4;
-  if (f.includes("bater") || f.includes("drum")) return Music;
-  if (f.includes("teclado") || f.includes("piano")) return Music2;
-  if (f.includes("manager") || f.includes("gerent")) return Briefcase;
+  if (f.includes("vocal") || f.includes("voc") || f.includes("cantor")) return Mic;
+  if (f.includes("guitarra") || f.includes("violão") || f.includes("violao") || f.includes("solo") || f.includes("baixo") || f.includes("bass")) return Guitar;
+  if (f.includes("bater") || f.includes("drum") || f.includes("percuss")) return Drum;
+  if (f.includes("teclad") || f.includes("piano") || f.includes("keys") || f.includes("sintet")) return Piano;
+  if (f.includes("manager") || f.includes("gerent") || f.includes("empres")) return Briefcase;
   return Music2;
 }

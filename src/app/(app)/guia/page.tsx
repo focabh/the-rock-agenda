@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   CalendarRange,
   Music2,
@@ -6,9 +7,11 @@ import {
   Boxes,
   Megaphone,
   UserCheck,
+  FileText,
 } from "lucide-react";
 import { requireCurrentUser, getBrand } from "@/lib/auth";
 import { PageHeader } from "@/components/shared/page-header";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PrintButton } from "@/components/shared/print-button";
 import { InviteCopy } from "@/components/guia/invite-copy";
@@ -86,6 +89,24 @@ export default async function GuiaPage() {
               show espalhado em grupo de zap, áudio e planilha. O que vale é o que
               está aqui.
             </p>
+          </CardContent>
+        </Card>
+
+        {/* Guias em PDF pra enviar */}
+        <Card className="border-zinc-800 bg-[#18181b]">
+          <CardContent className="py-4 space-y-3">
+            <p className="text-sm text-zinc-300">
+              <span className="font-medium text-zinc-100">Guias prontos pra enviar (PDF):</span>{" "}
+              abra e clique em “Salvar PDF” pra mandar pros músicos e pra manager.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" render={<Link href="/guia/musico" />}>
+                <FileText className="size-4" /> Guia do Músico
+              </Button>
+              <Button variant="outline" size="sm" render={<Link href="/guia/admin" />}>
+                <FileText className="size-4" /> Guia do Admin / Manager
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

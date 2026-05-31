@@ -30,6 +30,7 @@ export default async function CasasPage() {
     contatoPrincipal: c.contatoPrincipal,
     telefone: c.telefone,
     observacoes: c.observacoes,
+    logoUrl: c.logoUrl,
     querTocar: c.querTocar,
     jaTocou: c.jaTocou || pastSet.has(c.id),
     jaTocouManual: c.jaTocou,
