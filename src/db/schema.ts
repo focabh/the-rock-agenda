@@ -291,6 +291,8 @@ export const setlistItems = sqliteTable("setlist_items", {
   tom: text("tom"), // ex: "Em", "A", "F#m"
   duracaoSeg: integer("duracao_seg"),
   nota: text("nota"), // anotações entre músicas
+  // Música que precisa de atenção especial antes do ensaio (marcador).
+  prioridade: integer("prioridade", { mode: "boolean" }).notNull().default(false),
 });
 
 // ---------------- SHOWS ----------------

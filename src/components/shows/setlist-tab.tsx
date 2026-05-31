@@ -17,6 +17,9 @@ import {
   Guitar,
   Drum,
   Piano,
+  Star,
+  Wand2,
+  Send,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
@@ -72,6 +75,16 @@ import {
   updateSetlistAction,
   deleteSetlistAction,
 } from "@/app/(app)/shows/[id]/actions-setlist";
+import {
+  addSongToEnsaioSetlistAction,
+  removeEnsaioSetlistItemAction,
+  updateEnsaioSetlistItemAction,
+  reorderEnsaioSetlistItemsAction,
+  createEnsaioSetlistAction,
+  renameEnsaioSetlistAction,
+  deleteEnsaioSetlistAction,
+  reorganizeEnsaioSetlistAction,
+} from "@/app/(app)/ensaios/[id]/actions-setlist";
 import type { Song, SetlistItem, Setlist } from "@/db/schema";
 import { materialForPosicao, type PlayMaterial } from "@/lib/instrument-material";
 
@@ -89,24 +102,29 @@ function fmtMMSS(sec: number): string {
 
 export function SetlistTab({
   showId,
+  rehearsalId,
   setlists,
   allSongs,
   canEdit = true,
   defaultDuracaoMin = 60,
   userPosicao = null,
+  ensaioInfo = null,
+  groupLink = null,
 }: {
-  showId: string;
+  showId?: string;
+  rehearsalId?: string;
   setlists: SetlistWithItems[];
   allSongs: Song[];
   canEdit?: boolean;
   defaultDuracaoMin?: number;
   userPosicao?: string | null;
+  ensaioInfo?: { dataLabel: string; foco: string | null } | null;
+  groupLink?: string | null;
 }) {
+  const isEnsaio = !!rehearsalId;
   const play = materialForPosicao(userPosicao).play;
   const [q, setQ] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(
-    setlists[0]?.id ?? null
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(setlists[0]?.id ?? null);
   const [, startTransition] = useTransition();
   const [mgrPending, startMgr] = useTransition();
 
@@ -114,28 +132,33 @@ export function SetlistTab({
   const [editOpen, setEditOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
 
-  // Reconcilia a seleção quando a lista muda (criar/excluir).
+  // ---- ações (mesmo componente p/ show e ensaio) ----
+  const aAddSong = (slId: string, songId: string) =>
+    isEnsaio ? addSongToEnsaioSetlistAction(rehearsalId!, slId, songId) : addSongToSetlistAction(showId!, slId, songId);
+  const aRemove = (itemId: string) =>
+    isEnsaio ? removeEnsaioSetlistItemAction(rehearsalId!, itemId) : removeSetlistItemAction(showId!, itemId);
+  const aReorder = (ids: string[]) =>
+    isEnsaio ? reorderEnsaioSetlistItemsAction(rehearsalId!, ids) : reorderSetlistItemsAction(showId!, ids);
+  const aTom = (itemId: string, tom: string | null) =>
+    isEnsaio ? updateEnsaioSetlistItemAction(rehearsalId!, itemId, { tom }) : updateSetlistItemAction(showId!, itemId, { tom });
+  const aPrioridade = (itemId: string, prioridade: boolean) =>
+    updateEnsaioSetlistItemAction(rehearsalId!, itemId, { prioridade });
+
   useEffect(() => {
     if (setlists.length === 0) {
       if (selectedId !== null) setSelectedId(null);
       return;
     }
-    if (!selectedId || !setlists.some((s) => s.id === selectedId)) {
-      setSelectedId(setlists[0].id);
-    }
+    if (!selectedId || !setlists.some((s) => s.id === selectedId)) setSelectedId(setlists[0].id);
   }, [setlists, selectedId]);
 
   const selected = setlists.find((s) => s.id === selectedId) ?? null;
-
   const sortedItems = useMemo(
     () => (selected ? [...selected.items].sort((a, b) => a.ordem - b.ordem) : []),
     [selected]
   );
-
   const [localItems, setLocalItems] = useState<Item[]>(sortedItems);
-  useEffect(() => {
-    setLocalItems(sortedItems);
-  }, [sortedItems]);
+  useEffect(() => setLocalItems(sortedItems), [sortedItems]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -148,13 +171,11 @@ export function SetlistTab({
     .filter((s) => {
       const t = q.trim().toLowerCase();
       if (!t) return true;
-      return (
-        s.titulo.toLowerCase().includes(t) ||
-        s.artista.toLowerCase().includes(t)
-      );
+      return s.titulo.toLowerCase().includes(t) || s.artista.toLowerCase().includes(t);
     });
 
   const totalSeg = localItems.reduce((s, i) => s + (i.duracaoSeg ?? 0), 0);
+  const prioridades = localItems.filter((i) => i.prioridade);
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -164,43 +185,63 @@ export function SetlistTab({
     if (oldIdx < 0 || newIdx < 0) return;
     const next = arrayMove(localItems, oldIdx, newIdx);
     setLocalItems(next);
-    startTransition(() =>
-      reorderSetlistItemsAction(
-        showId,
-        next.map((i) => i.id)
-      )
-    );
+    startTransition(() => aReorder(next.map((i) => i.id)));
   }
 
   function handleCreate(nome: string) {
     startMgr(async () => {
-      const r = await createSetlistAction(showId, nome);
+      const r = isEnsaio
+        ? await createEnsaioSetlistAction(rehearsalId!, nome)
+        : await createSetlistAction(showId!, nome);
       setSelectedId(r.id);
       setNewOpen(false);
       toast.success(`Setlist "${r.nome}" criado.`);
     });
   }
-
   function handleEdit(nome: string) {
     if (!selected) return;
     startMgr(async () => {
-      // duracaoAlvoMin sempre null → a duração-alvo vem do próprio show.
-      await updateSetlistAction(showId, selected.id, { nome, duracaoAlvoMin: null });
+      if (isEnsaio) await renameEnsaioSetlistAction(rehearsalId!, selected.id, nome);
+      else await updateSetlistAction(showId!, selected.id, { nome, duracaoAlvoMin: null });
       setEditOpen(false);
       toast.success("Setlist renomeado.");
     });
   }
-
   function handleDelete() {
     if (!selected) return;
     startMgr(async () => {
-      await deleteSetlistAction(showId, selected.id);
+      if (isEnsaio) await deleteEnsaioSetlistAction(rehearsalId!, selected.id);
+      else await deleteSetlistAction(showId!, selected.id);
       setDelOpen(false);
       toast.success("Setlist excluído.");
     });
   }
+  function handleReorganizar() {
+    if (!selected) return;
+    startTransition(async () => {
+      await reorganizeEnsaioSetlistAction(rehearsalId!, selected.id);
+      toast.success("Ordenado por curva de energia.");
+    });
+  }
+  async function enviarLembrete() {
+    if (prioridades.length === 0) {
+      toast.error("Marque as músicas prioritárias (estrela) primeiro.");
+      return;
+    }
+    const linhas = prioridades.map((i) => `• ${i.song.titulo}`).join("\n");
+    const msg =
+      `Olá pessoal!\n\nLembrete do próximo ensaio${ensaioInfo?.dataLabel ? ` (${ensaioInfo.dataLabel})` : ""}.` +
+      `${ensaioInfo?.foco ? `\nFoco: ${ensaioInfo.foco}.` : ""}` +
+      `\n\nAs músicas abaixo precisam estar prontas:\n\n${linhas}\n\nPor favor revisem esse material antes do ensaio. Obrigado!`;
+    try {
+      await navigator.clipboard.writeText(msg);
+    } catch {
+      /* ignora */
+    }
+    if (groupLink) window.open(groupLink, "_blank", "noopener");
+    toast.success(groupLink ? "Lembrete copiado! Abrindo o grupo — é só colar (Ctrl+V)." : "Lembrete copiado! Cole no grupo do WhatsApp.");
+  }
 
-  // Nenhum setlist ainda
   if (setlists.length === 0) {
     return (
       <>
@@ -209,7 +250,9 @@ export function SetlistTab({
           title="Nenhum setlist ainda"
           description={
             canEdit
-              ? "Crie o primeiro setlist deste show (você pode ter vários: 1º set, bis…)."
+              ? isEnsaio
+                ? "Monte o que a banda vai ensaiar (pode ter vários: foco vocais, músicas novas…)."
+                : "Crie o primeiro setlist deste show (você pode ter vários: 1º set, bis…)."
               : "Nenhum setlist montado ainda."
           }
           action={
@@ -220,20 +263,13 @@ export function SetlistTab({
             )
           }
         />
-        <NameDialog
-          open={newOpen}
-          onOpenChange={setNewOpen}
-          title="Novo setlist"
-          placeholder="Ex.: 1º set, Bis, Acústico…"
-          pending={mgrPending}
-          onSubmit={handleCreate}
-        />
+        <NameDialog open={newOpen} onOpenChange={setNewOpen} title="Novo setlist" placeholder="Ex.: 1º set, Bis, Acústico…" pending={mgrPending} onSubmit={handleCreate} />
       </>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="w-full space-y-4 overflow-x-hidden">
       {/* Seletor de setlists */}
       <div className="flex flex-wrap items-center gap-2">
         {setlists.map((sl) => (
@@ -241,23 +277,16 @@ export function SetlistTab({
             key={sl.id}
             onClick={() => setSelectedId(sl.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset transition-colors",
-              sl.id === selectedId
-                ? "bg-primary/20 text-primary ring-primary/40"
-                : "ring-border text-muted-foreground hover:bg-accent/50"
+              "inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset transition-colors",
+              sl.id === selectedId ? "bg-primary/20 text-primary ring-primary/40" : "ring-border text-muted-foreground hover:bg-accent/50"
             )}
           >
-            {sl.nome}
+            <span className="truncate">{sl.nome}</span>
             <span className="opacity-60">({sl.items.length})</span>
           </button>
         ))}
         {canEdit && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setNewOpen(true)}
-            title="Novo setlist"
-          >
+          <Button variant="ghost" size="sm" onClick={() => setNewOpen(true)} title="Novo setlist">
             <Plus className="size-4" /> Novo
           </Button>
         )}
@@ -265,138 +294,107 @@ export function SetlistTab({
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Coluna 1 — setlist selecionado */}
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold inline-flex items-center gap-2">
-              {selected?.nome ?? "Setlist"}{" "}
-              <span className="text-sm font-normal text-muted-foreground">
+            <h3 className="inline-flex min-w-0 items-center gap-2 font-semibold">
+              <span className="truncate">{selected?.nome ?? "Setlist"}</span>
+              <span className="shrink-0 text-sm font-normal text-muted-foreground">
                 ({localItems.length}
                 {totalSeg > 0 && ` · ~ ${formatDuracao(totalSeg)}`})
               </span>
               {canEdit && selected && (
                 <>
-                  <button
-                    onClick={() => setEditOpen(true)}
-                    className="text-muted-foreground hover:text-foreground"
-                    title="Renomear setlist"
-                  >
+                  <button onClick={() => setEditOpen(true)} className="shrink-0 text-muted-foreground hover:text-foreground" title="Renomear setlist">
                     <Pencil className="size-3.5" />
                   </button>
-                  <button
-                    onClick={() => setDelOpen(true)}
-                    className="text-muted-foreground hover:text-destructive"
-                    title="Excluir setlist"
-                  >
+                  <button onClick={() => setDelOpen(true)} className="shrink-0 text-muted-foreground hover:text-destructive" title="Excluir setlist">
                     <Trash2 className="size-3.5" />
                   </button>
                 </>
               )}
             </h3>
-            <div className="flex gap-2">
-              {canEdit && selected && (
-                <SetlistGenerateDialog
-                  showId={showId}
-                  setlistId={selected.id}
-                  hasItems={localItems.length > 0}
-                  defaultMin={selected.duracaoAlvoMin ?? defaultDuracaoMin}
-                />
+            <div className="flex flex-wrap gap-2">
+              {/* Ensaio: reorganizar (grátis) + lembrete */}
+              {isEnsaio && canEdit && selected && localItems.length > 1 && (
+                <Button variant="outline" size="sm" onClick={handleReorganizar} title="Ordenar por curva de energia">
+                  <Wand2 className="size-4" /> Reorganizar
+                </Button>
               )}
-              {selected && localItems.length > 0 && (
-                <SetlistCritiqueDialog
-                  showId={showId}
-                  setlistId={selected.id}
-                  canEdit={canEdit}
-                />
+              {isEnsaio && canEdit && selected && (
+                <Button variant="outline" size="sm" onClick={enviarLembrete} title="Mandar lembrete das músicas prioritárias no WhatsApp">
+                  <Send className="size-4" /> Lembrete
+                </Button>
               )}
-              {canEdit && selected && (
+              {/* Show: geração/crítica/spotify/letras/imprimir */}
+              {!isEnsaio && canEdit && selected && (
+                <SetlistGenerateDialog showId={showId!} setlistId={selected.id} hasItems={localItems.length > 0} defaultMin={selected.duracaoAlvoMin ?? defaultDuracaoMin} />
+              )}
+              {!isEnsaio && selected && localItems.length > 0 && (
+                <SetlistCritiqueDialog showId={showId!} setlistId={selected.id} canEdit={canEdit} />
+              )}
+              {!isEnsaio && canEdit && selected && (
                 <SpotifyImportDialog
                   mode="setlist"
-                  showId={showId}
+                  showId={showId!}
                   setlistId={selected.id}
                   trigger={
                     <Button variant="outline" size="sm">
-                      <Download className="size-4" />
-                      Spotify
+                      <Download className="size-4" /> Spotify
                     </Button>
                   }
                 />
               )}
-              {selected && (
+              {!isEnsaio && selected && (
                 <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    render={
-                      <Link
-                        href={`/shows/${showId}/letras?sl=${selected.id}`}
-                        target="_blank"
-                      />
-                    }
-                    title="Letras na ordem — exportar PDF/Word"
-                  >
-                    <FileText className="size-4" />
-                    Letras
+                  <Button variant="outline" size="sm" render={<Link href={`/shows/${showId}/letras?sl=${selected.id}`} target="_blank" />} title="Letras na ordem — exportar PDF/Word">
+                    <FileText className="size-4" /> Letras
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    render={
-                      <Link
-                        href={`/shows/${showId}/imprimir-setlist?sl=${selected.id}`}
-                        target="_blank"
-                      />
-                    }
-                  >
-                    <Printer className="size-4" />
-                    Imprimir
+                  <Button variant="outline" size="sm" render={<Link href={`/shows/${showId}/imprimir-setlist?sl=${selected.id}`} target="_blank" />}>
+                    <Printer className="size-4" /> Imprimir
                   </Button>
                 </>
               )}
             </div>
           </div>
 
-          {selected?.observacoesGerais && (
+          {!isEnsaio && selected?.observacoesGerais && (
             <Card className="border-primary/30 bg-primary/5 p-3">
-              <p className="text-xs font-medium uppercase tracking-wider text-primary inline-flex items-center gap-1.5">
-                <Sparkles className="size-3.5" />
-                Estratégia (IA)
+              <p className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-primary">
+                <Sparkles className="size-3.5" /> Estratégia (IA)
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {selected.observacoesGerais}
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{selected.observacoesGerais}</p>
             </Card>
+          )}
+
+          {isEnsaio && prioridades.length > 0 && (
+            <p className="text-xs text-amber-400">
+              <Star className="mr-1 inline size-3.5 fill-amber-400" />
+              {prioridades.length} música(s) prioritária(s) — use “Lembrete” pra avisar a banda.
+            </p>
           )}
 
           {localItems.length === 0 ? (
             <EmptyState
               icon={Music2}
               title="Setlist vazio"
-              description={
-                canEdit
-                  ? "Adicione músicas do repertório ao lado, e arraste pra reordenar."
-                  : "Nenhuma música neste setlist ainda."
-              }
+              description={canEdit ? "Adicione músicas do repertório ao lado, e arraste pra reordenar." : "Nenhuma música neste setlist ainda."}
             />
           ) : (
             <Card className="overflow-hidden p-0">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={onDragEnd}
-              >
-                <SortableContext
-                  items={localItems.map((i) => i.id)}
-                  strategy={verticalListSortingStrategy}
-                >
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                <SortableContext items={localItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
                   <ul className="divide-y divide-border">
                     {localItems.map((item, idx) => (
                       <SortableSetlistItem
                         key={item.id}
                         item={item}
                         index={idx}
-                        showId={showId}
                         canEdit={canEdit}
                         play={play}
+                        isEnsaio={isEnsaio}
+                        onTom={(tom) => aTom(item.id, tom)}
+                        onRemove={() => aRemove(item.id)}
+                        onPrioridade={(v) => aPrioridade(item.id, v)}
                       />
                     ))}
                   </ul>
@@ -408,45 +406,23 @@ export function SetlistTab({
 
         {/* Coluna 2 — adicionar do repertório */}
         {canEdit && selected && (
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <h3 className="font-semibold">Adicionar do repertório</h3>
-            <Input
-              placeholder="Buscar música ou artista..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
+            <Input placeholder="Buscar música ou artista..." value={q} onChange={(e) => setQ(e.target.value)} />
             <Card className="max-h-[70vh] overflow-y-auto p-0">
               {available.length === 0 ? (
-                <p className="p-6 text-sm text-center text-muted-foreground">
-                  {q
-                    ? "Nada encontrado."
-                    : "Todas as músicas já estão neste setlist."}
+                <p className="p-6 text-center text-sm text-muted-foreground">
+                  {q ? "Nada encontrado." : "Todas as músicas já estão neste setlist."}
                 </p>
               ) : (
                 <ul className="divide-y divide-border">
                   {available.map((s) => (
-                    <li
-                      key={s.id}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-accent/30"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {s.titulo}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {s.artista}
-                        </p>
+                    <li key={s.id} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/30">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{s.titulo}</p>
+                        <p className="truncate text-xs text-muted-foreground">{s.artista}</p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Adicionar"
-                        onClick={() =>
-                          startTransition(() =>
-                            addSongToSetlistAction(showId, selected.id, s.id)
-                          )
-                        }
-                      >
+                      <Button variant="ghost" size="icon" title="Adicionar" className="shrink-0" onClick={() => startTransition(() => aAddSong(selected.id, s.id))}>
                         <Plus className="size-4" />
                       </Button>
                     </li>
@@ -458,42 +434,17 @@ export function SetlistTab({
         )}
       </div>
 
-      {/* Dialogs de gerência */}
-      <NameDialog
-        open={newOpen}
-        onOpenChange={setNewOpen}
-        title="Novo setlist"
-        placeholder="Ex.: 1º set, Bis, Acústico…"
-        pending={mgrPending}
-        onSubmit={handleCreate}
-      />
-      <NameDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        title="Renomear setlist"
-        placeholder="Ex.: 1º set, Bis, Acústico…"
-        initial={selected?.nome ?? ""}
-        pending={mgrPending}
-        onSubmit={handleEdit}
-      />
+      <NameDialog open={newOpen} onOpenChange={setNewOpen} title="Novo setlist" placeholder="Ex.: 1º set, Bis, Acústico…" pending={mgrPending} onSubmit={handleCreate} />
+      <NameDialog open={editOpen} onOpenChange={setEditOpen} title="Renomear setlist" placeholder="Ex.: 1º set, Bis, Acústico…" initial={selected?.nome ?? ""} pending={mgrPending} onSubmit={handleEdit} />
       <AlertDialog open={delOpen} onOpenChange={setDelOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Excluir o setlist “{selected?.nome}”?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              As músicas continuam no repertório — só este setlist é removido.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Excluir o setlist “{selected?.nome}”?</AlertDialogTitle>
+            <AlertDialogDescription>As músicas continuam no repertório — só este setlist é removido.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel render={<Button variant="outline" />}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              render={<Button variant="destructive" disabled={mgrPending} />}
-              onClick={handleDelete}
-            >
+            <AlertDialogCancel render={<Button variant="outline" />}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction render={<Button variant="destructive" disabled={mgrPending} />} onClick={handleDelete}>
               {mgrPending ? "Excluindo…" : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -546,10 +497,7 @@ function NameDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button
-              onClick={() => value.trim() && onSubmit(value.trim())}
-              disabled={pending || !value.trim()}
-            >
+            <Button onClick={() => value.trim() && onSubmit(value.trim())} disabled={pending || !value.trim()}>
               Salvar
             </Button>
           </div>
@@ -562,38 +510,34 @@ function NameDialog({
 function SortableSetlistItem({
   item,
   index,
-  showId,
   canEdit,
   play,
+  isEnsaio,
+  onTom,
+  onRemove,
+  onPrioridade,
 }: {
   item: Item;
   index: number;
-  showId: string;
   canEdit: boolean;
   play: PlayMaterial | null;
+  isEnsaio: boolean;
+  onTom: (tom: string | null) => void;
+  onRemove: () => void;
+  onPrioridade: (v: boolean) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id, disabled: !canEdit });
-
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: !canEdit });
   const [, startTransition] = useTransition();
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const dur = item.duracaoSeg ?? item.song.duracaoSeg ?? 0;
 
   return (
     <li
       ref={setNodeRef}
       style={style}
       className={cn(
-        "px-3 py-2 flex items-center gap-2 bg-card",
+        "flex items-center gap-1.5 bg-card px-2 py-2 sm:gap-2 sm:px-3",
+        item.prioridade && "border-l-2 border-amber-400",
         isDragging && "z-10 shadow-lg ring-1 ring-primary/40"
       )}
     >
@@ -601,38 +545,39 @@ function SortableSetlistItem({
         <button
           {...attributes}
           {...listeners}
-          className="shrink-0 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none"
+          className="shrink-0 cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
           title="Arrastar para reordenar"
           aria-label="Arrastar"
         >
           <GripVertical className="size-4" />
         </button>
       )}
-      <span className="w-6 text-right text-sm font-mono text-muted-foreground">
-        {index + 1}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{item.song.titulo}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {item.song.artista}
-        </p>
-      </div>
-      {item.song.dropada && (
-        <span
-          className="shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1 ring-inset ring-amber-500/30 bg-amber-500/10 text-amber-300"
-          title="Afinação dropada (agrupada pra minimizar reafinações)"
+      <span className="w-5 shrink-0 text-right font-mono text-sm text-muted-foreground">{index + 1}</span>
+
+      {isEnsaio && (
+        <button
+          onClick={() => canEdit && startTransition(() => onPrioridade(!item.prioridade))}
+          disabled={!canEdit}
+          className={cn("shrink-0 transition-colors", item.prioridade ? "text-amber-400" : "text-muted-foreground hover:text-amber-400")}
+          title={item.prioridade ? "Prioritária — tocar pra desmarcar" : "Marcar como prioritária pro ensaio"}
         >
+          <Star className={cn("size-4", item.prioridade && "fill-amber-400")} />
+        </button>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{item.song.titulo}</p>
+        <p className="truncate text-xs text-muted-foreground">{item.song.artista}</p>
+      </div>
+
+      {item.song.dropada && (
+        <span className="hidden shrink-0 items-center rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-inset ring-amber-500/30 sm:inline-flex" title="Afinação dropada">
           DROP
         </span>
       )}
-      {(() => {
-        const dur = item.duracaoSeg ?? item.song.duracaoSeg ?? 0;
-        return dur > 0 ? (
-          <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-            {fmtMMSS(dur)}
-          </span>
-        ) : null;
-      })()}
+      {dur > 0 && (
+        <span className="hidden shrink-0 font-mono text-xs tabular-nums text-muted-foreground sm:inline">{fmtMMSS(dur)}</span>
+      )}
       {play && (
         (() => {
           const Icon = MATERIAL_ICON[play.kind];
@@ -641,7 +586,7 @@ function SortableSetlistItem({
               href={play.href(item.song.artista, item.song.titulo)}
               target="_blank"
               rel="noreferrer"
-              className="shrink-0 inline-flex size-7 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
               title={play.label}
             >
               <Icon className="size-3.5" />
@@ -654,26 +599,11 @@ function SortableSetlistItem({
         placeholder="Tom"
         title="Tom (tonalidade)"
         disabled={!canEdit}
-        className="w-16 h-7 text-xs font-mono"
-        onBlur={(e) =>
-          canEdit &&
-          startTransition(() =>
-            updateSetlistItemAction(showId, item.id, {
-              tom: e.target.value || null,
-            })
-          )
-        }
+        className="h-7 w-12 shrink-0 px-1 text-center text-xs font-mono sm:w-14"
+        onBlur={(e) => canEdit && startTransition(() => onTom(e.target.value || null))}
       />
       {canEdit && (
-        <Button
-          variant="ghost"
-          size="icon"
-          title="Remover"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={() =>
-            startTransition(() => removeSetlistItemAction(showId, item.id))
-          }
-        >
+        <Button variant="ghost" size="icon" title="Remover" className="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => startTransition(() => onRemove())}>
           <X className="size-3.5" />
         </Button>
       )}

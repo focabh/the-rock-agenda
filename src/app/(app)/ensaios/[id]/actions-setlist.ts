@@ -54,7 +54,7 @@ export async function removeEnsaioSetlistItemAction(rehearsalId: string, itemId:
 export async function updateEnsaioSetlistItemAction(
   rehearsalId: string,
   itemId: string,
-  patch: { tom?: string | null; nota?: string | null }
+  patch: { tom?: string | null; nota?: string | null; prioridade?: boolean }
 ) {
   await requireAdmin();
   await db.update(setlistItems).set(patch).where(eq(setlistItems.id, itemId));

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
 import { PresenceCard } from "@/components/shows/presence-card";
-import { EnsaioSetlistTab } from "@/components/ensaios/ensaio-setlist-tab";
+import { SetlistTab } from "@/components/shows/setlist-tab";
 import { NotifyBandButton } from "@/components/shared/notify-band-button";
 import { setRehearsalPresenceAction } from "@/app/(app)/agenda/actions";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
@@ -176,12 +176,14 @@ export default async function EnsaioDetailPage({
 
       <div className="px-6 pb-10">
         <h2 className="mb-3 text-lg font-semibold">Setlist do ensaio</h2>
-        <EnsaioSetlistTab
+        <SetlistTab
           rehearsalId={r.id}
           setlists={ensaioSetlists}
           allSongs={allSongs}
           canEdit={admin}
           userPosicao={user?.posicao ?? user?.member?.funcao ?? null}
+          ensaioInfo={{ dataLabel: formatDataBR(r.data), foco: r.foco }}
+          groupLink={brand.whatsappGrupo}
         />
       </div>
     </div>
