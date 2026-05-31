@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Download, Upload, Shuffle, Loader2, ImageIcon, Building2, Wand2, Sparkles, Plus, X } from "lucide-react";
+import { Download, Upload, Shuffle, Loader2, ImageIcon, Building2, Wand2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { fileToDownscaledDataUrl } from "@/lib/image-resize";
 import { addImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
-import { gerarImagemIAAction } from "@/app/(app)/shows/[id]/divulgacao/ia-actions";
 
 type Show = {
   banda: string;
@@ -116,8 +115,6 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [scrim, setScrim] = useState(62);
   const [ref0, setRef0] = useState<string | null>(null);
   const [modelos, setModelos] = useState<Modelo[]>([]);
-  const [iaImgs, setIaImgs] = useState<string[]>([]);
-  const [iaLoading, setIaLoading] = useState(false);
 
   const [headline, setHeadline] = useState("AO VIVO");
   const [banda, setBanda] = useState(show.banda);
@@ -176,23 +173,6 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
     setEfeito(m.efeito);
     setAccent(m.accent);
     setGrad(m.grad);
-  }
-
-  async function gerarIA() {
-    if (!ref0) return toast.error("Envie um exemplo de estilo primeiro.");
-    if (!confirm("Gerar 3 imagens por IA pode ter custo (frações de centavo a ~R$0,20 cada). Continuar?")) return;
-    setIaLoading(true);
-    try {
-      const r = await gerarImagemIAAction(ref0, `${banda} live show flyer, instagram style, bold modern typography space`, 3);
-      if (!r.ok) {
-        toast.error(r.erro);
-        return;
-      }
-      setIaImgs(r.imagens);
-      toast.success(`${r.imagens.length} imagem(ns) gerada(s). Toque pra usar como fundo.`);
-    } finally {
-      setIaLoading(false);
-    }
   }
 
   async function baixar() {
@@ -352,23 +332,20 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           <div className="flex flex-wrap items-center gap-3">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
               <ImageIcon className="size-4" /> Enviar exemplo
-              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setRef0(await fileToDownscaledDataUrl(f, 900, 0.7)); setModelos([]); setIaImgs([]); } }} />
+              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setRef0(await fileToDownscaledDataUrl(f, 900, 0.7)); setModelos([]); } }} />
             </label>
             {ref0 && (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={ref0} alt="referência" className="h-16 w-12 rounded object-cover ring-1 ring-zinc-700" />
-                <button onClick={() => { setRef0(null); setModelos([]); setIaImgs([]); }} className="text-xs text-zinc-500 hover:text-foreground">remover</button>
+                <button onClick={() => { setRef0(null); setModelos([]); }} className="text-xs text-zinc-500 hover:text-foreground">remover</button>
               </>
             )}
           </div>
           {ref0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" onClick={gerarModelos} className="bg-amber-500 text-zinc-950 hover:bg-amber-400">
-                <Wand2 className="size-4" /> Gerar 3 modelos (grátis)
-              </Button>
-              <Button size="sm" variant="outline" onClick={gerarIA} disabled={iaLoading}>
-                {iaLoading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />} Gerar com IA (paga)
+                <Wand2 className="size-4" /> Gerar 3 modelos
               </Button>
             </div>
           )}
@@ -388,21 +365,8 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
               </div>
             </div>
           )}
-          {iaImgs.length > 0 && (
-            <div className="mt-3">
-              <p className="mb-1.5 text-[11px] text-zinc-400">Geradas por IA — toque pra usar como fundo:</p>
-              <div className="grid grid-cols-3 gap-2">
-                {iaImgs.map((u, i) => (
-                  <button key={i} onClick={() => { setImgs((p) => [{ id: `ia-${i}-${Date.now()}`, url: u }, ...p]); setBg(u); }} className="aspect-9/16 overflow-hidden rounded-md ring-1 ring-zinc-700 hover:ring-primary">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={u} alt="" crossOrigin="anonymous" className="size-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           <p className="mt-2 text-[11px] text-zinc-500">
-            “Grátis” lê as cores/clima do exemplo e monta 3 combinações com a sua foto — custo R$0. “IA (paga)” cria arte nova parecida (precisa da env FAL_KEY; só cobra quando usada).
+            Lê as cores e o clima do exemplo e monta 3 combinações (estilo + fonte + efeito + cor) com a sua foto — tudo no navegador, custo R$0.
           </p>
         </Bloco>
       </div>

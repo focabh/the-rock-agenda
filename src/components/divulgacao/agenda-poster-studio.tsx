@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Download, Upload, Shuffle, Loader2 } from "lucide-react";
+import { Download, Upload, Shuffle, Loader2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -19,6 +21,7 @@ export type PosterShow = {
 };
 
 type Efeito = "nenhum" | "sombra" | "contorno" | "neon";
+type Banda = { nome: string; hora: string };
 
 const FONTES: Record<string, { label: string; family: string }> = {
   anton: { label: "Impacto", family: "'Anton', system-ui, sans-serif" },
@@ -78,6 +81,12 @@ export function AgendaPosterStudio({
   const [downloading, setDownloading] = useState(false);
   const [pending, start] = useTransition();
 
+  // Festival / line-up de um único evento
+  const [festival, setFestival] = useState(false);
+  const [evento, setEvento] = useState("");
+  const [dataEvento, setDataEvento] = useState("");
+  const [lineup, setLineup] = useState<Banda[]>([{ nome: banda, hora: "" }]);
+
   const dias = PERIODOS.find((p) => p.key === periodo)?.dias ?? 30;
   const filtrados = useMemo(() => {
     const limite = Date.now() + dias * 86400_000;
@@ -125,6 +134,7 @@ export function AgendaPosterStudio({
   const a = scrim / 100;
   const fam = FONTES[fonte].family;
   const titleFx = fx(efeito, accent);
+  const lineupValido = festival ? lineup.filter((b) => b.nome.trim()) : [];
 
   return (
     <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
@@ -146,23 +156,42 @@ export function AgendaPosterStudio({
 
           <div className="absolute inset-0 flex flex-col p-4">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.3em]" style={{ color: accent }}>Agenda</p>
-              <p className="text-3xl font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>{banda}</p>
+              <p className="text-[11px] uppercase tracking-[0.3em]" style={{ color: accent }}>
+                {festival ? (dataEvento.trim() || "Line-up") : "Agenda"}
+              </p>
+              <p className="text-3xl font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>
+                {festival ? (evento.trim() || banda) : banda}
+              </p>
             </div>
             <div className="my-3 h-0.5 w-full" style={{ background: accent }} />
-            <ul className="flex-1 space-y-1.5 overflow-hidden">
-              {filtrados.length === 0 ? (
-                <li className="text-sm text-zinc-400">Sem shows no período.</li>
-              ) : (
-                filtrados.map((s, i) => (
-                  <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>
-                    <span className="shrink-0 text-sm font-bold tabular-nums" style={{ color: accent }}>{s.shortData}</span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.casa}</span>
-                    <span className="shrink-0 text-xs text-zinc-300">{s.hora}</span>
-                  </li>
-                ))
-              )}
-            </ul>
+            {festival ? (
+              <ul className="flex-1 space-y-1.5 overflow-hidden">
+                {lineupValido.length === 0 ? (
+                  <li className="text-sm text-zinc-400">Adicione as bandas do line-up.</li>
+                ) : (
+                  lineupValido.map((b, i) => (
+                    <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>
+                      {b.hora && <span className="shrink-0 text-sm font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold uppercase tracking-wide">{b.nome}</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            ) : (
+              <ul className="flex-1 space-y-1.5 overflow-hidden">
+                {filtrados.length === 0 ? (
+                  <li className="text-sm text-zinc-400">Sem shows no período.</li>
+                ) : (
+                  filtrados.map((s, i) => (
+                    <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>
+                      <span className="shrink-0 text-sm font-bold tabular-nums" style={{ color: accent }}>{s.shortData}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.casa}</span>
+                      <span className="shrink-0 text-xs text-zinc-300">{s.hora}</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
             <p className="mt-2 text-center text-[9px] uppercase tracking-widest text-zinc-400">
               {banda} · ao vivo
             </p>
@@ -176,8 +205,45 @@ export function AgendaPosterStudio({
 
       {/* Controles */}
       <div className="space-y-4">
-        <Bloco titulo="Período">
-          <Chips value={periodo} onChange={setPeriodo} options={PERIODOS.map((p) => [p.key, p.label] as [string, string])} />
+        <Bloco titulo="Tipo de cartaz">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-200">
+            <input type="checkbox" checked={festival} onChange={(e) => setFestival(e.target.checked)} className="size-4 accent-red-600" />
+            Festival / line-up de um evento (em vez da agenda de shows)
+          </label>
+          {festival ? (
+            <div className="mt-2 space-y-2">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-zinc-400">Nome do evento</Label>
+                  <Input value={evento} onChange={(e) => setEvento(e.target.value)} placeholder="Ex.: Festival de Verão" className="h-9 bg-[#0f0f11]" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-zinc-400">Data / dia</Label>
+                  <Input value={dataEvento} onChange={(e) => setDataEvento(e.target.value)} placeholder="Ex.: Sáb 12/07" className="h-9 bg-[#0f0f11]" />
+                </div>
+              </div>
+              <Label className="text-[11px] text-zinc-400">Line-up — banda + horário de início</Label>
+              {lineup.map((b, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input value={b.nome} onChange={(e) => setLineup((p) => p.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)))} placeholder="Banda" className="h-9 flex-1 bg-[#0f0f11]" />
+                  <Input value={b.hora} onChange={(e) => setLineup((p) => p.map((x, j) => (j === i ? { ...x, hora: e.target.value } : x)))} placeholder="22h" className="h-9 w-20 bg-[#0f0f11]" />
+                  <button onClick={() => setLineup((p) => p.filter((_, j) => j !== i))} className="text-zinc-500 hover:text-red-400" title="Remover">
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={() => setLineup((p) => [...p, { nome: "", hora: "" }])}>
+                <Plus className="size-4" /> Adicionar banda
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <Label className="text-[11px] text-zinc-400">Período da agenda</Label>
+              <div className="mt-1">
+                <Chips value={periodo} onChange={setPeriodo} options={PERIODOS.map((p) => [p.key, p.label] as [string, string])} />
+              </div>
+            </div>
+          )}
         </Bloco>
         <Bloco titulo="Fonte">
           <Chips value={fonte} onChange={setFonte} options={Object.entries(FONTES).map(([k, v]) => [k, v.label] as [string, string])} />
@@ -200,7 +266,7 @@ export function AgendaPosterStudio({
           <p className="text-[11px] text-zinc-500">Menos = a foto aparece mais. Mais = escurece pra leitura da lista.</p>
         </Bloco>
 
-        <Bloco titulo={`Fundo · ${filtrados.length} show(s)`}>
+        <Bloco titulo={festival ? `Fundo · ${lineupValido.length} banda(s)` : `Fundo · ${filtrados.length} show(s)`}>
           <div className="mb-2 flex flex-wrap gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
               {pending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />} Enviar foto
