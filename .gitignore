@@ -4,6 +4,11 @@
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 
+# Arquivos temporários de automação (scripts/commit msgs/tokens)
+_*.txt
+_*.mjs
+_*.mts
+
 # dependencies
 /node_modules
 /.pnp
