@@ -9,7 +9,7 @@ import { venues } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin } from "@/lib/auth";
 import { maskPhone, telefoneValido } from "@/lib/validators";
-import { fetchPlaceWebsite, instagramFromUrl, descobrirCasas, type CasaCandidata } from "@/lib/venue-places";
+import { fetchPlaceMedia, descobrirCasas, type CasaCandidata } from "@/lib/venue-places";
 
 const casaSchema = z.object({
   nome: z.string().min(1, "Obrigatório").max(120),
@@ -44,38 +44,22 @@ function igHandle(instagram: string): string {
     .trim();
 }
 
-/** Busca a foto de perfil do Instagram via unavatar.io (grátis). null se falhar. */
-async function fetchInstagramLogo(instagram: string): Promise<string | null> {
-  const handle = igHandle(instagram);
-  if (!handle) return null;
-  try {
-    const r = await fetch(`https://unavatar.io/instagram/${encodeURIComponent(handle)}?fallback=false`, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
-    if (!r.ok) return null;
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length < 200 || buf.length > 4_000_000) return null;
-    const mime = (r.headers.get("content-type") || "image/jpeg").split(";")[0];
-    return `data:${mime};base64,${buf.toString("base64")}`;
-  } catch {
-    return null;
-  }
-}
-
-/** Tenta puxar a logo do Instagram da casa a partir do @ (best-effort). */
-export async function buscarLogoInstagramAction(
-  instagram: string
+/** Busca a logo/imagem da casa no Google Places (foto) + o @ pelo site oficial.
+ *  (unavatar/clearbit estão bloqueados; a foto do Places é o que funciona.) */
+export async function buscarLogoCasaAction(
+  nome: string,
+  cidade?: string | null
 ): Promise<{ ok: true; dataUrl: string } | { ok: false; erro: string }> {
   await requireAdmin();
-  if (!igHandle(instagram)) return { ok: false, erro: "Preencha o @ do Instagram primeiro." };
-  const dataUrl = await fetchInstagramLogo(instagram);
-  if (!dataUrl) return { ok: false, erro: "Não achei a logo desse @ (o Instagram pode ter bloqueado). Envie a imagem à mão." };
-  return { ok: true, dataUrl };
+  if (!nome?.trim()) return { ok: false, erro: "Salve o nome da casa primeiro." };
+  const { logoDataUrl } = await fetchPlaceMedia(nome, cidade);
+  if (!logoDataUrl) return { ok: false, erro: "Não achei imagem dessa casa no Google. Envie a logo à mão." };
+  return { ok: true, dataUrl: logoDataUrl };
 }
 
-/** Lote: pra cada casa SEM logo, tenta (1) achar o @ no Google Places (site
- *  oficial → instagram) se ainda não tiver, e (2) puxar a logo do Instagram.
- *  Grátis (Places usa crédito do Google). Processa um lote por execução. */
+/** Lote: pra cada casa SEM logo, pega a foto do Google Places (vira logo) e,
+ *  de quebra, o @ do Instagram se o site oficial for um instagram. Grátis
+ *  (crédito do Google). Processa um lote por execução. */
 export async function buscarLogosCasasAction(): Promise<{
   tentadas: number;
   ok: number;
@@ -91,22 +75,17 @@ export async function buscarLogosCasasAction(): Promise<{
   let ok = 0;
   let achouArroba = 0;
   for (const v of lote) {
-    let ig = igHandle(v.instagram || "");
-    if (!ig) {
-      // tenta descobrir o @ pelo site oficial registrado no Google Places
-      const arroba = instagramFromUrl(await fetchPlaceWebsite(v.nome, v.cidade));
-      if (arroba) {
-        ig = igHandle(arroba);
-        await db.update(venues).set({ instagram: arroba }).where(eq(venues.id, v.id));
-        achouArroba++;
-      }
-    }
-    if (!ig) continue;
-    const logo = await fetchInstagramLogo(ig);
-    if (logo) {
-      await db.update(venues).set({ logoUrl: logo }).where(eq(venues.id, v.id));
+    const { logoDataUrl, instagram } = await fetchPlaceMedia(v.nome, v.cidade);
+    const patch: { logoUrl?: string; instagram?: string } = {};
+    if (logoDataUrl) {
+      patch.logoUrl = logoDataUrl;
       ok++;
     }
+    if (instagram && !igHandle(v.instagram || "")) {
+      patch.instagram = instagram;
+      achouArroba++;
+    }
+    if (Object.keys(patch).length) await db.update(venues).set(patch).where(eq(venues.id, v.id));
   }
   revalidatePath("/casas");
   return { tentadas: lote.length, ok, achouArroba, restantes: alvo.length - lote.length };
@@ -126,20 +105,18 @@ export async function descobrirCasasAction(params: {
   return { candidatas, jaCadastradas };
 }
 
-/** Adiciona uma casa descoberta (com @/logo se vier do Places). */
+/** Adiciona uma casa descoberta (com @/logo via Google Places). */
 export async function adicionarCasaDescobertaAction(c: CasaCandidata): Promise<{ ok: boolean }> {
   await requireAdmin();
   if (!c.nome?.trim()) return { ok: false };
-  let logoUrl: string | null = null;
-  const ig = igHandle(c.instagram || "");
-  if (ig) logoUrl = await fetchInstagramLogo(ig);
+  const { logoDataUrl, instagram } = await fetchPlaceMedia(c.nome);
   await db.insert(venues).values({
     nome: c.nome.trim().slice(0, 120),
     endereco: c.endereco?.slice(0, 300) || null,
     latitude: c.lat ?? null,
     longitude: c.lng ?? null,
-    instagram: c.instagram || null,
-    logoUrl,
+    instagram: c.instagram || instagram || null,
+    logoUrl: logoDataUrl,
     querTocar: true, // descoberta = candidata pra tocar
   });
   revalidatePath("/casas");

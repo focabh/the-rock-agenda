@@ -13,7 +13,7 @@ import { FieldError } from "@/components/shared/field-error";
 import { AddressAutocomplete } from "@/components/shared/address-autocomplete";
 import { PhoneInput } from "@/components/shared/phone-input";
 import { fileToDownscaledDataUrl } from "@/lib/image-resize";
-import { buscarLogoInstagramAction } from "@/app/(app)/casas/actions";
+import { buscarLogoCasaAction } from "@/app/(app)/casas/actions";
 import type { ActionState } from "@/lib/form";
 import type { Venue } from "@/db/schema";
 
@@ -153,17 +153,18 @@ function LogoCasaField({ initial }: { initial: string | null }) {
   const [logo, setLogo] = useState<string | null>(initial);
   const [busca, startBusca] = useTransition();
 
-  function buscarDoInstagram() {
-    const ig = (document.getElementById("instagram") as HTMLInputElement | null)?.value ?? "";
-    if (!ig.trim()) {
-      toast.error("Preencha o @ do Instagram acima primeiro.");
+  function buscarNoGoogle() {
+    const nome = (document.getElementById("nome") as HTMLInputElement | null)?.value ?? "";
+    const cidade = (document.querySelector('input[name="cidade"]') as HTMLInputElement | null)?.value ?? "";
+    if (!nome.trim()) {
+      toast.error("Preencha o nome da casa primeiro.");
       return;
     }
     startBusca(async () => {
-      const r = await buscarLogoInstagramAction(ig);
+      const r = await buscarLogoCasaAction(nome, cidade);
       if (r.ok) {
         setLogo(r.dataUrl);
-        toast.success("Logo do Instagram encontrada!");
+        toast.success("Imagem encontrada no Google!");
       } else {
         toast.error(r.erro);
       }
@@ -186,9 +187,9 @@ function LogoCasaField({ initial }: { initial: string | null }) {
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={buscarDoInstagram} disabled={busca}>
+        <Button type="button" variant="outline" size="sm" onClick={buscarNoGoogle} disabled={busca}>
           {busca ? <Loader2 className="size-4 animate-spin" /> : <AtSign className="size-4" />}
-          Buscar do Instagram
+          Buscar no Google
         </Button>
         <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-sm hover:bg-accent">
           <Upload className="size-4" /> Enviar imagem
@@ -201,7 +202,7 @@ function LogoCasaField({ initial }: { initial: string | null }) {
         )}
       </div>
       <p className="w-full text-[11px] text-muted-foreground">
-        Tenta puxar a foto de perfil do Instagram pelo @ (nem sempre o IG deixa). O flyer do show usa essa logo automaticamente.
+        “Buscar no Google” pega a foto da casa no Google (e o @ se estiver no perfil). O flyer do show usa essa imagem automaticamente. Pra uma logo exata, envie a imagem.
       </p>
     </div>
   );

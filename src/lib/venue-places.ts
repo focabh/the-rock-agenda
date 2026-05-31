@@ -103,6 +103,52 @@ export async function fetchPlaceWebsite(
   }
 }
 
+/** Busca no Google Places a FOTO da casa (vira logo/imagem) + o @ do Instagram
+ *  (se o site oficial for um instagram). É o que funciona de graça hoje
+ *  (unavatar/clearbit estão bloqueados). Custo: crédito do Google. */
+export async function fetchPlaceMedia(
+  nome: string,
+  cidade?: string | null
+): Promise<{ logoDataUrl: string | null; instagram: string | null }> {
+  const key = process.env.GOOGLE_PLACES_API_KEY;
+  if (!key) return { logoDataUrl: null, instagram: null };
+  try {
+    const r = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": "places.displayName,places.websiteUri,places.photos",
+      },
+      body: JSON.stringify({ textQuery: [nome, cidade].filter(Boolean).join(", "), languageCode: "pt-BR", maxResultCount: 1 }),
+    });
+    const data = (await r.json()) as {
+      places?: { websiteUri?: string; photos?: { name?: string }[] }[];
+    };
+    const p = data.places?.[0];
+    const instagram = instagramFromUrl(p?.websiteUri);
+
+    let logoDataUrl: string | null = null;
+    const photoName = p?.photos?.[0]?.name;
+    if (photoName) {
+      const mr = await fetch(
+        `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=512&maxWidthPx=512&key=${key}`,
+        { redirect: "follow" }
+      );
+      if (mr.ok) {
+        const buf = Buffer.from(await mr.arrayBuffer());
+        if (buf.length > 200 && buf.length < 4_000_000) {
+          const mime = (mr.headers.get("content-type") || "image/jpeg").split(";")[0];
+          logoDataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+        }
+      }
+    }
+    return { logoDataUrl, instagram };
+  } catch {
+    return { logoDataUrl: null, instagram: null };
+  }
+}
+
 export type CasaCandidata = {
   nome: string;
   endereco: string;
