@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Download, Upload, Shuffle, Loader2, ImageIcon, Building2 } from "lucide-react";
+import { Download, Upload, Shuffle, Loader2, ImageIcon, Building2, Wand2, Sparkles, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { fileToDownscaledDataUrl } from "@/lib/image-resize";
 import { addImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
+import { gerarImagemIAAction } from "@/app/(app)/shows/[id]/divulgacao/ia-actions";
 
 type Show = {
   banda: string;
@@ -25,6 +26,8 @@ type Show = {
 type Estilo = "festival" | "minimal" | "tarja";
 type Pos = "top" | "center" | "bottom";
 type Efeito = "nenhum" | "sombra" | "contorno" | "neon";
+type Banda = { nome: string; hora: string };
+type Modelo = { estilo: Estilo; fonte: string; efeito: Efeito; accent: string; grad: string };
 
 const FONTES: Record<string, { label: string; family: string }> = {
   anton: { label: "Impacto", family: "'Anton', system-ui, sans-serif" },
@@ -56,6 +59,50 @@ function fx(efeito: Efeito, accent: string): React.CSSProperties {
 }
 const pillText = (accent: string) => (accent === "#ef4444" ? "#fff" : "#09090b");
 
+/** Lê uma imagem (data URL) e extrai a cor de destaque mais vibrante + um
+ *  gradiente escuro combinando. 100% no navegador, custo zero. */
+async function extrairPaleta(dataUrl: string): Promise<{ accent: string; grad: string }> {
+  const img = new Image();
+  img.src = dataUrl;
+  await img.decode();
+  const w = 48;
+  const h = Math.max(1, Math.round((48 * img.height) / img.width));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
+  if (!ctx) return { accent: "#f59e0b", grad: GRADIENTES[0] };
+  ctx.drawImage(img, 0, 0, w, h);
+  const { data } = ctx.getImageData(0, 0, w, h);
+
+  const buckets = new Map<string, { r: number; g: number; b: number; n: number; sat: number }>();
+  let darkR = 0, darkG = 0, darkB = 0, darkN = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const lum = (max + min) / 2;
+    const sat = max === 0 ? 0 : (max - min) / max;
+    if (lum < 60) { darkR += r; darkG += g; darkB += b; darkN++; }
+    if (lum < 35 || lum > 225 || sat < 0.25) continue; // ignora muito escuro/claro/lavado
+    const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
+    const cur = buckets.get(key) ?? { r: 0, g: 0, b: 0, n: 0, sat: 0 };
+    cur.r += r; cur.g += g; cur.b += b; cur.n++; cur.sat = sat;
+    buckets.set(key, cur);
+  }
+  let best: { r: number; g: number; b: number; n: number; sat: number } | null = null;
+  for (const v of buckets.values()) {
+    const score = v.n * (0.5 + v.sat);
+    const bestScore = best ? best.n * (0.5 + best.sat) : -1;
+    if (score > bestScore) best = v;
+  }
+  const hex = (r: number, g: number, b: number) =>
+    "#" + [r, g, b].map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
+  const accent = best ? hex(best.r / best.n, best.g / best.n, best.b / best.n) : "#f59e0b";
+  const dr = darkN ? darkR / darkN : 26, dg = darkN ? darkG / darkN : 10, db = darkN ? darkB / darkN : 10;
+  const grad = `radial-gradient(120% 90% at 50% 0%, ${hex(dr * 1.4, dg * 1.4, db * 1.4)}, #09090b 68%)`;
+  return { accent, grad };
+}
+
 export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: string; url: string }[] }) {
   const [imgs, setImgs] = useState(galeria);
   const [bg, setBg] = useState<string | null>(galeria[0]?.url ?? null);
@@ -68,6 +115,9 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [accent, setAccent] = useState("#f59e0b");
   const [scrim, setScrim] = useState(62);
   const [ref0, setRef0] = useState<string | null>(null);
+  const [modelos, setModelos] = useState<Modelo[]>([]);
+  const [iaImgs, setIaImgs] = useState<string[]>([]);
+  const [iaLoading, setIaLoading] = useState(false);
 
   const [headline, setHeadline] = useState("AO VIVO");
   const [banda, setBanda] = useState(show.banda);
@@ -75,6 +125,11 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [data, setData] = useState(show.dataLabel);
   const [ingresso, setIngresso] = useState(show.valorIngresso ?? "");
   const [link, setLink] = useState(show.linkVendas ?? "");
+
+  // Festival / várias bandas
+  const [festival, setFestival] = useState(false);
+  const [evento, setEvento] = useState("");
+  const [lineup, setLineup] = useState<Banda[]>([{ nome: show.banda, hora: show.inicio ?? "" }]);
 
   const [qr, setQr] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -98,6 +153,46 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
         await addImagemDivulgacaoAction(url);
       }
     });
+  }
+
+  async function gerarModelos() {
+    if (!ref0) return toast.error("Envie um exemplo de estilo primeiro.");
+    try {
+      const { accent: ac, grad: gr } = await extrairPaleta(ref0);
+      setModelos([
+        { estilo: "festival", fonte: "anton", efeito: "neon", accent: ac, grad: gr },
+        { estilo: "tarja", fonte: "poppins", efeito: "contorno", accent: ac, grad: gr },
+        { estilo: "minimal", fonte: "serif", efeito: "sombra", accent: ac, grad: gr },
+      ]);
+      toast.success("3 modelos gerados a partir do exemplo. Toque pra aplicar.");
+    } catch {
+      toast.error("Não consegui ler o exemplo. Tente outra imagem.");
+    }
+  }
+
+  function aplicarModelo(m: Modelo) {
+    setEstilo(m.estilo);
+    setFonte(m.fonte);
+    setEfeito(m.efeito);
+    setAccent(m.accent);
+    setGrad(m.grad);
+  }
+
+  async function gerarIA() {
+    if (!ref0) return toast.error("Envie um exemplo de estilo primeiro.");
+    if (!confirm("Gerar 3 imagens por IA pode ter custo (frações de centavo a ~R$0,20 cada). Continuar?")) return;
+    setIaLoading(true);
+    try {
+      const r = await gerarImagemIAAction(ref0, `${banda} live show flyer, instagram style, bold modern typography space`, 3);
+      if (!r.ok) {
+        toast.error(r.erro);
+        return;
+      }
+      setIaImgs(r.imagens);
+      toast.success(`${r.imagens.length} imagem(ns) gerada(s). Toque pra usar como fundo.`);
+    } finally {
+      setIaLoading(false);
+    }
   }
 
   async function baixar() {
@@ -129,6 +224,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
         : `linear-gradient(to top, rgba(9,9,11,${a + 0.3}), rgba(9,9,11,${a * 0.45}) 45%, transparent 74%)`;
 
   const fam = FONTES[fonte].family;
+  const lineupValido = festival ? lineup.filter((b) => b.nome.trim()) : [];
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -140,7 +236,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           )}
           <div className="absolute inset-0" style={{ background: scrimBg }} />
           <div className={cn("absolute inset-0 flex flex-col p-5", justify)}>
-            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} />
+            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
           </div>
         </div>
         <Button onClick={baixar} disabled={downloading} className="w-full bg-red-600 hover:bg-red-700">
@@ -160,10 +256,14 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           <Chips value={efeito} onChange={(v) => setEfeito(v as Efeito)} options={[["nenhum", "Nenhum"], ["sombra", "Sombra"], ["contorno", "Contorno"], ["neon", "Neon"]]} />
         </Bloco>
         <Bloco titulo="Cor de destaque">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {ACCENTS.map((c) => (
               <button key={c} onClick={() => setAccent(c)} className={cn("size-8 rounded-full ring-2", accent === c ? "ring-white" : "ring-transparent")} style={{ background: c }} />
             ))}
+            <span className="ml-1 inline-flex items-center gap-1 rounded-full border border-zinc-700 px-2 text-xs text-zinc-300">
+              custom
+              <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)} className="size-6 cursor-pointer bg-transparent" />
+            </span>
           </div>
         </Bloco>
         <Bloco titulo="Formato e posição">
@@ -176,6 +276,33 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           <input type="range" min={0} max={95} value={scrim} onChange={(e) => setScrim(Number(e.target.value))} className="w-full accent-red-600" />
           <p className="text-[11px] text-zinc-500">Menos = a foto aparece mais. Mais = escurece pra leitura.</p>
         </Bloco>
+
+        <Bloco titulo="Festival / várias bandas">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-200">
+            <input type="checkbox" checked={festival} onChange={(e) => setFestival(e.target.checked)} className="size-4 accent-red-600" />
+            É um festival / line-up com mais de uma banda
+          </label>
+          {festival && (
+            <div className="mt-2 space-y-2">
+              <Campo label="Nome do evento (opcional)" value={evento} onChange={setEvento} placeholder="Ex.: Festival de Verão" />
+              <Label className="text-[11px] text-zinc-400">Line-up — banda + horário de início</Label>
+              {lineup.map((b, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input value={b.nome} onChange={(e) => setLineup((p) => p.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)))} placeholder="Banda" className="h-9 flex-1 bg-[#0f0f11]" />
+                  <Input value={b.hora} onChange={(e) => setLineup((p) => p.map((x, j) => (j === i ? { ...x, hora: e.target.value } : x)))} placeholder="22h" className="h-9 w-20 bg-[#0f0f11]" />
+                  <button onClick={() => setLineup((p) => p.filter((_, j) => j !== i))} className="text-zinc-500 hover:text-red-400" title="Remover">
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ))}
+              <Button variant="outline" size="sm" onClick={() => setLineup((p) => [...p, { nome: "", hora: "" }])}>
+                <Plus className="size-4" /> Adicionar banda
+              </Button>
+              <p className="text-[11px] text-zinc-500">No modo festival o line-up aparece no flyer no lugar da banda única.</p>
+            </div>
+          )}
+        </Bloco>
+
         <Bloco titulo="Textos">
           <div className="grid gap-2 sm:grid-cols-2">
             <Campo label="Chamada" value={headline} onChange={setHeadline} />
@@ -186,6 +313,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             <Campo label="Link de venda (vira QR)" value={link} onChange={setLink} placeholder="https://…" />
           </div>
         </Bloco>
+
         <Bloco titulo="Fundo">
           <div className="mb-2 flex flex-wrap gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
@@ -219,21 +347,63 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             </div>
           )}
         </Bloco>
-        <Bloco titulo="Referência de estilo (opcional)">
-          <div className="flex items-center gap-3">
+
+        <Bloco titulo="Inspiração: gerar modelos a partir de um exemplo">
+          <div className="flex flex-wrap items-center gap-3">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
               <ImageIcon className="size-4" /> Enviar exemplo
-              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setRef0(await fileToDownscaledDataUrl(f, 900, 0.7)); }} />
+              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { setRef0(await fileToDownscaledDataUrl(f, 900, 0.7)); setModelos([]); setIaImgs([]); } }} />
             </label>
             {ref0 && (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={ref0} alt="referência" className="h-16 w-12 rounded object-cover ring-1 ring-zinc-700" />
-                <button onClick={() => setRef0(null)} className="text-xs text-zinc-500 hover:text-foreground">remover</button>
+                <button onClick={() => { setRef0(null); setModelos([]); setIaImgs([]); }} className="text-xs text-zinc-500 hover:text-foreground">remover</button>
               </>
             )}
-            <span className="text-xs text-zinc-500">Pra te inspirar — não vai no flyer.</span>
           </div>
+          {ref0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" onClick={gerarModelos} className="bg-amber-500 text-zinc-950 hover:bg-amber-400">
+                <Wand2 className="size-4" /> Gerar 3 modelos (grátis)
+              </Button>
+              <Button size="sm" variant="outline" onClick={gerarIA} disabled={iaLoading}>
+                {iaLoading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />} Gerar com IA (paga)
+              </Button>
+            </div>
+          )}
+          {modelos.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-[11px] text-zinc-400">Modelos (paleta extraída do exemplo) — toque pra aplicar:</p>
+              <div className="flex gap-2">
+                {modelos.map((m, i) => (
+                  <button key={i} onClick={() => aplicarModelo(m)} className="flex-1 overflow-hidden rounded-lg ring-1 ring-zinc-700 hover:ring-primary" style={{ background: m.grad }}>
+                    <div className="flex h-20 flex-col items-center justify-center gap-1 p-2">
+                      <span className="text-base font-black uppercase leading-none text-zinc-50" style={{ fontFamily: FONTES[m.fonte].family, ...fx(m.efeito, m.accent) }}>Aa</span>
+                      <span className="h-1 w-8 rounded-full" style={{ background: m.accent }} />
+                      <span className="text-[9px] uppercase tracking-wide text-zinc-300">{m.estilo}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {iaImgs.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-[11px] text-zinc-400">Geradas por IA — toque pra usar como fundo:</p>
+              <div className="grid grid-cols-3 gap-2">
+                {iaImgs.map((u, i) => (
+                  <button key={i} onClick={() => { setImgs((p) => [{ id: `ia-${i}-${Date.now()}`, url: u }, ...p]); setBg(u); }} className="aspect-9/16 overflow-hidden rounded-md ring-1 ring-zinc-700 hover:ring-primary">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={u} alt="" crossOrigin="anonymous" className="size-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-zinc-500">
+            “Grátis” lê as cores/clima do exemplo e monta 3 combinações com a sua foto — custo R$0. “IA (paga)” cria arte nova parecida (precisa da env FAL_KEY; só cobra quando usada).
+          </p>
         </Bloco>
       </div>
     </div>
@@ -241,24 +411,37 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 }
 
 function Conteudo({
-  estilo, fam, efeito, accent, headline, banda, casa, data, inicio, ingresso, qr,
+  estilo, fam, efeito, accent, headline, banda, casa, data, inicio, ingresso, qr, festival, evento, lineup,
 }: {
-  estilo: Estilo; fam: string; efeito: Efeito; accent: string; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null;
+  estilo: Estilo; fam: string; efeito: Efeito; accent: string; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
 }) {
   const titleFx = fx(efeito, accent);
+  const tituloPrincipal = festival ? (evento.trim() || "FESTIVAL") : banda;
   const QR = qr ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={qr} alt="QR" className="size-14 shrink-0 rounded bg-white p-0.5" />
+  ) : null;
+
+  const LineupList = festival && lineup.length > 0 ? (
+    <ul className="mt-2 space-y-0.5">
+      {lineup.map((b, i) => (
+        <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>
+          {b.hora && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
+          <span className="text-sm font-semibold uppercase tracking-wide">{b.nome}</span>
+        </li>
+      ))}
+    </ul>
   ) : null;
 
   if (estilo === "minimal") {
     return (
       <div className="w-full">
         {headline && <p className="text-[10px] uppercase tracking-[0.35em]" style={{ color: accent }}>{headline}</p>}
-        <p className="mt-1 text-3xl font-bold uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>{banda}</p>
+        <p className="mt-1 text-3xl font-bold uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>{tituloPrincipal}</p>
         <div className="mt-3 h-px w-12" style={{ background: accent }} />
+        {LineupList}
         <p className="mt-3 text-sm font-medium text-zinc-100" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{casa}</p>
-        <p className="text-xs text-zinc-300" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{data}{inicio ? ` · ${inicio}` : ""}{ingresso ? ` · ${ingresso}` : ""}</p>
+        <p className="text-xs text-zinc-300" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{data}{!festival && inicio ? ` · ${inicio}` : ""}{ingresso ? ` · ${ingresso}` : ""}</p>
         {QR && <div className="mt-3">{QR}</div>}
       </div>
     );
@@ -268,11 +451,12 @@ function Conteudo({
     return (
       <div className="w-full rounded-lg bg-zinc-950/80 p-3 backdrop-blur-sm" style={{ border: `1px solid ${accent}` }}>
         {headline && <p className="text-[10px] uppercase tracking-[0.25em]" style={{ color: accent }}>{headline}</p>}
-        <p className="text-2xl font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>{banda}</p>
+        <p className="text-2xl font-black uppercase leading-none text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>{tituloPrincipal}</p>
+        {LineupList}
         <div className="mt-1.5 flex items-end justify-between gap-2">
           <div className="text-[11px] leading-tight text-zinc-200">
             <p className="font-semibold">{casa}</p>
-            <p className="text-zinc-400">{data}{inicio ? ` · ${inicio}` : ""}</p>
+            <p className="text-zinc-400">{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
             {ingresso && <p style={{ color: accent }}>Ingresso: {ingresso}</p>}
           </div>
           {QR}
@@ -286,10 +470,11 @@ function Conteudo({
       {headline && (
         <span className="inline-block px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.2em]" style={{ background: accent, color: pillText(accent) }}>{headline}</span>
       )}
-      <p className="mt-2 text-5xl font-black uppercase leading-[0.85] text-zinc-50" style={{ fontFamily: fam, ...titleFx }}>{banda}</p>
+      <p className={cn("mt-2 font-black uppercase leading-[0.85] text-zinc-50", festival ? "text-4xl" : "text-5xl")} style={{ fontFamily: fam, ...titleFx }}>{tituloPrincipal}</p>
+      {LineupList}
       <div className="mt-3 flex items-end justify-between gap-3">
         <div className="leading-tight">
-          <p className="text-lg font-bold" style={{ fontFamily: fam, color: accent, ...titleFx }}>{data}{inicio ? ` · ${inicio}` : ""}</p>
+          <p className="text-lg font-bold" style={{ fontFamily: fam, color: accent, ...titleFx }}>{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
           <p className="text-sm font-semibold uppercase tracking-wide text-zinc-100" style={{ textShadow: "0 1px 6px rgba(0,0,0,.6)" }}>{casa}</p>
           {ingresso && (
             <span className="mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold" style={{ background: accent, color: pillText(accent) }}>{ingresso}</span>
