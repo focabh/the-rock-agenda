@@ -31,12 +31,15 @@ function tituloLimpo(t: string): string {
     .trim();
 }
 
-const buscaGoogle = (termos: string) =>
-  `https://www.google.com/search?q=${encodeURIComponent(termos)}`;
+// Ultimate Guitar: catálogo gigante e GRÁTIS (cifras, tabs de guitarra, baixo,
+// teclado e bateria). Cai na busca pela música — sem paywall do Cifra Club.
+const ug = (a: string, t: string) =>
+  `https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent(
+    `${a} ${tituloLimpo(t)}`.trim()
+  )}`;
 
-const cifra = (a: string, t: string) => buscaGoogle(`cifra ${a} ${tituloLimpo(t)}`);
-const drumTab = (a: string, t: string) =>
-  buscaGoogle(`${a} ${tituloLimpo(t)} drum tab partitura bateria`);
+const cifra = ug;
+const drumTab = ug;
 
 export function materialForPosicao(
   posicao: string | null | undefined
@@ -48,19 +51,19 @@ export function materialForPosicao(
 
   if (/bateria|bateirist|baterist|drum|percuss/.test(p))
     return {
-      play: { kind: "drum", label: "Bateria (tab)", provider: "Google", href: drumTab },
+      play: { kind: "drum", label: "Bateria (tab)", provider: "Ultimate Guitar", href: drumTab },
       letrasRelevante: false,
     };
 
   if (/teclad|piano|keys|sintet/.test(p))
     return {
-      play: { kind: "keys", label: "Cifra / teclado", provider: "Google", href: cifra },
+      play: { kind: "keys", label: "Cifra / teclado", provider: "Ultimate Guitar", href: cifra },
       letrasRelevante: false,
     };
 
   // Guitarra, violão, baixo e demais → cifra/tab.
   return {
-    play: { kind: "string", label: "Cifra / tab", provider: "Google", href: cifra },
+    play: { kind: "string", label: "Cifra / tab", provider: "Ultimate Guitar", href: cifra },
     letrasRelevante: false,
   };
 }
