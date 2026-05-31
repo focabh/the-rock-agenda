@@ -65,9 +65,9 @@ function inviteUrl(token: string) {
   return `${origin}/cadastro?invite=${token}`;
 }
 
-function inviteMessage(nome: string | null, token: string) {
-  const saud = nome?.trim() ? `Oi, ${nome.trim()}!` : "Oi!";
-  return `${saud} 🎸 Você foi convidado pra fazer parte do app da The Rock (agenda, shows, cachês).\n\nSeu link de cadastro é pessoal e expira em alguns dias:\n${inviteUrl(token)}`;
+function inviteMessage(nome: string | null, token: string, banda: string) {
+  const saud = nome?.trim() ? `Fala, ${nome.trim()}! 🤘` : "Fala! 🤘";
+  return `${saud}\n\nVocê tá sendo convidado pra entrar no app da *${banda}* — onde a gente organiza tudo: shows, ensaios, setlist, cachês e avisos.\n\nÉ rapidinho: toque no link, faça seu cadastro e ative as notificações. O link é pessoal e expira em alguns dias.\n\n👉 ${inviteUrl(token)}`;
 }
 
 const STATUS_LABEL: Record<InviteStatus, { text: string; cls: string }> = {
@@ -85,11 +85,13 @@ export function CadastrosManager({
   approved,
   availablePositions,
   currentUserId,
+  bandName = "a banda",
 }: {
   invites: Invite[];
   approved: Approved[];
   availablePositions: string[];
   currentUserId: string;
+  bandName?: string;
 }) {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -108,7 +110,7 @@ export function CadastrosManager({
 
   function openWhatsApp(inv: Invite) {
     const num = onlyDigits(inv.telefone);
-    const text = encodeURIComponent(inviteMessage(inv.nome, inv.token));
+    const text = encodeURIComponent(inviteMessage(inv.nome, inv.token, bandName));
     const url = num
       ? `https://wa.me/55${num}?text=${text}`
       : `https://wa.me/?text=${text}`;

@@ -3,13 +3,13 @@ import { db } from "@/db";
 import { users, inviteTokens } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { CadastrosManager } from "@/components/cadastros/cadastros-manager";
-import { getAvailablePositions, requireAdmin } from "@/lib/auth";
+import { getAvailablePositions, requireAdmin, getBrand } from "@/lib/auth";
 import { inviteStatus } from "@/lib/invites";
 
 export default async function CadastrosPage() {
   const me = await requireAdmin();
 
-  const [inviteRows, approved, positions] = await Promise.all([
+  const [inviteRows, approved, positions, brand] = await Promise.all([
     db.select().from(inviteTokens).orderBy(desc(inviteTokens.createdAt)),
     db
       .select({
@@ -24,6 +24,7 @@ export default async function CadastrosPage() {
       .from(users)
       .where(eq(users.status, "aprovado")),
     getAvailablePositions(),
+    getBrand(),
   ]);
 
   const invites = inviteRows.map((i) => ({
@@ -48,6 +49,7 @@ export default async function CadastrosPage() {
           approved={approved}
           availablePositions={positions}
           currentUserId={me.id}
+          bandName={brand.bandName?.trim() || "a banda"}
         />
       </div>
     </div>
