@@ -279,7 +279,7 @@ export async function generateSetlistAction(
           exigeVocal: s.exigeVocal,
           momento: s.momento,
           tom: s.tom,
-          afinacao: s.afinacao,
+          dropada: s.dropada,
           finalBoss: s.finalBoss,
         })),
         targetMin: Math.max(1, opts.targetMin),
@@ -336,7 +336,7 @@ export async function generateSetlistAction(
         momento: s.momento,
         finalBoss: s.finalBoss,
         artista: s.artista,
-        afinacao: s.afinacao,
+        dropada: s.dropada,
       })),
       genOpts
     );
@@ -456,7 +456,7 @@ export async function reorganizeSetlistAction(
       const s = songById.get(i.songId);
       return {
         id: i.songId,
-        afinacao: s?.afinacao ?? null,
+        dropada: s?.dropada ?? false,
         artista: s?.artista ?? "",
         energia: s?.energia ?? null,
         momento: s?.momento ?? "qualquer",

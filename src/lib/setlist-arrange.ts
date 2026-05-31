@@ -1,18 +1,17 @@
 // Arranjo de setlist (ordenação) com as restrições de palco do "mago":
 //  1. Final Boss sempre no fim (hino/catarse), em energia ascendente entre eles.
-//  2. Minimizar reafinações: agrupa músicas pela mesma `afinacao` em BLOCOS
-//     contíguos (não fica trocando E Standard ↔ Eb ↔ Drop o tempo todo).
+//  2. Minimizar reafinações: agrupa as músicas DROPADAS juntas e as de afinação
+//     normal juntas (não fica trocando pra drop o tempo todo).
 //  3. Curva de energia: blocos ordenados por energia média ascendente (abre
 //     leve, fecha forte); dentro do bloco, energia também sobe (respiros).
 //  4. Intercalar artistas: proibido > 2 músicas seguidas do mesmo artista —
-//     corrige por swap DENTRO do bloco (preserva a afinação contígua).
-//  5. Abertura/fechamento (`momento`): movem o BLOCO inteiro pro começo / fim,
-//     sem espalhar afinações.
+//     corrige por swap DENTRO do bloco (preserva o bloco contíguo).
+//  5. Abertura/fechamento (`momento`): movem o BLOCO inteiro pro começo / fim.
 // PURA e determinística (sem aleatoriedade) — testável isolada.
 
 export type ArrangeSong = {
   id: string;
-  afinacao: string | null;
+  dropada: boolean;
   artista: string;
   energia: number | null;
   momento: string; // qualquer|abertura|meio|fechamento
@@ -21,7 +20,7 @@ export type ArrangeSong = {
 };
 
 const energyOf = (s: ArrangeSong) => s.energia ?? 2;
-const tuneKey = (s: ArrangeSong) => (s.afinacao || "").trim() || "—";
+const tuneKey = (s: ArrangeSong) => (s.dropada ? "drop" : "std");
 
 /** Quebra runs de > 2 do mesmo artista trocando por outro do MESMO bloco
  *  (mantém a afinação). Mutação in-place. */
@@ -120,7 +119,7 @@ export function arrangeSetlist(picked: ArrangeSong[]): string[] {
   return [...ordered, ...fb].map((s) => s.id);
 }
 
-/** Conta quantas vezes a afinação muda ao longo da ordem (mede reafinações). */
+/** Conta quantas vezes alterna entre drop/normal na ordem (mede reafinações). */
 export function countRetunes(songs: ArrangeSong[], orderedIds: string[]): number {
   const byId = new Map(songs.map((s) => [s.id, s]));
   let changes = 0;

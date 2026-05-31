@@ -17,7 +17,7 @@ export type AISong = {
   exigeVocal: boolean;
   momento: string;
   tom: string | null;
-  afinacao: string | null;
+  dropada: boolean;
   finalBoss: boolean;
 };
 
@@ -62,7 +62,7 @@ export async function generateSetlistAI(
     exigeVocal: s.exigeVocal,
     finalBoss: s.finalBoss,
     tom: s.tom ?? "",
-    afinacao: s.afinacao ?? "",
+    dropada: s.dropada,
   }));
 
   const prefs: string[] = [];
@@ -101,7 +101,7 @@ DRAMATURGIA:
 4. Conhecidas abrem/fecham; faixas menos óbvias ficam nos vales do meio.
 5. Vocal: não emende duas que exigem muito do vocal; as difíceis nos picos.
 6. Transições suaves (evite saltos bruscos de andamento/tom entre vizinhas).
-7. AFINAÇÃO (hardware): agrupe músicas de mesma "afinacao" em blocos contíguos pra MINIMIZAR reafinações no palco — não fique alternando E Standard ↔ Eb ↔ Drop. Use a curva de energia DENTRO/ENTRE esses blocos.
+7. AFINAÇÃO (hardware): agrupe as músicas DROPADAS ("dropada":true) num bloco contíguo pra MINIMIZAR reafinações no palco — não fique entrando e saindo de drop. Use a curva de energia DENTRO/ENTRE os blocos.
 8. ARTISTA: no máximo 2 músicas seguidas do mesmo artista. Intercale bandas.
 9. Ajuste ao contexto: sex/sáb à noite ou tarde → +energia/+hits, menos respiros; quinta/happy-hour/cedo/público 30+ → comece ameno e suba; comercial → +conhecidas; pesado → +energia; alternativo → +b-sides; ≤45min → só bala, 1 respiro; ≥120min → blocos com respiros entre eles.
 10. PREENCHA o tempo-alvo (tolerância ~1 música).

@@ -96,16 +96,6 @@ export function SongForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="afinacao">Afinação</Label>
-            <Input
-              id="afinacao"
-              name="afinacao"
-              defaultValue={song?.afinacao ?? ""}
-              placeholder="Ex.: E Standard, Eb, Drop D"
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="energia">Energia</Label>
             <select
               id="energia"
@@ -163,6 +153,15 @@ export function SongForm({
                 className="size-4 accent-primary"
               />
               Exige mais do vocal
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="dropada"
+                defaultChecked={song?.dropada ?? false}
+                className="size-4 accent-primary"
+              />
+              Afinação dropada (Drop D/C…)
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input

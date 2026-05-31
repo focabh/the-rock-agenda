@@ -680,12 +680,12 @@ function SortableSetlistItem({
           {item.song.artista}
         </p>
       </div>
-      {item.song.afinacao && (
+      {item.song.dropada && (
         <span
-          className="shrink-0 hidden sm:inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset ring-amber-500/30 bg-amber-500/10 text-amber-300"
-          title="Afinação (agrupada pra minimizar reafinações)"
+          className="shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1 ring-inset ring-amber-500/30 bg-amber-500/10 text-amber-300"
+          title="Afinação dropada (agrupada pra minimizar reafinações)"
         >
-          {item.song.afinacao}
+          DROP
         </span>
       )}
       {(() => {

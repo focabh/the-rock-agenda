@@ -64,9 +64,9 @@ export default async function ImprimirSetlistPage({
               <span className="text-sm text-gray-600">
                 {item.song.artista}
               </span>
-              {item.song.afinacao && (
-                <span className="text-xs font-medium px-2 py-0.5 border border-gray-500 rounded bg-gray-100">
-                  {item.song.afinacao}
+              {item.song.dropada && (
+                <span className="text-xs font-bold px-2 py-0.5 border border-gray-600 rounded bg-gray-200">
+                  DROP
                 </span>
               )}
               {(item.tom ?? item.song.tom) && (

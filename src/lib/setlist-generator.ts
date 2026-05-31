@@ -6,7 +6,7 @@ import { arrangeSetlist, type ArrangeSong } from "./setlist-arrange";
 
 const toArrange = (s: GenSong): ArrangeSong => ({
   id: s.id,
-  afinacao: s.afinacao ?? null,
+  dropada: !!s.dropada,
   artista: s.artista ?? "",
   energia: s.energia,
   momento: s.momento,
@@ -24,7 +24,7 @@ export type GenSong = {
   momento: string; // qualquer|abertura|meio|fechamento
   finalBoss?: boolean; // hino/munição pesada → vai pro fim, nunca no início
   artista?: string; // p/ intercalar artistas (máx 2 seguidas)
-  afinacao?: string | null; // p/ agrupar e minimizar reafinações
+  dropada?: boolean; // p/ agrupar dropadas e minimizar reafinações
 };
 
 export type GenOptions = {
