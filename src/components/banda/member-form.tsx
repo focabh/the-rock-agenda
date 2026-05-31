@@ -169,17 +169,6 @@ export function MemberForm({
             </label>
           </div>
 
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="equipamentos">Equipamentos</Label>
-            <Textarea
-              id="equipamentos"
-              name="equipamentos"
-              rows={2}
-              defaultValue={member?.equipamentos ?? ""}
-              placeholder="Guitarra Stratocaster, pedaleira Boss GT-1, amp Marshall..."
-            />
-            <FieldError state={state} name="equipamentos" />
-          </div>
 
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="disponibilidade">Disponibilidade</Label>

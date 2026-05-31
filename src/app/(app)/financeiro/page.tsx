@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { TrendingUp, TrendingDown, Wallet, Clock, Trophy } from "lucide-react";
+import { TrendingUp, Clock, Send, PiggyBank, Trophy, Wallet } from "lucide-react";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { loadFinanceReport } from "@/lib/finance-report";
 import { PageHeader } from "@/components/shared/page-header";
@@ -23,64 +23,69 @@ export default async function FinanceiroPage({
   const { ano: anoParam, membro: membroParam } = await searchParams;
 
   const r = await loadFinanceReport(anoParam);
-  const { ano, anos, entradas, gastosTotal, gastosShow, gastosExtra, reembolsosTotal, managerTotal, liquido, aReceber, perMember, topVenues, months, membros } = r;
   const membroId = membroParam ?? "";
 
-  const distrib: DonutSeg[] = perMember.map((m, i) => ({
+  const distrib: DonutSeg[] = r.perMember.map((m, i) => ({
     label: m.nome,
-    value: m.total,
+    value: m.devido,
     color: PALETTE[i % PALETTE.length],
   }));
-  if (managerTotal > 0) {
-    const mgr = membros.find((m) => !perMember.some((p) => p.id === m.id));
-    distrib.push({ label: `${mgr?.nome ?? "Manager"} (comissão)`, value: managerTotal, color: "#f59e0b" });
+  if (r.managerTotal > 0) {
+    const mgr = r.membros.find((m) => !r.perMember.some((p) => p.id === m.id));
+    distrib.push({ label: `${mgr?.nome ?? "Manager"} (comissão)`, value: r.managerTotal, color: "#f59e0b" });
   }
 
-  const maxVenue = Math.max(1, ...topVenues.map((v) => v.total));
-  const foco = membroId ? perMember.find((m) => m.id === membroId) : null;
-  const semDados = entradas === 0 && gastosTotal === 0;
+  const maxVenue = Math.max(1, ...r.topVenues.map((v) => v.total));
+  const foco = membroId ? r.perMember.find((m) => m.id === membroId) : null;
+  const semDados = r.faturado === 0 && r.gastosTotal === 0;
 
   return (
     <div>
       <PageHeader
         title="Financeiro"
-        description="A saúde financeira da banda como empresa: o que entra, o que sai e pra quem vai."
+        description="O caixa da banda sem buracos: o que faturou, o que entrou, o que ainda deve aos músicos e pra onde foi."
         actions={
           <div className="flex flex-wrap items-center gap-2 print:hidden">
-            <FinanceFilters anos={anos} ano={ano} membros={membros} membroId={membroId} />
-            <FinanceExport ano={ano} />
+            <FinanceFilters anos={r.anos} ano={r.ano} membros={r.membros} membroId={membroId} />
+            <FinanceExport ano={r.ano} />
           </div>
         }
       />
 
       <div className="p-6 space-y-6">
         <div className="hidden print:block">
-          <h1 className="text-2xl font-bold">Relatório financeiro — {ano}</h1>
+          <h1 className="text-2xl font-bold">Controle financeiro — {r.ano}</h1>
         </div>
         {semDados ? (
           <Card>
-            <EmptyState
-              icon={Wallet}
-              title={`Sem movimento em ${ano}`}
-              description="Quando houver shows concluídos com cachê ou gastos no ano, o relatório aparece aqui."
-            />
+            <EmptyState icon={Wallet} title={`Sem movimento em ${r.ano}`} description="Quando houver shows concluídos com cachê ou gastos no ano, o relatório aparece aqui." />
           </Card>
         ) : (
           <>
+            {/* KPIs de caixa */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Kpi icon={<TrendingUp className="size-4" />} label="Entradas (cachês)" value={formatBRL(entradas)} accent />
-              <Kpi icon={<TrendingDown className="size-4" />} label="Gastos da banda" value={formatBRL(gastosTotal)} />
-              <Kpi icon={<Wallet className="size-4" />} label="Líquido (entra − gasta)" value={formatBRL(liquido)} accent={liquido >= 0} danger={liquido < 0} />
-              <Kpi icon={<Clock className="size-4" />} label="A receber" value={formatBRL(aReceber)} />
+              <Kpi icon={<TrendingUp className="size-4" />} label="Recebido (entrou no caixa)" value={formatBRL(r.recebido)} accent />
+              <Kpi icon={<Clock className="size-4" />} label="A receber (contratante)" value={formatBRL(r.aReceberContratante)} />
+              <Kpi icon={<Send className="size-4" />} label="A repassar (músicos)" value={formatBRL(r.aRepassarMusicos)} danger={r.aRepassarMusicos > 0} />
+              <Kpi icon={<PiggyBank className="size-4" />} label="Saldo em caixa" value={formatBRL(r.saldoCaixa)} accent={r.saldoCaixa >= 0} danger={r.saldoCaixa < 0} />
+            </div>
+
+            {/* Linha secundária */}
+            <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <Mini label="Faturado (concluídos)" value={formatBRL(r.faturado)} />
+              <Mini label="Repassado aos músicos" value={formatBRL(r.repassadoMusicos)} />
+              <Mini label="Gastos + reembolsos" value={formatBRL(r.gastosTotal + r.reembolsosTotal)} />
+              <Mini label="Comissão do manager" value={formatBRL(r.managerTotal)} />
             </div>
 
             {foco && (
               <Card className="border-amber-500/30 bg-amber-500/5">
                 <CardContent className="py-4 text-sm">
-                  <span className="font-medium text-zinc-100">{foco.nome}</span> em {ano}: recebeu{" "}
-                  <span className="font-mono text-amber-400">{formatBRL(foco.total)}</span> em{" "}
-                  <span className="font-mono">{foco.shows}</span> show(s) — média{" "}
-                  <span className="font-mono">{formatBRL(foco.shows ? Math.round(foco.total / foco.shows) : 0)}</span>/show.
+                  <span className="font-medium text-zinc-100">{foco.nome}</span> em {r.ano}: devido{" "}
+                  <span className="font-mono text-amber-400">{formatBRL(foco.devido)}</span> em{" "}
+                  <span className="font-mono">{foco.shows}</span> show(s) · já recebeu{" "}
+                  <span className="font-mono text-emerald-400">{formatBRL(foco.repassado)}</span> · falta receber{" "}
+                  <span className="font-mono text-red-400">{formatBRL(foco.aReceber)}</span>.
                 </CardContent>
               </Card>
             )}
@@ -88,23 +93,14 @@ export default async function FinanceiroPage({
             <div className="grid gap-6 lg:grid-cols-2">
               <Card className="border-zinc-800 bg-[#18181b]">
                 <CardContent className="py-5">
-                  <p className="mb-4 text-xs uppercase tracking-wider text-zinc-400">
-                    Distribuição dos cachês — quem recebe
-                  </p>
-                  {distrib.length ? (
-                    <DonutChart segments={distrib} centerTop="Distribuído" />
-                  ) : (
-                    <p className="text-sm text-zinc-400">Sem músicos confirmados nos shows do ano.</p>
-                  )}
+                  <p className="mb-4 text-xs uppercase tracking-wider text-zinc-400">Distribuição (devido) — quem recebe</p>
+                  {distrib.length ? <DonutChart segments={distrib} centerTop="Devido total" /> : <p className="text-sm text-zinc-400">Sem músicos confirmados.</p>}
                 </CardContent>
               </Card>
-
               <Card className="border-zinc-800 bg-[#18181b]">
                 <CardContent className="py-5">
-                  <p className="mb-4 text-xs uppercase tracking-wider text-zinc-400">
-                    Entradas × Saídas por mês
-                  </p>
-                  <MonthlyBars months={months} />
+                  <p className="mb-4 text-xs uppercase tracking-wider text-zinc-400">Entradas (recebidas) × Saídas por mês</p>
+                  <MonthlyBars months={r.months} />
                 </CardContent>
               </Card>
             </div>
@@ -115,11 +111,11 @@ export default async function FinanceiroPage({
                   <p className="mb-4 flex items-center gap-1.5 text-xs uppercase tracking-wider text-zinc-400">
                     <Trophy className="size-3.5" /> Casas por faturamento
                   </p>
-                  {topVenues.length === 0 ? (
+                  {r.topVenues.length === 0 ? (
                     <p className="text-sm text-zinc-400">—</p>
                   ) : (
                     <ul className="space-y-2.5">
-                      {topVenues.slice(0, 5).map((v) => (
+                      {r.topVenues.slice(0, 5).map((v) => (
                         <li key={v.nome} className="text-sm">
                           <div className="flex items-center justify-between gap-2">
                             <span className="truncate text-zinc-100">{v.nome}</span>
@@ -128,9 +124,7 @@ export default async function FinanceiroPage({
                           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
                             <div className="h-full rounded-full bg-amber-400/70" style={{ width: `${(v.total / maxVenue) * 100}%` }} />
                           </div>
-                          <p className="mt-0.5 text-[11px] text-zinc-500">
-                            {v.count} show(s) · média {formatBRL(v.avg)}
-                          </p>
+                          <p className="mt-0.5 text-[11px] text-zinc-500">{v.count} show(s) · média {formatBRL(v.avg)}</p>
                         </li>
                       ))}
                     </ul>
@@ -138,33 +132,43 @@ export default async function FinanceiroPage({
                 </CardContent>
               </Card>
 
+              {/* Por músico — devido / recebido / a receber */}
               <Card className="border-zinc-800 bg-[#18181b]">
-                <CardContent className="py-5 space-y-4">
-                  <div>
-                    <p className="mb-2 text-xs uppercase tracking-wider text-zinc-400">Pago por músico em {ano}</p>
-                    {perMember.length === 0 ? (
-                      <p className="text-sm text-zinc-400">—</p>
-                    ) : (
-                      <ul className="space-y-1 text-sm">
-                        {perMember
-                          .filter((m) => !membroId || m.id === membroId)
-                          .map((m) => (
-                            <li key={m.id} className="flex items-center justify-between gap-2">
-                              <span className="truncate text-zinc-100">
-                                {m.nome} <span className="text-zinc-500">· {m.shows} show(s)</span>
-                              </span>
-                              <span className="font-mono text-amber-400 shrink-0">{formatBRL(m.total)}</span>
-                            </li>
-                          ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="border-t border-zinc-800 pt-3 text-sm space-y-1">
-                    <p className="flex items-center justify-between text-zinc-400"><span>Gastos (shows)</span><span className="font-mono text-zinc-300">{formatBRL(gastosShow)}</span></p>
-                    <p className="flex items-center justify-between text-zinc-400"><span>Gastos (extras)</span><span className="font-mono text-zinc-300">{formatBRL(gastosExtra)}</span></p>
-                    <p className="flex items-center justify-between text-zinc-400"><span>Reembolsos</span><span className="font-mono text-zinc-300">{formatBRL(reembolsosTotal)}</span></p>
-                    <p className="flex items-center justify-between font-medium pt-1"><span>Comissão do manager</span><span className="font-mono text-amber-400">{formatBRL(managerTotal)}</span></p>
-                  </div>
+                <CardContent className="py-5">
+                  <p className="mb-3 text-xs uppercase tracking-wider text-zinc-400">Por músico em {r.ano}</p>
+                  {r.perMember.length === 0 ? (
+                    <p className="text-sm text-zinc-400">—</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-[11px] uppercase tracking-wider text-zinc-500">
+                            <th className="py-1 text-left font-medium">Músico</th>
+                            <th className="py-1 text-right font-medium">Devido</th>
+                            <th className="py-1 text-right font-medium">Recebido</th>
+                            <th className="py-1 text-right font-medium">A receber</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800/60">
+                          {r.perMember
+                            .filter((m) => !membroId || m.id === membroId)
+                            .map((m) => (
+                              <tr key={m.id}>
+                                <td className="py-1.5 text-zinc-100">
+                                  {m.nome} <span className="text-zinc-500">· {m.shows}</span>
+                                </td>
+                                <td className="py-1.5 text-right font-mono text-zinc-300">{formatBRL(m.devido)}</td>
+                                <td className="py-1.5 text-right font-mono text-emerald-400">{formatBRL(m.repassado)}</td>
+                                <td className="py-1.5 text-right font-mono text-red-400">{formatBRL(m.aReceber)}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <p className="mt-3 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500">
+                    Gastos (shows {formatBRL(r.gastosShow)} · extras {formatBRL(r.gastosExtra)}) · reembolsos {formatBRL(r.reembolsosTotal)}.
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -183,5 +187,14 @@ function Kpi({ icon, label, value, accent = false, danger = false }: { icon: Rea
         <p className={"mt-1 font-mono text-2xl font-semibold " + (danger ? "text-red-400" : accent ? "text-amber-400" : "text-zinc-100")}>{value}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-[#18181b] px-3 py-2">
+      <p className="text-[11px] text-zinc-400">{label}</p>
+      <p className="font-mono text-zinc-100">{value}</p>
+    </div>
   );
 }

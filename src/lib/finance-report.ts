@@ -1,12 +1,13 @@
-// Carrega + agrega os números financeiros do ano. Fonte única usada pela tela
-// /financeiro e pela exportação CSV (pra os valores nunca divergirem).
+// Carrega + agrega o controle financeiro do ano — modelo de CAIXA + REPASSE,
+// sem buracos. Distingue: faturado (billing) × recebido (entrou no caixa) ×
+// devido aos músicos × repassado × a repassar. Fonte única (tela + CSV).
 import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  shows,
   members,
   showMemberPresence,
   showMemberPayment,
+  showMemberPaid,
   gastos,
   reembolsos,
 } from "@/db/schema";
@@ -14,18 +15,35 @@ import { computePaymentBreakdown } from "@/lib/payment";
 
 export const MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
+export type FinanceMember = {
+  id: string;
+  nome: string;
+  devido: number;
+  repassado: number;
+  aReceber: number; // devido - repassado (banda deve a ele)
+  shows: number;
+};
+
 export type FinanceReport = {
   anos: number[];
   ano: number;
-  entradas: number;
+  // Entradas (contratante → banda)
+  faturado: number; // Σ cachê de shows concluídos (billing)
+  recebido: number; // entrou no caixa (pagamentoStatus = pago)
+  aReceberContratante: number; // concluído mas não pago
+  // Distribuição (banda → músicos/manager)
+  devidoMusicos: number;
+  repassadoMusicos: number;
+  aRepassarMusicos: number;
+  managerTotal: number;
+  // Saídas operacionais
   gastosTotal: number;
   gastosShow: number;
   gastosExtra: number;
   reembolsosTotal: number;
-  managerTotal: number;
-  liquido: number;
-  aReceber: number;
-  perMember: { id: string; nome: string; total: number; shows: number }[];
+  // Caixa
+  saldoCaixa: number; // recebido − repassado − gastos − reembolsos
+  perMember: FinanceMember[];
   topVenues: { nome: string; total: number; avg: number; count: number }[];
   months: { label: string; entradas: number; saidas: number }[];
   membros: { id: string; nome: string }[];
@@ -47,14 +65,13 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
   const ano = anoParam && anos.includes(Number(anoParam)) ? Number(anoParam) : anos[0];
 
   const showsAno = allShows.filter((s) => s.data.getFullYear() === ano);
-  const realizados = showsAno.filter(
-    (s) => s.status === "concluido" && (s.cacheCentavos ?? 0) > 0
-  );
-  const ids = realizados.map((s) => s.id);
+  const concluidos = showsAno.filter((s) => s.status === "concluido" && (s.cacheCentavos ?? 0) > 0);
+  const ids = concluidos.map((s) => s.id);
 
-  const [presences, overrides, gastoRows, reembolsoRows] = await Promise.all([
+  const [presences, overrides, paidRows, gastoRows, reembolsoRows] = await Promise.all([
     ids.length ? db.select().from(showMemberPresence).where(inArray(showMemberPresence.showId, ids)) : Promise.resolve([] as (typeof showMemberPresence.$inferSelect)[]),
     ids.length ? db.select().from(showMemberPayment).where(inArray(showMemberPayment.showId, ids)) : Promise.resolve([] as (typeof showMemberPayment.$inferSelect)[]),
+    ids.length ? db.select().from(showMemberPaid).where(inArray(showMemberPaid.showId, ids)) : Promise.resolve([] as (typeof showMemberPaid.$inferSelect)[]),
     db.select().from(gastos),
     db.select().from(reembolsos),
   ]);
@@ -70,19 +87,32 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     if (!overridesByShow.has(o.showId)) overridesByShow.set(o.showId, new Map());
     overridesByShow.get(o.showId)!.set(o.memberId, o.valorCentavos);
   }
+  // Repasse banda→músico considerado feito quando a linha existe (legada/null =
+  // quitada) ou status confirmado.
+  const repassadoSet = new Set<string>();
+  for (const r of paidRows) {
+    if (r.status == null || r.status === "confirmado") repassadoSet.add(`${r.showId}-${r.memberId}`);
+  }
 
-  let entradas = 0;
+  let faturado = 0;
+  let recebido = 0;
   let managerTotal = 0;
-  const perMember = new Map<string, number>();
-  const perMemberShows = new Map<string, number>();
+  const devidoM = new Map<string, number>();
+  const repassadoM = new Map<string, number>();
+  const showsM = new Map<string, number>();
   const venueAgg = new Map<string, { sum: number; count: number }>();
   const mesEntradas = Array(12).fill(0);
 
-  for (const s of realizados) {
-    entradas += s.cacheCentavos ?? 0;
-    mesEntradas[s.data.getMonth()] += s.cacheCentavos ?? 0;
+  for (const s of concluidos) {
+    const c = s.cacheCentavos ?? 0;
+    faturado += c;
+    const pago = s.pagamentoStatus === "pago";
+    if (pago) {
+      recebido += c;
+      mesEntradas[s.data.getMonth()] += c;
+    }
     const va = venueAgg.get(s.casa.nome) ?? { sum: 0, count: 0 };
-    va.sum += s.cacheCentavos ?? 0;
+    va.sum += c;
     va.count++;
     venueAgg.set(s.casa.nome, va);
 
@@ -91,7 +121,7 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     );
     if (confirmados.length === 0) continue;
     const bd = computePaymentBreakdown({
-      cacheCentavos: s.cacheCentavos ?? 0,
+      cacheCentavos: c,
       applyCommission: s.applyCommission,
       commissionPct: s.commissionPct,
       confirmedMusicos: confirmados,
@@ -100,12 +130,14 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     });
     managerTotal += bd.managerCentavos;
     for (const [mid, info] of bd.perMember) {
-      perMember.set(mid, (perMember.get(mid) ?? 0) + info.valorCentavos);
-      perMemberShows.set(mid, (perMemberShows.get(mid) ?? 0) + 1);
+      devidoM.set(mid, (devidoM.get(mid) ?? 0) + info.valorCentavos);
+      showsM.set(mid, (showsM.get(mid) ?? 0) + 1);
+      if (repassadoSet.has(`${s.id}-${mid}`))
+        repassadoM.set(mid, (repassadoM.get(mid) ?? 0) + info.valorCentavos);
     }
   }
 
-  const aReceber = showsAno
+  const aReceberContratante = showsAno
     .filter((s) => s.status === "concluido" && s.pagamentoStatus !== "pago")
     .reduce((t, s) => t + (s.cacheCentavos ?? 0), 0);
 
@@ -120,20 +152,39 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
   const reembolsosTotal = reembolsosAno.reduce((t, r) => t + r.valorCentavos, 0);
   for (const r of reembolsosAno) mesSaidas[r.paidEm.getMonth()] += r.valorCentavos;
 
+  const perMember: FinanceMember[] = [...devidoM.entries()]
+    .map(([id, devido]) => {
+      const repassado = repassadoM.get(id) ?? 0;
+      return {
+        id,
+        nome: memberById.get(id)?.nome ?? "—",
+        devido,
+        repassado,
+        aReceber: Math.max(0, devido - repassado),
+        shows: showsM.get(id) ?? 0,
+      };
+    })
+    .sort((a, b) => b.devido - a.devido);
+
+  const devidoMusicos = perMember.reduce((t, m) => t + m.devido, 0);
+  const repassadoMusicos = perMember.reduce((t, m) => t + m.repassado, 0);
+
   return {
     anos,
     ano,
-    entradas,
+    faturado,
+    recebido,
+    aReceberContratante,
+    devidoMusicos,
+    repassadoMusicos,
+    aRepassarMusicos: Math.max(0, devidoMusicos - repassadoMusicos),
+    managerTotal,
     gastosTotal,
     gastosShow,
     gastosExtra,
     reembolsosTotal,
-    managerTotal,
-    liquido: entradas - gastosTotal,
-    aReceber,
-    perMember: [...perMember.entries()]
-      .map(([id, total]) => ({ id, nome: memberById.get(id)?.nome ?? "—", total, shows: perMemberShows.get(id) ?? 0 }))
-      .sort((a, b) => b.total - a.total),
+    saldoCaixa: recebido - repassadoMusicos - gastosTotal - reembolsosTotal,
+    perMember,
     topVenues: [...venueAgg.entries()]
       .map(([nome, v]) => ({ nome, total: v.sum, avg: Math.round(v.sum / v.count), count: v.count }))
       .sort((a, b) => b.total - a.total),

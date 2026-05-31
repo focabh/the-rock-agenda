@@ -88,7 +88,6 @@ function ReadOnlyMember({ member }: { member: typeof members.$inferSelect }) {
         {member.percentualDivisao != null && member.percentualDivisao > 0 && (
           <Row label="Divisão" value={`${member.percentualDivisao}%`} />
         )}
-        {member.equipamentos && <Row label="Equipamentos" value={member.equipamentos} />}
         {member.disponibilidade && (
           <Row label="Disponibilidade" value={member.disponibilidade} />
         )}
