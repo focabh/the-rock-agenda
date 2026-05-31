@@ -163,6 +163,8 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [accent, setAccent] = useState("#f59e0b");
   const [scrim, setScrim] = useState(62);
   const [escala, setEscala] = useState(1);
+  const [tam, setTam] = useState<Record<string, number>>({ chamada: 1, banda: 1, casa: 1, data: 1, ingresso: 1, lineup: 1 });
+  const setTamKey = (k: string, v: number) => setTam((p) => ({ ...p, [k]: v }));
   const [tarjaOp, setTarjaOp] = useState(78);
   const [textPos, setTextPos] = useState({ x: 20, y: 0 });
   const [ref0, setRef0] = useState<string | null>(null);
@@ -355,7 +357,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
             style={{ left: textPos.x, top: textPos.y, width: W - 40 }}
             title="Arraste para posicionar o texto"
           >
-            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} escala={escala} tarjaOp={tarjaOp} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
+            <Conteudo estilo={estilo} fam={fam} efeito={efeito} accent={accent} escala={escala} tam={tam} tarjaOp={tarjaOp} headline={headline} banda={banda} casa={casa} data={data} inicio={show.inicio} ingresso={ingresso} qr={qr} festival={festival} evento={evento} lineup={lineupValido} />
           </div>
         </div>
         <Button onClick={baixar} disabled={downloading} className="w-full bg-red-600 hover:bg-red-700">
@@ -398,8 +400,9 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           </div>
           <p className="text-[11px] text-zinc-500">Escolha uma região e depois <strong>arraste o texto</strong> direto no preview pra posicionar livremente.</p>
         </Bloco>
-        <Bloco titulo={`Tamanho do texto · ${Math.round(escala * 100)}%`}>
+        <Bloco titulo={`Tamanho do texto (geral) · ${Math.round(escala * 100)}%`}>
           <input type="range" min={60} max={170} value={Math.round(escala * 100)} onChange={(e) => setEscala(Number(e.target.value) / 100)} className="w-full accent-red-600" />
+          <p className="text-[11px] text-zinc-500">Escala todos os textos juntos. Pra ajustar um por um, use as mini-barras no bloco “Textos”.</p>
         </Bloco>
         <Bloco titulo={`Transparência do fundo · ${scrim}%`}>
           <input type="range" min={0} max={95} value={scrim} onChange={(e) => setScrim(Number(e.target.value))} className="w-full accent-red-600" />
@@ -427,6 +430,10 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
               <Button variant="outline" size="sm" onClick={() => setLineup((p) => [...p, { nome: "", hora: "" }])}>
                 <Plus className="size-4" /> Adicionar banda
               </Button>
+              <div className="flex items-center gap-1.5 px-0.5">
+                <span className="text-[9px] uppercase tracking-wide text-zinc-500">tam line-up {Math.round(tam.lineup * 100)}%</span>
+                <input type="range" min={40} max={220} value={Math.round(tam.lineup * 100)} onChange={(e) => setTamKey("lineup", Number(e.target.value) / 100)} className="h-1 flex-1 accent-red-600" />
+              </div>
               <p className="text-[11px] text-zinc-500">No modo festival o line-up aparece no flyer no lugar da banda única.</p>
             </div>
           )}
@@ -434,13 +441,14 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 
         <Bloco titulo="Textos">
           <div className="grid gap-2 sm:grid-cols-2">
-            <Campo label="Chamada" value={headline} onChange={setHeadline} />
-            <Campo label="Banda" value={banda} onChange={setBanda} />
-            <Campo label="Casa / local" value={casa} onChange={setCasa} />
-            <Campo label="Data" value={data} onChange={setData} />
-            <Campo label="Ingresso" value={ingresso} onChange={setIngresso} placeholder="R$ 20 / Gratuito" />
+            <Campo label="Chamada" value={headline} onChange={setHeadline} size={tam.chamada} onSize={(v) => setTamKey("chamada", v)} />
+            <Campo label="Banda" value={banda} onChange={setBanda} size={tam.banda} onSize={(v) => setTamKey("banda", v)} />
+            <Campo label="Casa / local" value={casa} onChange={setCasa} size={tam.casa} onSize={(v) => setTamKey("casa", v)} />
+            <Campo label="Data" value={data} onChange={setData} size={tam.data} onSize={(v) => setTamKey("data", v)} />
+            <Campo label="Ingresso" value={ingresso} onChange={setIngresso} placeholder="R$ 20 / Gratuito" size={tam.ingresso} onSize={(v) => setTamKey("ingresso", v)} />
             <Campo label="Link de venda (vira QR)" value={link} onChange={setLink} placeholder="https://…" />
           </div>
+          <p className="text-[11px] text-zinc-500">Cada texto tem seu próprio tamanho (mini-barra abaixo do campo). A barra “Tamanho do texto” lá em cima escala todos de uma vez.</p>
         </Bloco>
 
         <Bloco titulo="Fundo">
@@ -543,27 +551,30 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 }
 
 function Conteudo({
-  estilo, fam, efeito, accent, escala, tarjaOp, headline, banda, casa, data, inicio, ingresso, qr, festival, evento, lineup,
+  estilo, fam, efeito, accent, escala, tam, tarjaOp, headline, banda, casa, data, inicio, ingresso, qr, festival, evento, lineup,
 }: {
-  estilo: Estilo; fam: string; efeito: Efeito; accent: string; escala: number; tarjaOp: number; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
+  estilo: Estilo; fam: string; efeito: Efeito; accent: string; escala: number; tam: Record<string, number>; tarjaOp: number; headline: string; banda: string; casa: string; data: string; inicio: string | null; ingresso: string; qr: string | null; festival: boolean; evento: string; lineup: Banda[];
 }) {
   const titleFx = fx(efeito, accent);
   const tituloPrincipal = festival ? (evento.trim() || "FESTIVAL") : banda;
-  const titleSize = (basePx: number) => ({ fontSize: Math.round(basePx * escala) });
+  const dataTxt = data + (!festival && inicio ? ` · ${inicio}` : "");
   const QR = qr ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={qr} alt="QR" className="size-14 shrink-0 rounded bg-white p-0.5" />
   ) : null;
 
-  // fonte + efeito escolhidos valem pra TODO texto do flyer.
+  // fonte + efeito valem pra TODO texto; sz aplica tamanho geral (escala) ×
+  // tamanho individual do item (tam[key]).
   const t = (extra?: React.CSSProperties): React.CSSProperties => ({ fontFamily: fam, ...titleFx, ...extra });
+  const sz = (key: string, basePx: number, extra?: React.CSSProperties): React.CSSProperties =>
+    ({ ...t(extra), fontSize: Math.round(basePx * escala * (tam[key] ?? 1)) });
 
   const LineupList = festival && lineup.length > 0 ? (
     <ul className="mt-2 space-y-0.5">
       {lineup.map((b, i) => (
-        <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={t()}>
-          {b.hora && <span className="shrink-0 text-xs font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
-          <span className="text-sm font-semibold uppercase tracking-wide">{b.nome}</span>
+        <li key={i} className="flex items-baseline gap-2 text-zinc-50" style={sz("lineup", 14)}>
+          {b.hora && <span className="shrink-0 font-bold tabular-nums" style={{ color: accent }}>{b.hora}</span>}
+          <span className="font-semibold uppercase tracking-wide">{b.nome}</span>
         </li>
       ))}
     </ul>
@@ -572,12 +583,13 @@ function Conteudo({
   if (estilo === "minimal") {
     return (
       <div className="w-full">
-        {headline && <p className="text-[10px] uppercase tracking-[0.35em]" style={t({ color: accent })}>{headline}</p>}
-        <p className="mt-1 font-bold uppercase leading-none text-zinc-50" style={t(titleSize(30))}>{tituloPrincipal}</p>
+        {headline && <p className="uppercase tracking-[0.35em]" style={sz("chamada", 11, { color: accent })}>{headline}</p>}
+        <p className="mt-1 font-bold uppercase leading-none text-zinc-50" style={sz("banda", 30)}>{tituloPrincipal}</p>
         <div className="mt-3 h-px w-12" style={{ background: accent }} />
         {LineupList}
-        <p className="mt-3 text-sm font-medium text-zinc-100" style={t()}>{casa}</p>
-        <p className="text-xs text-zinc-300" style={t()}>{data}{!festival && inicio ? ` · ${inicio}` : ""}{ingresso ? ` · ${ingresso}` : ""}</p>
+        <p className="mt-3 font-medium text-zinc-100" style={sz("casa", 15)}>{casa}</p>
+        <p className="text-zinc-300" style={sz("data", 12)}>{dataTxt}</p>
+        {ingresso && <p className="font-semibold" style={sz("ingresso", 12, { color: accent })}>{ingresso}</p>}
         {QR && <div className="mt-3">{QR}</div>}
       </div>
     );
@@ -586,14 +598,14 @@ function Conteudo({
   if (estilo === "tarja") {
     return (
       <div className="w-full rounded-lg p-3 backdrop-blur-sm" style={{ background: `rgba(9,9,11,${tarjaOp / 100})`, border: `1px solid ${accent}` }}>
-        {headline && <p className="text-[10px] uppercase tracking-[0.25em]" style={t({ color: accent })}>{headline}</p>}
-        <p className="font-black uppercase leading-none text-zinc-50" style={t(titleSize(24))}>{tituloPrincipal}</p>
+        {headline && <p className="uppercase tracking-[0.25em]" style={sz("chamada", 11, { color: accent })}>{headline}</p>}
+        <p className="font-black uppercase leading-none text-zinc-50" style={sz("banda", 24)}>{tituloPrincipal}</p>
         {LineupList}
         <div className="mt-1.5 flex items-end justify-between gap-2">
-          <div className="text-[11px] leading-tight text-zinc-200">
-            <p className="font-semibold" style={t()}>{casa}</p>
-            <p className="text-zinc-400" style={t()}>{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
-            {ingresso && <p style={t({ color: accent })}>Ingresso: {ingresso}</p>}
+          <div className="leading-tight text-zinc-200">
+            <p className="font-semibold" style={sz("casa", 12)}>{casa}</p>
+            <p className="text-zinc-400" style={sz("data", 11)}>{dataTxt}</p>
+            {ingresso && <p style={sz("ingresso", 12, { color: accent })}>Ingresso: {ingresso}</p>}
           </div>
           {QR}
         </div>
@@ -604,16 +616,16 @@ function Conteudo({
   return (
     <div className="w-full">
       {headline && (
-        <span className="inline-block px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.2em]" style={t({ background: accent, color: pillText(accent) })}>{headline}</span>
+        <span className="inline-block px-2 py-0.5 font-bold uppercase tracking-[0.2em]" style={sz("chamada", 11, { background: accent, color: pillText(accent) })}>{headline}</span>
       )}
-      <p className="mt-2 font-black uppercase leading-[0.85] text-zinc-50" style={t(titleSize(festival ? 36 : 48))}>{tituloPrincipal}</p>
+      <p className="mt-2 font-black uppercase leading-[0.85] text-zinc-50" style={sz("banda", festival ? 36 : 48)}>{tituloPrincipal}</p>
       {LineupList}
       <div className="mt-3 flex items-end justify-between gap-3">
         <div className="leading-tight">
-          <p className="text-lg font-bold" style={t({ color: accent })}>{data}{!festival && inicio ? ` · ${inicio}` : ""}</p>
-          <p className="text-sm font-semibold uppercase tracking-wide text-zinc-100" style={t()}>{casa}</p>
+          <p className="font-bold" style={sz("data", 18, { color: accent })}>{dataTxt}</p>
+          <p className="font-semibold uppercase tracking-wide text-zinc-100" style={sz("casa", 14)}>{casa}</p>
           {ingresso && (
-            <span className="mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold" style={t({ background: accent, color: pillText(accent) })}>{ingresso}</span>
+            <span className="mt-1 inline-block rounded-full px-2.5 py-0.5 font-bold" style={sz("ingresso", 13, { background: accent, color: pillText(accent) })}>{ingresso}</span>
           )}
         </div>
         {QR}
@@ -643,11 +655,17 @@ function Chips({ value, onChange, options }: { value: string; onChange: (v: stri
   );
 }
 
-function Campo({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+function Campo({ label, value, onChange, placeholder, size, onSize }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; size?: number; onSize?: (v: number) => void }) {
   return (
     <div className="space-y-1">
       <Label className="text-[11px] text-zinc-400">{label}</Label>
       <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-9 bg-[#0f0f11]" />
+      {onSize && size !== undefined && (
+        <div className="flex items-center gap-1.5 px-0.5">
+          <span className="text-[9px] uppercase tracking-wide text-zinc-500">tam {Math.round(size * 100)}%</span>
+          <input type="range" min={40} max={220} value={Math.round(size * 100)} onChange={(e) => onSize(Number(e.target.value) / 100)} className="h-1 flex-1 accent-red-600" />
+        </div>
+      )}
     </div>
   );
 }
