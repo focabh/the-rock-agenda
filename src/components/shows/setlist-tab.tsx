@@ -14,6 +14,9 @@ import {
   Trash2,
   ListPlus,
   Sparkles,
+  Guitar,
+  Drum,
+  Piano,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
@@ -70,9 +73,12 @@ import {
   deleteSetlistAction,
 } from "@/app/(app)/shows/[id]/actions-setlist";
 import type { Song, SetlistItem, Setlist } from "@/db/schema";
+import { materialForPosicao, type PlayMaterial } from "@/lib/instrument-material";
 
 type Item = SetlistItem & { song: Song };
 type SetlistWithItems = Setlist & { items: Item[] };
+
+const MATERIAL_ICON = { string: Guitar, drum: Drum, keys: Piano } as const;
 
 function fmtMMSS(sec: number): string {
   if (!sec || sec <= 0) return "";
@@ -87,13 +93,16 @@ export function SetlistTab({
   allSongs,
   canEdit = true,
   defaultDuracaoMin = 60,
+  userPosicao = null,
 }: {
   showId: string;
   setlists: SetlistWithItems[];
   allSongs: Song[];
   canEdit?: boolean;
   defaultDuracaoMin?: number;
+  userPosicao?: string | null;
 }) {
+  const play = materialForPosicao(userPosicao).play;
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(
     setlists[0]?.id ?? null
@@ -387,6 +396,7 @@ export function SetlistTab({
                         index={idx}
                         showId={showId}
                         canEdit={canEdit}
+                        play={play}
                       />
                     ))}
                   </ul>
@@ -554,11 +564,13 @@ function SortableSetlistItem({
   index,
   showId,
   canEdit,
+  play,
 }: {
   item: Item;
   index: number;
   showId: string;
   canEdit: boolean;
+  play: PlayMaterial | null;
 }) {
   const {
     attributes,
@@ -621,6 +633,22 @@ function SortableSetlistItem({
           </span>
         ) : null;
       })()}
+      {play && (
+        (() => {
+          const Icon = MATERIAL_ICON[play.kind];
+          return (
+            <a
+              href={play.href(item.song.artista, item.song.titulo)}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 inline-flex size-7 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
+              title={play.label}
+            >
+              <Icon className="size-3.5" />
+            </a>
+          );
+        })()
+      )}
       <Input
         defaultValue={item.tom ?? item.song.tom ?? ""}
         placeholder="Tom"

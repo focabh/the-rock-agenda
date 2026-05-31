@@ -51,24 +51,25 @@ export function materialForPosicao(
 ): InstrumentMaterial {
   const p = (posicao ?? "").toLowerCase();
 
+  // Letras são úteis pra TODO mundo (todos cantam junto / acompanham).
   if (!p || /manager|empres|produt/.test(p)) return { play: null, letrasRelevante: true };
   if (/vocal|cantor|voz|backing/.test(p)) return { play: null, letrasRelevante: true };
 
   if (/bateria|bateirist|baterist|drum|percuss/.test(p))
     return {
       play: { kind: "drum", label: "Bateria (tab)", provider: "Ultimate Guitar", href: ug, altHref: drumGoogle },
-      letrasRelevante: false,
+      letrasRelevante: true,
     };
 
   if (/teclad|piano|keys|sintet/.test(p))
     return {
       play: { kind: "keys", label: "Cifra / teclado", provider: "Ultimate Guitar", href: ug, altHref: cifraGoogle },
-      letrasRelevante: false,
+      letrasRelevante: true,
     };
 
   // Guitarra, violão, baixo e demais → cifra/tab.
   return {
     play: { kind: "string", label: "Cifra / tab", provider: "Ultimate Guitar", href: ug, altHref: cifraGoogle },
-    letrasRelevante: false,
+    letrasRelevante: true,
   };
 }

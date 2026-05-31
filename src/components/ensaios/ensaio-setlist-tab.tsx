@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
-import { Plus, X, GripVertical, Music2, Pencil, Trash2, ListPlus, Wand2 } from "lucide-react";
+import { Plus, X, GripVertical, Music2, Pencil, Trash2, ListPlus, Wand2, Guitar, Drum, Piano } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -54,21 +54,27 @@ import {
   reorganizeEnsaioSetlistAction,
 } from "@/app/(app)/ensaios/[id]/actions-setlist";
 import type { Song, SetlistItem, Setlist } from "@/db/schema";
+import { materialForPosicao, type PlayMaterial } from "@/lib/instrument-material";
 
 type Item = SetlistItem & { song: Song };
 type SetlistWithItems = Setlist & { items: Item[] };
+
+const MATERIAL_ICON = { string: Guitar, drum: Drum, keys: Piano } as const;
 
 export function EnsaioSetlistTab({
   rehearsalId,
   setlists,
   allSongs,
   canEdit = true,
+  userPosicao = null,
 }: {
   rehearsalId: string;
   setlists: SetlistWithItems[];
   allSongs: Song[];
   canEdit?: boolean;
+  userPosicao?: string | null;
 }) {
+  const play = materialForPosicao(userPosicao).play;
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(setlists[0]?.id ?? null);
   const [, startTransition] = useTransition();
@@ -236,7 +242,7 @@ export function EnsaioSetlistTab({
                 <SortableContext items={localItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
                   <ul className="divide-y divide-border">
                     {localItems.map((item, idx) => (
-                      <SortableItem key={item.id} item={item} index={idx} rehearsalId={rehearsalId} canEdit={canEdit} />
+                      <SortableItem key={item.id} item={item} index={idx} rehearsalId={rehearsalId} canEdit={canEdit} play={play} />
                     ))}
                   </ul>
                 </SortableContext>
@@ -352,7 +358,7 @@ function NameDialog({
   );
 }
 
-function SortableItem({ item, index, rehearsalId, canEdit }: { item: Item; index: number; rehearsalId: string; canEdit: boolean }) {
+function SortableItem({ item, index, rehearsalId, canEdit, play }: { item: Item; index: number; rehearsalId: string; canEdit: boolean; play: PlayMaterial | null }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: !canEdit });
   const [, startTransition] = useTransition();
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -373,6 +379,16 @@ function SortableItem({ item, index, rehearsalId, canEdit }: { item: Item; index
         <span className="shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1 ring-inset ring-amber-500/30 bg-amber-500/10 text-amber-300" title="Afinação dropada">
           DROP
         </span>
+      )}
+      {play && (
+        (() => {
+          const Icon = MATERIAL_ICON[play.kind];
+          return (
+            <a href={play.href(item.song.artista, item.song.titulo)} target="_blank" rel="noreferrer" className="shrink-0 inline-flex size-7 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15" title={play.label}>
+              <Icon className="size-3.5" />
+            </a>
+          );
+        })()
       )}
       <Input
         defaultValue={item.tom ?? item.song.tom ?? ""}

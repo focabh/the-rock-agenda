@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { shows } from "@/db/schema";
-import { getCurrentUser, isAdmin, getBrand, getLogoUrl } from "@/lib/auth";
+import { requireCurrentUser, getBrand, getLogoUrl } from "@/lib/auth";
 import { formatDataBR, formatHoraBR } from "@/lib/formatters";
 import { PageHeader } from "@/components/shared/page-header";
 import { FlyerStudio } from "@/components/divulgacao/flyer-studio";
@@ -14,8 +14,7 @@ export default async function DivulgacaoShowPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await getCurrentUser();
-  if (!isAdmin(user)) redirect(`/shows/${id}`);
+  await requireCurrentUser(); // flyer disponível a todos os membros logados
 
   const show = await db.query.shows.findFirst({
     where: eq(shows.id, id),

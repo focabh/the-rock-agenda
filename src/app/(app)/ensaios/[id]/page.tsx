@@ -181,6 +181,7 @@ export default async function EnsaioDetailPage({
           setlists={ensaioSetlists}
           allSongs={allSongs}
           canEdit={admin}
+          userPosicao={user?.posicao ?? user?.member?.funcao ?? null}
         />
       </div>
     </div>

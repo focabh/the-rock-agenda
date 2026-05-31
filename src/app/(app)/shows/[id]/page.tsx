@@ -25,7 +25,6 @@ import { VenueShowCard } from "@/components/casas/venue-show-card";
 import { CompatCheck } from "@/components/shows/compat-check";
 import { parseTags } from "@/lib/venue-tags";
 import { SetlistTab } from "@/components/shows/setlist-tab";
-import { PropostaTab } from "@/components/shows/proposta-tab";
 import { Button } from "@/components/ui/button";
 import { NotifyBandButton } from "@/components/shared/notify-band-button";
 import { formatDataBR } from "@/lib/formatters";
@@ -49,9 +48,7 @@ export default async function ShowDetailPage({
   });
   if (!show) notFound();
 
-  const proposta = await db.query.showPropostas.findFirst({
-    where: (sp, { eq }) => eq(sp.showId, id),
-  });
+  const userPosicao = user?.posicao ?? user?.member?.funcao ?? null;
 
   const [allSongs, allMembers, dayBlocks, presences, payments, paidRows] = await Promise.all([
     db.select().from(songs).orderBy(asc(songs.titulo)),
@@ -160,18 +157,14 @@ export default async function ShowDetailPage({
                 admin={admin}
                 gastosCentavos={gastosCentavos}
               />
-              {/* Proposta/contrato (antes era aba) — agora card no Resumo. */}
-              <PropostaTab showId={show.id} proposta={proposta ?? null} />
-              {admin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  render={<Link href={`/shows/${show.id}/divulgacao`} />}
-                >
-                  <ImageIcon className="size-4" />
-                  Gerar flyer do show
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link href={`/shows/${show.id}/divulgacao`} />}
+              >
+                <ImageIcon className="size-4" />
+                {admin ? "Gerar flyer do show" : "Flyer do show"}
+              </Button>
               <VenueShowCard
                 casaId={show.casaId}
                 tags={parseTags(show.casa.caracteristicas)}
@@ -227,6 +220,7 @@ export default async function ShowDetailPage({
               allSongs={allSongs}
               canEdit={admin}
               defaultDuracaoMin={show.duracaoMin ?? 60}
+              userPosicao={userPosicao}
             />
           }
         />
