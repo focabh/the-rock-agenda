@@ -4,6 +4,7 @@
 // preserva a 1ª música, a última e os Final Boss. Função PURA (testável).
 
 export const SONG_DEFAULT_SEG = 210; // 3min30 quando a música não tem duração
+export const TRANSITION_SEG = 10; // transição de palco por música (afinar/falar)
 
 export type FitSong = {
   id: string;
@@ -17,14 +18,19 @@ export type FitSong = {
 export const songSeg = (s?: { duracaoSeg: number | null }) =>
   s?.duracaoSeg && s.duracaoSeg > 0 ? s.duracaoSeg : SONG_DEFAULT_SEG;
 
+/** Tempo de palco da música = duração + transição (ritmo contínuo). */
+const stageSeg = (s?: { duracaoSeg: number | null }) =>
+  songSeg(s) + TRANSITION_SEG;
+
 export function fitToTarget(
   orderedIds: string[],
   allSongs: FitSong[],
   targetSeg: number
 ): { ids: string[]; totalSeg: number; faltou: boolean } {
   const byId = new Map(allSongs.map((s) => [s.id, s]));
+  // Soma em tempo de PALCO (duração + transição) — é o que ocupa o show.
   const sum = (ids: string[]) =>
-    ids.reduce((t, id) => t + songSeg(byId.get(id)), 0);
+    ids.reduce((t, id) => t + stageSeg(byId.get(id)), 0);
   const tol = SONG_DEFAULT_SEG / 2; // tolerância de ~meia música
   const result = [...orderedIds];
   let cur = sum(result);
@@ -36,7 +42,7 @@ export function fitToTarget(
       let idx = result.length - 2; // nunca mexe na última (fechamento)
       while (idx > 0 && byId.get(result[idx])?.finalBoss) idx--;
       if (idx <= 0) break; // só restou abertura + fechamento
-      cur -= songSeg(byId.get(result[idx]));
+      cur -= stageSeg(byId.get(result[idx]));
       result.splice(idx, 1);
     }
     return { ids: result, totalSeg: cur, faltou: false };
@@ -70,7 +76,7 @@ export function fitToTarget(
     if (cur >= targetSeg - tol) break;
     result.splice(insertAt, 0, s.id);
     insertAt++;
-    cur += songSeg(s);
+    cur += stageSeg(s);
   }
   return { ids: result, totalSeg: cur, faltou: cur < targetSeg - tol };
 }

@@ -9,6 +9,7 @@ import {
   songs,
   shows,
   venues,
+  venueContacts,
   bandSetlistPrefs,
 } from "@/db/schema";
 import { requireAdmin, requireCurrentUser } from "@/lib/auth";
@@ -21,11 +22,8 @@ import {
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { parseTags } from "@/lib/venue-tags";
-import {
-  generateSetlist,
-  orderSetlistCurve,
-  type GenOptions,
-} from "@/lib/setlist-generator";
+import { generateSetlist, type GenOptions } from "@/lib/setlist-generator";
+import { arrangeSetlist } from "@/lib/setlist-arrange";
 import { fitToTarget, SONG_DEFAULT_SEG } from "@/lib/setlist-fit";
 import {
   generateSetlistAI,
@@ -181,6 +179,8 @@ export async function generateSetlistAction(
   const [show] = await db.select().from(shows).where(eq(shows.id, showId)).limit(1);
   let venueTags: string[] = [];
   let avoidIds: string[] = [];
+  // Feedback do CRM (regex sobre as mensagens de agradecimento/follow-up).
+  const crm = { somBaixo: false, querPeso: false };
 
   if (show) {
     const [venue] = await db
@@ -189,6 +189,24 @@ export async function generateSetlistAction(
       .where(eq(venues.id, show.casaId))
       .limit(1);
     venueTags = parseTags(venue?.caracteristicas);
+
+    // Lê os contatos da casa e procura sinais de volume/peso no texto livre.
+    const msgs = await db
+      .select({ mensagem: venueContacts.mensagem })
+      .from(venueContacts)
+      .where(
+        and(
+          eq(venueContacts.venueId, show.casaId),
+          inArray(venueContacts.tipo, ["agradecimento", "followup", "contato"])
+        )
+      );
+    const texto = msgs
+      .map((m) => (m.mensagem ?? "").toLowerCase())
+      .join(" \n ");
+    if (/\b(som mais baix|volume|abaix|baixar o som|mais tranquil|ac[úu]stic|incomod|reclam)/.test(texto))
+      crm.somBaixo = true;
+    if (/\b(mais peso|pesad|mais forte|porrada|mandar ver|p[úu]blico curtiu o peso|agit|animou)/.test(texto))
+      crm.querPeso = true;
 
     if (opts.evitarRepetir) {
       const casaShows = await db
@@ -296,7 +314,7 @@ export async function generateSetlistAction(
       targetSeg: Math.max(1, opts.targetMin) * 60,
       venueTags,
       priConhecidas: opts.priConhecidas,
-      priPesadas: opts.priPesadas,
+      priPesadas: opts.priPesadas || crm.querPeso,
       priAlternativas: opts.priAlternativas,
       levesNoComeco: opts.levesNoComeco,
       evitarVocalDificil: opts.evitarVocalDificil,
@@ -304,6 +322,7 @@ export async function generateSetlistAction(
       evitarRepetir: opts.evitarRepetir,
       avoidIds,
       seed: opts.seed,
+      tetoEnergia: crm.somBaixo ? 2 : undefined,
     };
     const result = generateSetlist(
       allSongs.map((s) => ({
@@ -315,6 +334,8 @@ export async function generateSetlistAction(
         exigeVocal: s.exigeVocal,
         momento: s.momento,
         finalBoss: s.finalBoss,
+        artista: s.artista,
+        afinacao: s.afinacao,
       })),
       genOpts
     );
@@ -429,27 +450,26 @@ export async function reorganizeSetlistAction(
   const rows = await db.select().from(songs).where(inArray(songs.id, songIds));
   const songById = new Map(rows.map((s) => [s.id, s]));
 
-  const ordered = orderSetlistCurve(
+  const orderedIds = arrangeSetlist(
     items.map((i) => {
       const s = songById.get(i.songId);
       return {
         id: i.songId,
-        status: s?.status ?? "ativa",
-        duracaoSeg: s?.duracaoSeg ?? null,
+        afinacao: s?.afinacao ?? null,
+        artista: s?.artista ?? "",
         energia: s?.energia ?? null,
-        conhecida: s?.conhecida ?? false,
-        exigeVocal: s?.exigeVocal ?? false,
         momento: s?.momento ?? "qualquer",
+        conhecida: s?.conhecida ?? false,
         finalBoss: s?.finalBoss ?? false,
       };
     })
   );
 
-  // songId → itemId (pode haver a mesma música? não — set não repete). Mapeia.
+  // songId → itemId (set não repete música). Reaplica a ordem.
   const itemBySong = new Map(items.map((i) => [i.songId, i.id]));
   let ordem = 0;
-  for (const s of ordered) {
-    const itemId = itemBySong.get(s.id);
+  for (const id of orderedIds) {
+    const itemId = itemBySong.get(id);
     if (!itemId) continue;
     await db
       .update(setlistItems)
@@ -457,7 +477,7 @@ export async function reorganizeSetlistAction(
       .where(eq(setlistItems.id, itemId));
   }
   revalidatePath(`/shows/${showId}`);
-  return { ok: true, count: ordered.length };
+  return { ok: true, count: orderedIds.length };
 }
 
 export async function deleteSetlistAction(showId: string, setlistId: string) {

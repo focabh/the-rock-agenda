@@ -2,6 +2,18 @@
 // das músicas. Função PURA e determinística (recebe seed) — fácil de testar.
 // É só uma SUGESTÃO inicial; o usuário ajusta tudo manualmente depois.
 
+import { arrangeSetlist, type ArrangeSong } from "./setlist-arrange";
+
+const toArrange = (s: GenSong): ArrangeSong => ({
+  id: s.id,
+  afinacao: s.afinacao ?? null,
+  artista: s.artista ?? "",
+  energia: s.energia,
+  momento: s.momento,
+  conhecida: s.conhecida,
+  finalBoss: !!s.finalBoss,
+});
+
 export type GenSong = {
   id: string;
   status: string;
@@ -11,6 +23,8 @@ export type GenSong = {
   exigeVocal: boolean;
   momento: string; // qualquer|abertura|meio|fechamento
   finalBoss?: boolean; // hino/munição pesada → vai pro fim, nunca no início
+  artista?: string; // p/ intercalar artistas (máx 2 seguidas)
+  afinacao?: string | null; // p/ agrupar e minimizar reafinações
 };
 
 export type GenOptions = {
@@ -25,6 +39,8 @@ export type GenOptions = {
   evitarRepetir: boolean;
   avoidIds: string[];
   seed: number;
+  /** Teto de energia (feedback CRM: casa pediu som mais baixo). */
+  tetoEnergia?: number;
 };
 
 export type GenResult = { orderedIds: string[]; totalSeg: number };
@@ -60,9 +76,16 @@ export function generateSetlist(songs: GenSong[], o: GenOptions): GenResult {
   const wantAlt = o.priAlternativas || venueAlt;
   const wantLeve = venueLeve;
 
-  const eligible = songs.filter(
+  let eligible = songs.filter(
     (s) => s.status !== "aposentada" && s.status !== "ideia_futura"
   );
+
+  // Feedback do CRM: casa pediu som mais baixo → teto de energia. Só aplica se
+  // ainda sobrar repertório suficiente; senão ignora pra não esvaziar.
+  if (o.tetoEnergia != null) {
+    const capped = eligible.filter((s) => energy(s) <= o.tetoEnergia!);
+    if (capped.length >= 4) eligible = capped;
+  }
 
   const scored = eligible
     .map((s) => {
@@ -77,57 +100,22 @@ export function generateSetlist(songs: GenSong[], o: GenOptions): GenResult {
     })
     .sort((a, b) => b.score - a.score);
 
-  // Seleciona até preencher o tempo-alvo (tolera ultrapassar com a última).
+  // Seleciona até preencher o tempo-alvo, contando ~10s de transição por
+  // música (tempo de palco real). Tolera ultrapassar com a última.
   const picked: GenSong[] = [];
   let total = 0;
   for (const { s } of scored) {
     if (total >= o.targetSeg) break;
     picked.push(s);
-    total += dur(s);
+    total += dur(s) + 10;
   }
 
-  const ordered = orderSetlistCurve(picked);
+  // Arranjo: agrupa afinações (minimiza reafinações), curva de energia,
+  // intercala artistas, abertura/fechamento e Final Boss no fim.
+  const orderedIds = arrangeSetlist(picked.map(toArrange));
 
   return {
-    orderedIds: ordered.map((s) => s.id),
-    totalSeg: ordered.reduce((t, s) => t + dur(s), 0),
+    orderedIds,
+    totalSeg: picked.reduce((t, s) => t + dur(s), 0),
   };
-}
-
-/**
- * Ordena um conjunto de músicas numa curva de energia: abertura → meio
- * (energia ascendente) → fechamento → Final Boss (munição pesada no fim).
- * Não adiciona nem remove nada — só reorganiza. Usado tanto na geração quanto
- * no "Aplicar melhorias" (reorganizar o set atual). PURA.
- */
-export function orderSetlistCurve(picked: GenSong[]): GenSong[] {
-  const energy = (s: GenSong) => s.energia ?? 2;
-  const fb = picked.filter((s) => s.finalBoss);
-  const rest = picked.filter((s) => !s.finalBoss);
-  const abertura = rest.filter((s) => s.momento === "abertura");
-  const fechamento = rest.filter((s) => s.momento === "fechamento");
-  const meio = rest.filter(
-    (s) => s.momento !== "abertura" && s.momento !== "fechamento"
-  );
-  // Energia subindo (começa mais leve, fecha mais forte).
-  meio.sort((a, b) => energy(a) - energy(b));
-
-  const ordered = [...abertura, ...meio, ...fechamento, ...fb];
-
-  // Sem fechamento NEM Final Boss: garante um final forte (maior energia).
-  if (fechamento.length === 0 && fb.length === 0 && ordered.length > 1) {
-    let bestIdx = 0;
-    let best = -Infinity;
-    ordered.forEach((s, i) => {
-      const v = energy(s) + (s.conhecida ? 0.5 : 0);
-      if (v > best) {
-        best = v;
-        bestIdx = i;
-      }
-    });
-    const [closer] = ordered.splice(bestIdx, 1);
-    ordered.push(closer);
-  }
-
-  return ordered;
 }

@@ -233,7 +233,10 @@ export const songs = sqliteTable("songs", {
   finalBoss: integer("final_boss", { mode: "boolean" })
     .notNull()
     .default(false),
-  tom: text("tom"), // tom/afinação usado pela banda (ex.: "Em")
+  tom: text("tom"), // tonalidade musical (ex.: "Em", "A") — não confundir com afinação
+  // Afinação do instrumento (ex.: "E Standard", "Eb", "Drop D", "Drop C").
+  // Usada pra agrupar e minimizar reafinações no palco.
+  afinacao: text("afinacao"),
   estilo: text("estilo"), // categoria/estilo livre (ex.: "grunge")
   createdAt: createdAt(),
   updatedAt: updatedAt(),
