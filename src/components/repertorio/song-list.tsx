@@ -14,6 +14,8 @@ import {
   Play,
   ExternalLink,
   Guitar,
+  Drum,
+  Piano,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,7 @@ import {
 import { DeleteButton } from "@/components/shared/delete-button";
 import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { materialForPosicao, type MaterialKind } from "@/lib/instrument-material";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Song, Member } from "@/db/schema";
@@ -61,6 +64,12 @@ const READINESS_LABEL: Record<Readiness, string> = {
   aprendendo: "Aprendendo",
 };
 
+const MATERIAL_ICON: Record<MaterialKind, typeof Guitar> = {
+  string: Guitar,
+  drum: Drum,
+  keys: Piano,
+};
+
 export function SongList({
   songs,
   admin = true,
@@ -75,9 +84,10 @@ export function SongList({
   /** Posição do usuário logado (Vocal/Guitarra/Baixo/…) — habilita atalhos por instrumento. */
   userPosicao?: string | null;
 }) {
-  // Instrumentista vê atalho de Cifra/Tab (Cifra Club). Vocal/Manager não.
-  const showCifra =
-    !!userPosicao && !/vocal|manager/i.test(userPosicao);
+  // Material "como tocar" específico da função: baterista vê tab de bateria,
+  // cordas veem cifra, vocal/manager veem letras. (admin sempre vê letras p/
+  // gerenciar/sincronizar.)
+  const material = materialForPosicao(userPosicao);
   const [q, setQ] = useState("");
   // Multi-seleção de status — se vazio, tudo passa
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
@@ -296,27 +306,31 @@ export function SongList({
           </a>
         )}
 
-        <LyricsDialog
-          songId={s.id}
-          titulo={s.titulo}
-          artista={s.artista}
-          spotifyTrackId={s.spotifyTrackId}
-          admin={admin}
-        />
-
-        {showCifra && (
-          <a
-            href={`https://www.cifraclub.com.br/?q=${encodeURIComponent(
-              `${s.artista} ${s.titulo}`
-            )}`}
-            target="_blank"
-            rel="noreferrer"
-            className="shrink-0 inline-flex size-8 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
-            title="Cifra / tab no Cifra Club"
-          >
-            <Guitar className="size-4" />
-          </a>
+        {(material.letrasRelevante || admin) && (
+          <LyricsDialog
+            songId={s.id}
+            titulo={s.titulo}
+            artista={s.artista}
+            spotifyTrackId={s.spotifyTrackId}
+            admin={admin}
+          />
         )}
+
+        {material.play &&
+          (() => {
+            const Icon = MATERIAL_ICON[material.play.kind];
+            return (
+              <a
+                href={material.play.href(s.artista, s.titulo)}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0 inline-flex size-8 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
+                title={`${material.play.label} — ${material.play.provider}`}
+              >
+                <Icon className="size-4" />
+              </a>
+            );
+          })()}
 
         {admin && (
           <>
