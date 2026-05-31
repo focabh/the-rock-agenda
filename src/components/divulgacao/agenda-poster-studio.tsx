@@ -57,12 +57,17 @@ export function AgendaPosterStudio({
     return shows.filter((s) => s.ts <= limite).slice(0, 12);
   }, [shows, dias]);
 
-  function onUpload(file: File) {
+  function onUpload(files: FileList) {
+    const arr = Array.from(files);
     start(async () => {
-      const url = await fileToDownscaledDataUrl(file);
-      setImgs((p) => [{ id: `local-${Date.now()}`, url }, ...p]);
-      setBg(url);
-      await addImagemDivulgacaoAction(url);
+      let primeira = true;
+      for (const file of arr) {
+        const url = await fileToDownscaledDataUrl(file);
+        setImgs((p) => [{ id: `local-${Date.now()}-${Math.round(performance.now())}`, url }, ...p]);
+        if (primeira) { setBg(url); primeira = false; }
+        await addImagemDivulgacaoAction(url);
+      }
+      if (arr.length > 1) toast.success(`${arr.length} fotos adicionadas.`);
     });
   }
 
@@ -188,7 +193,7 @@ export function AgendaPosterStudio({
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800">
                   {pending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                   Enviar foto
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files?.length && onUpload(e.target.files)} />
                 </label>
               </div>
             </div>

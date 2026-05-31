@@ -51,12 +51,17 @@ export function FlyerStudio({
       .catch(() => setQr(null));
   }, [show.linkVendas]);
 
-  function onUpload(file: File) {
+  function onUpload(files: FileList) {
+    const arr = Array.from(files);
     start(async () => {
-      const url = await fileToDownscaledDataUrl(file);
-      setImgs((p) => [{ id: `local-${Date.now()}`, url }, ...p]);
-      setBg(url);
-      await addImagemDivulgacaoAction(url);
+      let primeira = true;
+      for (const file of arr) {
+        const url = await fileToDownscaledDataUrl(file);
+        setImgs((p) => [{ id: `local-${Date.now()}-${Math.round(performance.now())}`, url }, ...p]);
+        if (primeira) { setBg(url); primeira = false; }
+        await addImagemDivulgacaoAction(url);
+      }
+      if (arr.length > 1) toast.success(`${arr.length} fotos adicionadas.`);
     });
   }
 
@@ -174,8 +179,9 @@ export function FlyerStudio({
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
-                    onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
+                    onChange={(e) => e.target.files?.length && onUpload(e.target.files)}
                   />
                 </label>
               </div>

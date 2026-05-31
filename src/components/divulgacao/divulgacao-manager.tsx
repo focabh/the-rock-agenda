@@ -95,8 +95,8 @@ const TIPO_META: Record<Tipo, TipoMeta> = {
     label: "Fotos",
     icon: ImageIcon,
     singleton: false,
-    max: 15,
-    helper: "Até 15 fotos. JPEG, PNG ou WEBP (a foto é otimizada no envio).",
+    max: 60,
+    helper: "JPEG, PNG ou WEBP (a foto é otimizada no envio).",
     upload: { accept: "image/jpeg,image/png,image/webp", maxMB: 10 },
   },
   logo: {

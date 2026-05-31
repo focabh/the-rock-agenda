@@ -28,7 +28,7 @@ const LIMITS: Record<
   { max: number; sizeBytes: number; accept: RegExp }
 > = {
   video: { max: 50, sizeBytes: 0, accept: /^https?:\/\// },
-  foto: { max: 15, sizeBytes: 12_000_000, accept: /^(https?:\/\/|data:image\/)/ },
+  foto: { max: 60, sizeBytes: 12_000_000, accept: /^(https?:\/\/|data:image\/)/ },
   logo: { max: 10, sizeBytes: 12_000_000, accept: /^(https?:\/\/|data:image\/)/ },
   presskit: {
     max: 1,
