@@ -18,6 +18,7 @@ import {
   Share2,
   Ticket,
   Tags,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/repertorio", label: "Repertório", icon: Music2 },
   { href: "/casas", label: "Casas", icon: Building2 },
   { href: "/banda", label: "Banda", icon: Users },
+  { href: "/sobre", label: "Sobre a banda", icon: Info },
   { href: "/equipamentos", label: "Equipamentos", icon: Boxes },
   { href: "/pagamentos", label: "Cachês", icon: Wallet },
   { href: "/gastos", label: "Gastos", icon: Receipt, adminOnly: true },
@@ -75,7 +77,7 @@ export function SidebarNav({
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
             )}
           >
-            <Icon className="size-4 shrink-0" />
+            <Icon className="size-5 shrink-0" />
             <span>{item.label}</span>
           </Link>
         );

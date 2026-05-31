@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { ChevronLeft, ExternalLink } from "lucide-react";
 import { db } from "@/db";
 import { promoItems, users } from "@/db/schema";
-import { getCurrentUser, getLogoUrl } from "@/lib/auth";
+import { getCurrentUser, getLogoUrl, getBrand } from "@/lib/auth";
 import { PressKitSection } from "@/components/contratantes/press-kit-section";
 import { VideoPlayer } from "@/components/contratantes/video-player";
 import { InstagramIcon } from "@/components/shared/icons";
@@ -135,6 +135,8 @@ export default async function ShowPublicPage({
     : `https://wa.me/?text=${waMsg}`;
 
   const logoUrl = await getLogoUrl();
+  const brand = await getBrand();
+  const bandLabel = brand.bandName?.trim() || "The Rock";
 
   return (
     <main className="min-h-dvh bg-background text-foreground">
@@ -169,6 +171,18 @@ export default async function ShowPublicPage({
       </header>
 
       <div className="max-w-3xl mx-auto px-5 py-6 space-y-8">
+        {/* SOBRE A BANDA */}
+        {brand.bioTexto && (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Sobre a {bandLabel}</h2>
+            <div className="space-y-2 leading-relaxed text-muted-foreground whitespace-pre-wrap">
+              {brand.bioTexto.split(/\n{2,}/).map((p, i) => (
+                <p key={i}>{p}</p>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* PRESS KIT */}
         <section>
           {presskit ? (

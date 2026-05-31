@@ -161,6 +161,7 @@ export async function getBrand(): Promise<{
   logoUrl: string | null;
   backgroundUrl: string | null;
   bandName: string | null;
+  bioTexto: string | null;
 }> {
   try {
     const [s] = await db
@@ -168,6 +169,7 @@ export async function getBrand(): Promise<{
         logoUrl: appSettings.logoUrl,
         backgroundUrl: appSettings.backgroundUrl,
         bandName: appSettings.bandName,
+        bioTexto: appSettings.bioTexto,
       })
       .from(appSettings)
       .limit(1);
@@ -175,9 +177,10 @@ export async function getBrand(): Promise<{
       logoUrl: s?.logoUrl ?? null,
       backgroundUrl: s?.backgroundUrl ?? null,
       bandName: s?.bandName ?? null,
+      bioTexto: s?.bioTexto ?? null,
     };
   } catch {
-    return { logoUrl: null, backgroundUrl: null, bandName: null };
+    return { logoUrl: null, backgroundUrl: null, bandName: null, bioTexto: null };
   }
 }
 
