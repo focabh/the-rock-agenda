@@ -98,24 +98,75 @@ function fx(efeito: Efeito, accent: string): React.CSSProperties {
 }
 const pillText = (accent: string) => (accent === "#ef4444" ? "#fff" : "#09090b");
 
-/** Baixa um canvas via Blob URL (NÃO via data: URL — o Chrome bloqueia
- *  download de data: grande, dava "erro de rede"). Âncora vai no DOM. */
-function baixarCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) return reject(new Error("canvas vazio"));
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-      resolve();
-    }, "image/png");
-  });
+/** html2canvas (1.4) não parseia lab()/oklch()/color-mix() — que o Tailwind v4
+ *  gera. No onclone, convertemos essas cores pra rgb (o canvas normaliza) e
+ *  zeramos outline/box-shadow, senão a exportação lança erro. */
+function neutralizarCores(el: HTMLElement) {
+  try {
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return;
+    const ruim = /lab|oklch|oklab|color-mix/i;
+    const norm = (v: string | null): string | null => {
+      if (!v || !ruim.test(v)) return null;
+      try {
+        ctx.fillStyle = "#000";
+        ctx.fillStyle = v;
+        return ctx.fillStyle;
+      } catch {
+        return null;
+      }
+    };
+    const nodes = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
+    for (const node of nodes) {
+      const cs = getComputedStyle(node);
+      const c = norm(cs.color);
+      if (c) node.style.color = c;
+      const bg = norm(cs.backgroundColor);
+      if (bg) node.style.backgroundColor = bg;
+      for (const side of ["top", "right", "bottom", "left"] as const) {
+        const bc = norm(cs.getPropertyValue(`border-${side}-color`));
+        if (bc) node.style.setProperty(`border-${side}-color`, bc);
+      }
+      node.style.outline = "none";
+      node.style.boxShadow = "none";
+    }
+  } catch {
+    /* nunca quebra a exportação */
+  }
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("canvas vazio"))), "image/png")
+  );
+}
+
+/** Salva a imagem do jeito que funciona no aparelho:
+ *  - Celular (iOS/Android): Web Share API → folha de compartilhar (Salvar
+ *    imagem / mandar pro Instagram). Anchor download não funciona no iOS.
+ *  - Desktop: download via Blob URL (data: URL grande é bloqueado pelo Chrome). */
+async function baixarCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
+  const blob = await canvasToBlob(canvas);
+  const file = new File([blob], filename, { type: "image/png" });
+  const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+  if (nav.canShare?.({ files: [file] }) && typeof nav.share === "function") {
+    try {
+      await nav.share({ files: [file] });
+      return;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return; // usuário cancelou
+      // outro erro → cai pro download
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 /** Garante que a fonte foi baixada antes de rasterizar (html2canvas não
@@ -232,7 +283,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
     try {
       await garantirFonte(fam);
       const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(ref.current, { useCORS: true, backgroundColor: "#09090b", scale: 1080 / ref.current.offsetWidth });
+      const canvas = await html2canvas(ref.current, { useCORS: true, backgroundColor: "#09090b", scale: 1080 / ref.current.offsetWidth, onclone: (_doc, el) => neutralizarCores(el) });
       await baixarCanvas(canvas, `flyer-${aspect === "9:16" ? "stories" : "feed"}.png`);
     } catch (e) {
       toast.error("Falha ao exportar: " + (e instanceof Error ? e.message : "erro desconhecido") + ". Se usou link de imagem externo, envie a foto.");

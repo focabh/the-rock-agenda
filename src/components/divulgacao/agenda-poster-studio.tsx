@@ -79,22 +79,67 @@ const GRADIENTES = [
   "linear-gradient(135deg, #1a0a1e, #09090b 70%)",
 ];
 
-function baixarCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) return reject(new Error("canvas vazio"));
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-      resolve();
-    }, "image/png");
-  });
+function neutralizarCores(el: HTMLElement) {
+  try {
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return;
+    const ruim = /lab|oklch|oklab|color-mix/i;
+    const norm = (v: string | null): string | null => {
+      if (!v || !ruim.test(v)) return null;
+      try {
+        ctx.fillStyle = "#000";
+        ctx.fillStyle = v;
+        return ctx.fillStyle;
+      } catch {
+        return null;
+      }
+    };
+    const nodes = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
+    for (const node of nodes) {
+      const cs = getComputedStyle(node);
+      const c = norm(cs.color);
+      if (c) node.style.color = c;
+      const bg = norm(cs.backgroundColor);
+      if (bg) node.style.backgroundColor = bg;
+      for (const side of ["top", "right", "bottom", "left"] as const) {
+        const bc = norm(cs.getPropertyValue(`border-${side}-color`));
+        if (bc) node.style.setProperty(`border-${side}-color`, bc);
+      }
+      node.style.outline = "none";
+      node.style.boxShadow = "none";
+    }
+  } catch {
+    /* nunca quebra a exportação */
+  }
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("canvas vazio"))), "image/png")
+  );
+}
+
+async function baixarCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
+  const blob = await canvasToBlob(canvas);
+  const file = new File([blob], filename, { type: "image/png" });
+  const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+  if (nav.canShare?.({ files: [file] }) && typeof nav.share === "function") {
+    try {
+      await nav.share({ files: [file] });
+      return;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 async function garantirFonte(familyCss: string) {
@@ -197,6 +242,7 @@ export function AgendaPosterStudio({
         useCORS: true,
         backgroundColor: "#09090b",
         scale: 1080 / node.offsetWidth,
+        onclone: (_doc, el) => neutralizarCores(el),
       });
       await baixarCanvas(canvas, `agenda-${periodo}-${aspect === "9:16" ? "stories" : "feed"}.png`);
     } catch (e) {
