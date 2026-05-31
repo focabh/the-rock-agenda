@@ -26,9 +26,11 @@ export default async function LoginPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={logo} alt="The Rock" className="size-full object-contain" />
           </div>
-          <CardTitle className="text-xl">The Rock — Backstage</CardTitle>
+          <CardTitle className="text-xl">
+            Stage<span className="text-amber-400">Boss</span>
+          </CardTitle>
           <p className="text-xs text-muted-foreground uppercase tracking-widest">
-            Acesso interno
+            The Rock · Acesso interno
           </p>
         </CardHeader>
         <CardContent>

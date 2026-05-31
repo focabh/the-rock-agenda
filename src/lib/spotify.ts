@@ -128,6 +128,59 @@ export async function disconnectSpotify(): Promise<void> {
   await db.delete(spotifyAuth);
 }
 
+/** Troca o refresh_token guardado por um access_token válido (ou null). */
+async function getValidAccessToken(): Promise<string | null> {
+  const [auth] = await db.select().from(spotifyAuth).limit(1);
+  if (!auth?.refreshToken) return null;
+  try {
+    const { id, secret } = getClientCreds();
+    const basic = Buffer.from(`${id}:${secret}`).toString("base64");
+    const res = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basic}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: auth.refreshToken,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { access_token?: string };
+    return data.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Popularidade (0–100) por faixa via GET /v1/tracks (lotes de 50), usando o
+ * token OAuth do admin. Retorna mapa spotifyId→popularidade. Mapa vazio se a
+ * conexão falhar ou o app estiver restrito (dev-mode 403).
+ */
+export async function fetchTracksPopularity(
+  ids: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const token = await getValidAccessToken();
+  if (!token) return out;
+  for (let i = 0; i < ids.length; i += 50) {
+    const batch = ids.slice(i, i + 50);
+    const res = await fetch(`${API_BASE}/tracks?ids=${batch.join(",")}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) break; // 403 (dev-mode) ou erro → para e devolve o que tiver
+    const data = (await res.json()) as {
+      tracks?: { id?: string; popularity?: number }[];
+    };
+    for (const t of data.tracks ?? []) {
+      if (t?.id && typeof t.popularity === "number") out.set(t.id, t.popularity);
+    }
+  }
+  return out;
+}
+
 export function extractPlaylistId(input: string): string | null {
   const trimmed = input.trim();
   if (/^[a-zA-Z0-9]{22}$/.test(trimmed)) return trimmed;

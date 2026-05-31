@@ -604,7 +604,15 @@ export function SongList({
                     )}
 
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{s.titulo}</p>
+                      <p className="font-medium truncate">
+                        {s.titulo}
+                        {admin && s.energia == null && (
+                          <span
+                            className="ml-1.5 align-middle inline-flex size-1.5 rounded-full bg-muted-foreground/60"
+                            title="Sem detalhes (energia/momento) — o gerador fica cego nesta música"
+                          />
+                        )}
+                      </p>
                       <p className="text-sm text-muted-foreground truncate">
                         {s.artista}
                         {s.observacoes && (

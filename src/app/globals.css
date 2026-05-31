@@ -49,75 +49,42 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* The Rock — dark-first com accent vermelho rock */
-:root {
-  color-scheme: dark;
-  --background: oklch(0.09 0 0);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.13 0 0);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.13 0 0);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.58 0.22 25);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.2 0 0);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.22 0 0);
-  --accent-foreground: oklch(0.97 0 0);
-  --destructive: oklch(0.62 0.24 27);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.58 0.22 25);
-  --chart-1: oklch(0.58 0.22 25);
-  --chart-2: oklch(0.65 0.18 60);
-  --chart-3: oklch(0.7 0.15 200);
-  --chart-4: oklch(0.6 0.18 280);
-  --chart-5: oklch(0.55 0.15 140);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.11 0 0);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.58 0.22 25);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.2 0 0);
-  --sidebar-accent-foreground: oklch(0.97 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.58 0.22 25);
-}
-
+/* StageBoss — dark-first, sistema Zinc/Red/Amber (contraste de palco) */
+:root,
 .dark {
-  --background: oklch(0.09 0 0);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.13 0 0);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.13 0 0);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.58 0.22 25);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.2 0 0);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.22 0 0);
-  --accent-foreground: oklch(0.97 0 0);
-  --destructive: oklch(0.62 0.24 27);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.58 0.22 25);
-  --chart-1: oklch(0.58 0.22 25);
-  --chart-2: oklch(0.65 0.18 60);
-  --chart-3: oklch(0.7 0.15 200);
-  --chart-4: oklch(0.6 0.18 280);
-  --chart-5: oklch(0.55 0.15 140);
-  --sidebar: oklch(0.11 0 0);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.58 0.22 25);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.2 0 0);
-  --sidebar-accent-foreground: oklch(0.97 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.58 0.22 25);
+  color-scheme: dark;
+  --background: #09090b; /* zinc-950 */
+  --foreground: #f4f4f5; /* zinc-100 — títulos branco gelo */
+  --card: #18181b; /* zinc-900 */
+  --card-foreground: #f4f4f5;
+  --popover: #18181b;
+  --popover-foreground: #f4f4f5;
+  --primary: #dc2626; /* red-600 */
+  --primary-foreground: #ffffff;
+  --secondary: #27272a; /* zinc-800 */
+  --secondary-foreground: #f4f4f5;
+  --muted: #27272a; /* zinc-800 */
+  --muted-foreground: #a1a1aa; /* zinc-400 — descrições */
+  --accent: #27272a;
+  --accent-foreground: #f4f4f5;
+  --destructive: #ef4444; /* red-500 */
+  --border: #27272a; /* zinc-800 — bordas finas */
+  --input: #3f3f46; /* zinc-700 */
+  --ring: #dc2626;
+  --chart-1: #dc2626;
+  --chart-2: #f59e0b;
+  --chart-3: #38bdf8;
+  --chart-4: #a78bfa;
+  --chart-5: #34d399;
+  --radius: 0.5rem;
+  --sidebar: #0a0a0c;
+  --sidebar-foreground: #e4e4e7;
+  --sidebar-primary: #dc2626;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #27272a;
+  --sidebar-accent-foreground: #f4f4f5;
+  --sidebar-border: #27272a;
+  --sidebar-ring: #dc2626;
 }
 
 @layer base {
@@ -126,9 +93,38 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Textura ultra-leve de palco (CSS puro, sem imagem → bom no PWA): brilho
+       de fumaça vermelha no topo + grelha de amplificador sutilíssima. */
+    background-image:
+      radial-gradient(
+        120% 80% at 50% -10%,
+        color-mix(in oklab, var(--primary) 10%, transparent),
+        transparent 55%
+      ),
+      repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.02) 0px,
+        rgba(255, 255, 255, 0.02) 1px,
+        transparent 1px,
+        transparent 5px
+      );
+    background-attachment: fixed;
+    background-repeat: no-repeat, repeat;
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* PWA mobile: alvos de toque de 44px (só em telas de toque — não incha o
+   desktop). Facilita apertar botões/ícones no camarim/palco. */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a[href] > button,
+  select,
+  input:not([type="checkbox"]):not([type="radio"]) {
+    min-height: 44px;
   }
 }
 

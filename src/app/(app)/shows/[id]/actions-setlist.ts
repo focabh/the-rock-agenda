@@ -352,6 +352,7 @@ export async function generateSetlistAction(
         finalBoss: s.finalBoss,
         artista: s.artista,
         dropada: s.dropada,
+        popularidade: s.popularidade,
       })),
       genOpts
     );
@@ -487,6 +488,7 @@ export async function reorganizeSetlistAction(
         momento: s?.momento ?? "qualquer",
         conhecida: s?.conhecida ?? false,
         finalBoss: s?.finalBoss ?? false,
+        popularidade: s?.popularidade ?? null,
       };
     })
   );

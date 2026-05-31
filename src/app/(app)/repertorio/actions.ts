@@ -13,6 +13,7 @@ import {
   SpotifyConfigError,
   extractPlaylistId,
   fetchPlaylistTracks,
+  fetchTracksPopularity,
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { fetchLyrics } from "@/lib/lyrics";
@@ -99,6 +100,40 @@ export async function deleteSongAction(id: string) {
   await requireAdmin();
   await db.delete(songs).where(eq(songs.id, id));
   revalidatePath("/repertorio");
+}
+
+/** Atualiza a popularidade (Spotify) das músicas com spotifyTrackId. R$0 de IA. */
+export async function syncSpotifyPopularityAction(): Promise<{
+  ok: boolean;
+  updated?: number;
+  total?: number;
+  error?: string;
+}> {
+  await requireAdmin();
+  const all = await db.select().from(songs);
+  const withId = all.filter((s) => s.spotifyTrackId);
+  if (withId.length === 0)
+    return { ok: false, error: "Nenhuma música com ID do Spotify (importe do Spotify primeiro)." };
+
+  const pop = await fetchTracksPopularity(withId.map((s) => s.spotifyTrackId!));
+  if (pop.size === 0)
+    return {
+      ok: false,
+      total: withId.length,
+      error:
+        "O Spotify não retornou popularidade — conecte a conta em Repertório, ou o app está restrito (dev-mode).",
+    };
+
+  let updated = 0;
+  for (const s of withId) {
+    const p = pop.get(s.spotifyTrackId!);
+    if (p != null) {
+      await db.update(songs).set({ popularidade: p }).where(eq(songs.id, s.id));
+      updated++;
+    }
+  }
+  revalidatePath("/repertorio");
+  return { ok: true, updated, total: withId.length };
 }
 
 export type SpotifyImportResult = {

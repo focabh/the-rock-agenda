@@ -186,7 +186,7 @@ export function ShowResumo({
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
               Cachê
             </p>
-            <p className="font-mono text-2xl">
+            <p className="font-mono text-2xl font-semibold text-amber-400">
               {show.cacheCentavos != null && show.cacheCentavos > 0
                 ? formatBRL(show.cacheCentavos)
                 : "—"}

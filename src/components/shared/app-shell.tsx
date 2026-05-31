@@ -18,8 +18,8 @@ function Brand({ logoUrl }: { logoUrl: string }) {
       </div>
       <div className="flex flex-col leading-tight">
         <span className="text-sm font-semibold tracking-wide">The Rock</span>
-        <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
-          Backstage
+        <span className="text-[10px] uppercase text-amber-400 tracking-widest font-semibold">
+          StageBoss
         </span>
       </div>
     </Link>

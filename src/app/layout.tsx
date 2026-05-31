@@ -1,9 +1,8 @@
-import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "@/components/ui/sonner";
 import { ChunkErrorReloader } from "@/components/shared/chunk-error-reloader";
-import { ServiceWorkerRegister } from "@/components/shared/service-worker-register";
+import { Toaster } from "@/components/ui/sonner";
 import { ensureDbInitialized } from "@/db/init";
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,22 +16,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The Rock — Backstage",
-  description: "O backstage digital da banda The Rock.",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "The Rock",
-  },
+  title: "StageBoss",
+  description: "StageBoss — gestão de banda: shows, setlists, repertório e casas",
   icons: {
-    icon: "/api/icon/192",
-    apple: "/api/icon/apple",
+    icon: "/the-rock-logo.png",
+    apple: "/the-rock-logo.png",
   },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#171717",
 };
 
 export default async function RootLayout({
@@ -54,7 +43,6 @@ export default async function RootLayout({
     >
       <body className="min-h-full bg-background text-foreground">
         {children}
-        <ServiceWorkerRegister />
         <ChunkErrorReloader />
         <Toaster richColors position="top-right" />
       </body>

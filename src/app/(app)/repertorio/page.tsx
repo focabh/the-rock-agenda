@@ -1,6 +1,7 @@
 import { SongList } from "@/components/repertorio/song-list";
 import { SyncLyricsButton } from "@/components/repertorio/sync-lyrics-button";
 import { EnrichSongsButton } from "@/components/repertorio/enrich-songs-button";
+import { SpotifyPopularityButton } from "@/components/repertorio/spotify-popularity-button";
 import { SpotifyConnect } from "@/components/repertorio/spotify-connect";
 import { PageHeader } from "@/components/shared/page-header";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
@@ -26,6 +27,10 @@ export default async function RepertorioPage() {
     .orderBy(desc(songs.favorita), asc(songs.titulo));
   // Por padrão o admin sempre vê letras; se ligou a preferência, segue a posição.
   const matPorPosicao = admin ? await adminMaterialPorPosicao() : false;
+  // Nudge: músicas sem metadados deixam o gerador de setlist "cego".
+  const semMeta = lista.filter(
+    (s) => s.status !== "aposentada" && s.energia == null
+  ).length;
 
   // Músicos ativos não-manager
   const allMembers = await db
@@ -81,6 +86,7 @@ export default async function RepertorioPage() {
                   }
                 />
                 <EnrichSongsButton />
+                <SpotifyPopularityButton />
                 <Button render={<Link href="/repertorio/novo" />}>
                   <Plus className="size-4" /> Nova música
                 </Button>
@@ -90,7 +96,18 @@ export default async function RepertorioPage() {
         }
       />
 
-      <div className="p-6">
+      <div className="p-6 space-y-4">
+        {admin && semMeta > 0 && (
+          <div className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {semMeta} música(s) sem detalhes
+            </span>{" "}
+            (energia/momento) — o gerador de setlist fica cego nelas. Preencha na
+            mão (lápis) ou use{" "}
+            <span className="font-medium text-foreground">“Detalhes com IA”</span>{" "}
+            acima.
+          </div>
+        )}
         <SongList
           songs={lista}
           admin={admin}

@@ -17,9 +17,12 @@ export type ArrangeSong = {
   momento: string; // qualquer|abertura|meio|fechamento
   conhecida: boolean;
   finalBoss: boolean;
+  popularidade?: number | null; // 0–100 (Spotify); desempata empates de energia
 };
 
 const energyOf = (s: ArrangeSong) => s.energia ?? 2;
+// Popularidade pro desempate: usa Spotify se houver; senão "conhecida" como proxy.
+const popOf = (s: ArrangeSong) => s.popularidade ?? (s.conhecida ? 50 : 0);
 const tuneKey = (s: ArrangeSong) => (s.dropada ? "drop" : "std");
 
 /** Quebra runs de > 2 do mesmo artista trocando por outro do MESMO bloco
@@ -74,11 +77,9 @@ export function arrangeSetlist(picked: ArrangeSong[]): string[] {
     groups.get(k)!.push(s);
   }
   const blocks: Block[] = [...groups.entries()].map(([key, songs]) => {
-    // Energia ascendente; empate → a mais "conhecida"/popular primeiro
-    // (proxy de popularidade — desempate §3.2).
+    // Energia ascendente; empate → a mais POPULAR primeiro (Spotify, §3.2).
     const sorted = [...songs].sort(
-      (a, b) =>
-        energyOf(a) - energyOf(b) || Number(b.conhecida) - Number(a.conhecida)
+      (a, b) => energyOf(a) - energyOf(b) || popOf(b) - popOf(a)
     );
     breakArtistRuns(sorted);
     return { key, songs: sorted };

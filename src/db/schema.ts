@@ -236,6 +236,8 @@ export const songs = sqliteTable("songs", {
   tom: text("tom"), // tonalidade musical (ex.: "Em", "A") — muda por música
   // Afinação dropada (Drop D/C etc.)? Agrupa as dropadas p/ minimizar reafinação.
   dropada: integer("dropada", { mode: "boolean" }).notNull().default(false),
+  // Popularidade Spotify (0–100), atualizada sob demanda. Desempata o setlist.
+  popularidade: integer("popularidade"),
   estilo: text("estilo"), // categoria/estilo livre (ex.: "grunge")
   createdAt: createdAt(),
   updatedAt: updatedAt(),

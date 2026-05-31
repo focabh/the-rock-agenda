@@ -12,6 +12,7 @@ const toArrange = (s: GenSong): ArrangeSong => ({
   momento: s.momento,
   conhecida: s.conhecida,
   finalBoss: !!s.finalBoss,
+  popularidade: s.popularidade ?? null,
 });
 
 export type GenSong = {
@@ -25,6 +26,7 @@ export type GenSong = {
   finalBoss?: boolean; // hino/munição pesada → vai pro fim, nunca no início
   artista?: string; // p/ intercalar artistas (máx 2 seguidas)
   dropada?: boolean; // p/ agrupar dropadas e minimizar reafinações
+  popularidade?: number | null; // Spotify 0–100 (desempate)
 };
 
 export type GenOptions = {
