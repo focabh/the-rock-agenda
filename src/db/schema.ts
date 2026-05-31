@@ -260,6 +260,11 @@ export const setlists = sqliteTable("setlists", {
   id: id(),
   nome: text("nome").notNull(),
   showId: text("show_id").references(() => shows.id, { onDelete: "set null" }),
+  // Um setlist pertence a um show OU a um ensaio (rehearsal). Ensaios não têm
+  // duração-alvo.
+  rehearsalId: text("rehearsal_id").references(() => rehearsals.id, {
+    onDelete: "cascade",
+  }),
   duracaoEstimadaSeg: integer("duracao_estimada_seg").default(0),
   // Duração-alvo deste set (min). Null → usa a duração do show. Permite
   // 1º set 60min, bis 20min etc.
@@ -644,7 +649,15 @@ export const venuesRelations = relations(venues, ({ many }) => ({
 
 export const setlistsRelations = relations(setlists, ({ one, many }) => ({
   show: one(shows, { fields: [setlists.showId], references: [shows.id] }),
+  rehearsal: one(rehearsals, {
+    fields: [setlists.rehearsalId],
+    references: [rehearsals.id],
+  }),
   items: many(setlistItems),
+}));
+
+export const rehearsalsRelations = relations(rehearsals, ({ many }) => ({
+  setlists: many(setlists),
 }));
 
 export const setlistItemsRelations = relations(setlistItems, ({ one }) => ({

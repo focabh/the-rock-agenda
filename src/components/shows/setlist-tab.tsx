@@ -38,8 +38,6 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { NumberStepper } from "@/components/shared/number-stepper";
 import { Card } from "@/components/ui/card";
 import {
   Dialog,
@@ -174,12 +172,13 @@ export function SetlistTab({
     });
   }
 
-  function handleEdit(nome: string, duracaoAlvoMin: number | null) {
+  function handleEdit(nome: string) {
     if (!selected) return;
     startMgr(async () => {
-      await updateSetlistAction(showId, selected.id, { nome, duracaoAlvoMin });
+      // duracaoAlvoMin sempre null → a duração-alvo vem do próprio show.
+      await updateSetlistAction(showId, selected.id, { nome, duracaoAlvoMin: null });
       setEditOpen(false);
-      toast.success("Setlist atualizado.");
+      toast.success("Setlist renomeado.");
     });
   }
 
@@ -270,7 +269,7 @@ export function SetlistTab({
                   <button
                     onClick={() => setEditOpen(true)}
                     className="text-muted-foreground hover:text-foreground"
-                    title="Editar setlist (nome e duração)"
+                    title="Renomear setlist"
                   >
                     <Pencil className="size-3.5" />
                   </button>
@@ -458,11 +457,12 @@ export function SetlistTab({
         pending={mgrPending}
         onSubmit={handleCreate}
       />
-      <EditSetlistDialog
+      <NameDialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        initialNome={selected?.nome ?? ""}
-        initialDuracao={selected?.duracaoAlvoMin ?? defaultDuracaoMin}
+        title="Renomear setlist"
+        placeholder="Ex.: 1º set, Bis, Acústico…"
+        initial={selected?.nome ?? ""}
         pending={mgrPending}
         onSubmit={handleEdit}
       />
@@ -541,81 +541,6 @@ function NameDialog({
               disabled={pending || !value.trim()}
             >
               Salvar
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function EditSetlistDialog({
-  open,
-  onOpenChange,
-  initialNome,
-  initialDuracao,
-  pending,
-  onSubmit,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  initialNome: string;
-  initialDuracao: number;
-  pending: boolean;
-  onSubmit: (nome: string, duracaoAlvoMin: number | null) => void;
-}) {
-  const [nome, setNome] = useState(initialNome);
-  const [dur, setDur] = useState(initialDuracao);
-  useEffect(() => {
-    if (open) {
-      setNome(initialNome);
-      setDur(initialDuracao);
-    }
-  }, [open, initialNome, initialDuracao]);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Editar setlist</DialogTitle>
-          <DialogDescription>
-            Nome e duração-alvo deste set. A duração vira o padrão ao gerar.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-nome">Nome</Label>
-            <Input
-              id="edit-nome"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Ex.: 1º set, Bis, Acústico…"
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-dur">Duração-alvo do set</Label>
-            <div className="flex items-center gap-2">
-              <NumberStepper
-                id="edit-dur"
-                value={dur}
-                onChange={setDur}
-                min={5}
-                max={300}
-                step={5}
-              />
-              <span className="text-sm text-muted-foreground">min</span>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => nome.trim() && onSubmit(nome.trim(), dur)}
-              disabled={pending || !nome.trim()}
-            >
-              {pending ? "Salvando…" : "Salvar"}
             </Button>
           </div>
         </div>

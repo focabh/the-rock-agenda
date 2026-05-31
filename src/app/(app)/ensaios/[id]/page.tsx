@@ -3,12 +3,13 @@ import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, MapPin, Clock, Target, StickyNote } from "lucide-react";
 import { db } from "@/db";
-import { rehearsals, members, rehearsalMemberPresence } from "@/db/schema";
+import { rehearsals, members, rehearsalMemberPresence, setlists, songs } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
 import { PresenceCard } from "@/components/shows/presence-card";
+import { EnsaioSetlistTab } from "@/components/ensaios/ensaio-setlist-tab";
 import { NotifyBandButton } from "@/components/shared/notify-band-button";
 import { setRehearsalPresenceAction } from "@/app/(app)/agenda/actions";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
@@ -37,7 +38,7 @@ export default async function EnsaioDetailPage({
   const [r] = await db.select().from(rehearsals).where(eq(rehearsals.id, id)).limit(1);
   if (!r) notFound();
 
-  const [user, playableMembers, presences] = await Promise.all([
+  const [user, playableMembers, presences, ensaioSetlists, allSongs] = await Promise.all([
     getCurrentUser(),
     db
       .select()
@@ -48,6 +49,11 @@ export default async function EnsaioDetailPage({
       .select()
       .from(rehearsalMemberPresence)
       .where(eq(rehearsalMemberPresence.rehearsalId, id)),
+    db.query.setlists.findMany({
+      where: eq(setlists.rehearsalId, id),
+      with: { items: { with: { song: true } } },
+    }),
+    db.select().from(songs).orderBy(asc(songs.titulo)),
   ]);
   const admin = isAdmin(user);
   const brand = await getBrand();
@@ -165,6 +171,16 @@ export default async function EnsaioDetailPage({
             path: `/ensaios/${r.id}`,
           }}
           groupLink={brand.whatsappGrupo}
+        />
+      </div>
+
+      <div className="px-6 pb-10">
+        <h2 className="mb-3 text-lg font-semibold">Setlist do ensaio</h2>
+        <EnsaioSetlistTab
+          rehearsalId={r.id}
+          setlists={ensaioSetlists}
+          allSongs={allSongs}
+          canEdit={admin}
         />
       </div>
     </div>
