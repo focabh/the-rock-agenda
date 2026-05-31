@@ -19,6 +19,7 @@ import {
   Ticket,
   Tags,
   Info,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
+  { href: "/guia", label: "Como usar", icon: BookOpen },
   { href: "/agenda", label: "Agenda", icon: CalendarRange },
   { href: "/shows", label: "Shows", icon: CalendarDays },
   { href: "/ensaios", label: "Ensaios", icon: CalendarClock },
