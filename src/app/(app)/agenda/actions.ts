@@ -84,6 +84,7 @@ const rehearsalSchema = z.object({
   longitude: z.coerce.number().optional(),
   foco: z.string().max(300).optional(),
   observacoes: z.string().max(1000).optional(),
+  showId: z.string().max(40).optional(),
   status: z.enum(["planejado", "confirmado", "cancelado"]).default("planejado"),
 });
 
@@ -115,6 +116,7 @@ export async function createRehearsalAction(
       longitude: parsed.data.longitude,
       foco: parsed.data.foco,
       observacoes: parsed.data.observacoes,
+      showId: parsed.data.showId || null,
       status: parsed.data.status,
     })
     .returning();
@@ -160,6 +162,7 @@ export async function updateRehearsalAction(
       longitude: parsed.data.longitude,
       foco: parsed.data.foco,
       observacoes: parsed.data.observacoes,
+      showId: parsed.data.showId || null,
       status: parsed.data.status,
     })
     .where(eq(rehearsals.id, id));

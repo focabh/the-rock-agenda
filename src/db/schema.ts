@@ -426,6 +426,8 @@ export const equipamentos = sqliteTable("equipamentos", {
 export const rehearsals = sqliteTable("rehearsals", {
   id: id(),
   data: integer("data", { mode: "timestamp_ms" }).notNull(),
+  // Show relacionado (opcional) — permite importar o setlist do show pro ensaio.
+  showId: text("show_id").references(() => shows.id, { onDelete: "set null" }),
   inicio: text("inicio"), // HH:mm
   termino: text("termino"), // HH:mm
   local: text("local"),
@@ -664,7 +666,8 @@ export const setlistsRelations = relations(setlists, ({ one, many }) => ({
   items: many(setlistItems),
 }));
 
-export const rehearsalsRelations = relations(rehearsals, ({ many }) => ({
+export const rehearsalsRelations = relations(rehearsals, ({ one, many }) => ({
+  show: one(shows, { fields: [rehearsals.showId], references: [shows.id] }),
   setlists: many(setlists),
 }));
 

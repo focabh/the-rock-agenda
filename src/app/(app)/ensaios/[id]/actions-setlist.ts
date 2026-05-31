@@ -71,6 +71,38 @@ export async function reorderEnsaioSetlistItemsAction(rehearsalId: string, order
   rev(rehearsalId);
 }
 
+/** Importa o(s) setlist(s) do show vinculado pro ensaio (copia as músicas). */
+export async function importarSetlistDeShowAction(
+  rehearsalId: string,
+  showId: string
+): Promise<{ ok: boolean; setlists: number; musicas: number }> {
+  await requireAdmin();
+  const showSetlists = await db.query.setlists.findMany({
+    where: eq(setlists.showId, showId),
+    with: { items: true },
+  });
+  let nSets = 0;
+  let nMus = 0;
+  for (const sl of showSetlists) {
+    if (sl.items.length === 0) continue;
+    const [novo] = await db.insert(setlists).values({ rehearsalId, nome: sl.nome }).returning();
+    const items = [...sl.items].sort((a, b) => a.ordem - b.ordem);
+    for (let i = 0; i < items.length; i++) {
+      await db.insert(setlistItems).values({
+        setlistId: novo.id,
+        songId: items[i].songId,
+        ordem: i,
+        tom: items[i].tom,
+        prioridade: items[i].prioridade,
+      });
+      nMus++;
+    }
+    nSets++;
+  }
+  rev(rehearsalId);
+  return { ok: true, setlists: nSets, musicas: nMus };
+}
+
 /** Reorganiza as músicas atuais numa curva de energia (grátis, sem IA). */
 export async function reorganizeEnsaioSetlistAction(
   rehearsalId: string,

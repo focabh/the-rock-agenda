@@ -39,10 +39,12 @@ export function RehearsalForm({
   rehearsal,
   defaultDate,
   onDone,
+  shows = [],
 }: {
   rehearsal?: Rehearsal;
   defaultDate?: Date;
   onDone: () => void;
+  shows?: { id: string; label: string }[];
 }) {
   const action = rehearsal
     ? updateRehearsalAction.bind(null, rehearsal.id)
@@ -146,6 +148,22 @@ export function RehearsalForm({
         />
         <FieldError state={state} name="foco" />
       </div>
+      {shows.length > 0 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="showId">Show relacionado (opcional)</Label>
+          <select id="showId" name="showId" defaultValue={rehearsal?.showId ?? ""} className={selectCls}>
+            <option value="">— nenhum —</option>
+            {shows.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Vinculando um show, dá pra importar o setlist dele direto pro ensaio (na tela do ensaio).
+          </p>
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label htmlFor="observacoes">Observações</Label>
         <Textarea

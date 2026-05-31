@@ -84,6 +84,7 @@ import {
   renameEnsaioSetlistAction,
   deleteEnsaioSetlistAction,
   reorganizeEnsaioSetlistAction,
+  importarSetlistDeShowAction,
 } from "@/app/(app)/ensaios/[id]/actions-setlist";
 import type { Song, SetlistItem, Setlist } from "@/db/schema";
 import { materialForPosicao, type PlayMaterial } from "@/lib/instrument-material";
@@ -110,6 +111,7 @@ export function SetlistTab({
   userPosicao = null,
   ensaioInfo = null,
   groupLink = null,
+  importarDoShow = null,
 }: {
   showId?: string;
   rehearsalId?: string;
@@ -120,6 +122,7 @@ export function SetlistTab({
   userPosicao?: string | null;
   ensaioInfo?: { dataLabel: string; foco: string | null } | null;
   groupLink?: string | null;
+  importarDoShow?: { showId: string; label: string } | null;
 }) {
   const isEnsaio = !!rehearsalId;
   const play = materialForPosicao(userPosicao).play;
@@ -216,6 +219,14 @@ export function SetlistTab({
       toast.success("Setlist excluído.");
     });
   }
+  function handleImportarDoShow() {
+    if (!importarDoShow) return;
+    startMgr(async () => {
+      const r = await importarSetlistDeShowAction(rehearsalId!, importarDoShow.showId);
+      if (r.musicas > 0) toast.success(`Importado: ${r.setlists} setlist(s), ${r.musicas} música(s) do show.`);
+      else toast.info("O show vinculado ainda não tem setlist com músicas.");
+    });
+  }
   function handleReorganizar() {
     if (!selected) return;
     startTransition(async () => {
@@ -257,9 +268,16 @@ export function SetlistTab({
           }
           action={
             canEdit && (
-              <Button onClick={() => setNewOpen(true)}>
-                <Plus className="size-4" /> Novo setlist
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={() => setNewOpen(true)}>
+                  <Plus className="size-4" /> Novo setlist
+                </Button>
+                {importarDoShow && (
+                  <Button variant="outline" onClick={handleImportarDoShow} disabled={mgrPending}>
+                    <Download className="size-4" /> Importar do show
+                  </Button>
+                )}
+              </div>
             )
           }
         />
@@ -314,7 +332,12 @@ export function SetlistTab({
               )}
             </h3>
             <div className="flex flex-wrap gap-2">
-              {/* Ensaio: reorganizar (grátis) + lembrete */}
+              {/* Ensaio: importar do show + reorganizar (grátis) + lembrete */}
+              {isEnsaio && canEdit && importarDoShow && (
+                <Button variant="outline" size="sm" onClick={handleImportarDoShow} disabled={mgrPending} title={`Copiar o setlist do show: ${importarDoShow.label}`}>
+                  <Download className="size-4" /> Importar do show
+                </Button>
+              )}
               {isEnsaio && canEdit && selected && localItems.length > 1 && (
                 <Button variant="outline" size="sm" onClick={handleReorganizar} title="Ordenar por curva de energia">
                   <Wand2 className="size-4" /> Reorganizar

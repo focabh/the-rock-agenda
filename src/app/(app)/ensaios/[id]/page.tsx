@@ -3,7 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, MapPin, Clock, Target, StickyNote } from "lucide-react";
 import { db } from "@/db";
-import { rehearsals, members, rehearsalMemberPresence, setlists, songs } from "@/db/schema";
+import { rehearsals, members, rehearsalMemberPresence, setlists, songs, shows } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,6 +57,16 @@ export default async function EnsaioDetailPage({
   ]);
   const admin = isAdmin(user);
   const brand = await getBrand();
+
+  // Show vinculado (opcional) → permite importar o setlist dele pro ensaio.
+  let importarDoShow: { showId: string; label: string } | null = null;
+  if (r.showId) {
+    const linked = await db.query.shows.findFirst({
+      where: eq(shows.id, r.showId),
+      with: { casa: { columns: { nome: true } } },
+    });
+    if (linked) importarDoShow = { showId: linked.id, label: `${linked.casa.nome} · ${formatDataBR(linked.data)}` };
+  }
   const maps = mapsUrl(r);
   const quando = `dia ${formatDataBR(r.data)}${
     r.inicio ? ` às ${r.inicio}` : ""
@@ -184,6 +194,7 @@ export default async function EnsaioDetailPage({
           userPosicao={user?.posicao ?? user?.member?.funcao ?? null}
           ensaioInfo={{ dataLabel: formatDataBR(r.data), foco: r.foco }}
           groupLink={brand.whatsappGrupo}
+          importarDoShow={importarDoShow}
         />
       </div>
     </div>
