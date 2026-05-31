@@ -176,12 +176,17 @@ export function DivulgacaoManager({
       const urls: string[] = [];
       for (const f of arr) {
         if (!f.type.startsWith("image/")) continue;
-        urls.push(await fileToDataUrl(f, { maxDim: 1600, quality: 0.8 }));
+        // Compressão mais firme no lote (várias de uma vez) pra caber bem.
+        urls.push(await fileToDataUrl(f, { maxDim: 1280, quality: 0.72 }));
       }
       if (urls.length === 0) return;
-      const r = await createFotosBatchAction(urls);
-      if (r.ok) toast.success(`${r.added} foto(s) adicionada(s).`);
-      else toast.error(r.error ?? "Falha ao enviar.");
+      try {
+        const r = await createFotosBatchAction(urls);
+        if (r.ok) toast.success(`${r.added} foto(s) adicionada(s).`);
+        else toast.error(r.error ?? "Falha ao enviar.");
+      } catch {
+        toast.error("Falha ao enviar as fotos. Tente menos fotos por vez.");
+      }
     });
   }
 

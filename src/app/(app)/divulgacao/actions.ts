@@ -144,12 +144,20 @@ export async function createFotosBatchAction(
 
   const aInserir = validas.slice(0, espaco);
   let n = existentes.length;
-  await db.insert(promoItems).values(
-    aInserir.map((url) => ({ tipo: "foto" as const, titulo: `Foto ${++n}`, url }))
-  );
+  let added = 0;
+  try {
+    // Uma por vez (statement pequeno) — evita estourar o limite do Turso.
+    for (const url of aInserir) {
+      await db.insert(promoItems).values({ tipo: "foto", titulo: `Foto ${++n}`, url });
+      added++;
+    }
+  } catch (e) {
+    if (added === 0)
+      return { ok: false, added: 0, error: e instanceof Error ? e.message.slice(0, 120) : "Falha ao salvar." };
+  }
   revalidatePath("/divulgacao");
   revalidatePath("/show");
-  return { ok: true, added: aInserir.length };
+  return { ok: true, added };
 }
 
 export async function updatePromoAction(
