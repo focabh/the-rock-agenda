@@ -40,8 +40,23 @@ export type GenSetlistResult = {
   targetSeg?: number;
   /** true quando o repertório elegível não chega ao tempo pedido */
   faltou?: boolean;
+  /** Quando faltou: clássicos fáceis (4 acordes) pra banda aprender e crescer. */
+  sugestoesAprender?: string[];
   via?: "ia" | "heuristica";
 };
+
+// Clássicos fáceis (poucos acordes) pra sugerir quando o repertório não enche o
+// show. Filtramos os que a banda já tem.
+const SUGESTOES_APRENDER = [
+  "Zombie — The Cranberries",
+  "Iris — Goo Goo Dolls",
+  "Song 2 — Blur",
+  "Plush — Stone Temple Pilots",
+  "In Bloom — Nirvana",
+  "Wonderwall — Oasis",
+  "Should I Stay or Should I Go — The Clash",
+  "Seven Nation Army — The White Stripes",
+];
 
 // ---------------- PREFERÊNCIAS FIXAS DA BANDA (memória explícita) ----------------
 
@@ -377,6 +392,15 @@ export async function generateSetlistAction(
     .set({ observacoesGerais: racional || null })
     .where(eq(setlists.id, setlistId));
 
+  // §4: se faltou repertório, sugere clássicos fáceis que a banda ainda não tem.
+  let sugestoesAprender: string[] | undefined;
+  if (fit.faltou) {
+    const titulos = new Set(allSongs.map((s) => s.titulo.toLowerCase()));
+    sugestoesAprender = SUGESTOES_APRENDER.filter(
+      (s) => !titulos.has(s.split(" — ")[0].toLowerCase())
+    ).slice(0, 5);
+  }
+
   revalidatePath(`/shows/${showId}`);
   return {
     ok: true,
@@ -384,6 +408,7 @@ export async function generateSetlistAction(
     totalSeg,
     targetSeg,
     faltou: fit.faltou,
+    sugestoesAprender,
     via,
   };
 }

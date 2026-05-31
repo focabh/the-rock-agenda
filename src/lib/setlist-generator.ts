@@ -90,6 +90,8 @@ export function generateSetlist(songs: GenSong[], o: GenOptions): GenResult {
   const scored = eligible
     .map((s) => {
       let score = 1 + rand() * (o.ordem === "aleatoria" ? 6 : 1.2);
+      // Músicas PRONTAS primeiro; só cai pras "aprendendo" se faltar repertório.
+      if (s.status === "pronta") score += 100;
       if (wantConhecidas && s.conhecida) score += 2.5;
       if (wantPesadas) score += energy(s);
       if (wantLeve) score += 4 - energy(s);

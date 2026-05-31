@@ -74,7 +74,12 @@ export function arrangeSetlist(picked: ArrangeSong[]): string[] {
     groups.get(k)!.push(s);
   }
   const blocks: Block[] = [...groups.entries()].map(([key, songs]) => {
-    const sorted = [...songs].sort((a, b) => energyOf(a) - energyOf(b));
+    // Energia ascendente; empate → a mais "conhecida"/popular primeiro
+    // (proxy de popularidade — desempate §3.2).
+    const sorted = [...songs].sort(
+      (a, b) =>
+        energyOf(a) - energyOf(b) || Number(b.conhecida) - Number(a.conhecida)
+    );
     breakArtistRuns(sorted);
     return { key, songs: sorted };
   });

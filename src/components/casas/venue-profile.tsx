@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Sparkles, Loader2, X, Plus, Save } from "lucide-react";
+import { Sparkles, Loader2, X, Plus, Save, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import { ALL_VENUE_TAGS } from "@/lib/venue-tags";
 import {
   setVenueProfileAction,
   analyzeVenueAction,
+  analyzeVenuePlacesAction,
 } from "@/app/(app)/casas/contact-actions";
 
 export function VenueProfile({
@@ -41,6 +42,7 @@ export function VenueProfile({
   const [saving, startSave] = useTransition();
   const [analyzing, startAnalyze] = useTransition();
   const [confirmIA, setConfirmIA] = useState(false);
+  const [confirmPlaces, setConfirmPlaces] = useState(false);
 
   // Visão do músico (não-admin): só leitura.
   if (!admin) {
@@ -82,40 +84,97 @@ export function VenueProfile({
       toast.success("Perfil da casa salvo.");
     });
   }
+  function aplicar(
+    r: { ok: boolean; suggestion?: { caracteristicas: string[]; perfilPublico: string }; error?: string; needsKey?: boolean },
+    okMsg: string
+  ) {
+    if (!r.ok || !r.suggestion) {
+      if (r.needsKey) toast.info(r.error ?? "IA não configurada.");
+      else toast.error(r.error ?? "Falha na análise.");
+      return;
+    }
+    setTags((t) => [...new Set([...t, ...r.suggestion!.caracteristicas])]);
+    if (r.suggestion.perfilPublico) setPerfil(r.suggestion.perfilPublico);
+    toast.success(okMsg);
+  }
   function analyze() {
-    startAnalyze(async () => {
-      const r = await analyzeVenueAction(venueId);
-      if (!r.ok || !r.suggestion) {
-        if (r.needsKey) toast.info(r.error ?? "IA não configurada.");
-        else toast.error(r.error ?? "Falha na análise.");
-        return;
-      }
-      setTags((t) => [...new Set([...t, ...r.suggestion!.caracteristicas])]);
-      if (r.suggestion.perfilPublico) setPerfil(r.suggestion.perfilPublico);
-      toast.success("Sugestão da IA aplicada — revise e salve.");
-    });
+    startAnalyze(async () =>
+      aplicar(await analyzeVenueAction(venueId), "Sugestão da IA aplicada — revise e salve.")
+    );
+  }
+  function analyzePlaces() {
+    startAnalyze(async () =>
+      aplicar(
+        await analyzeVenuePlacesAction(venueId),
+        "Perfil do Google aplicado — revise e salve."
+      )
+    );
   }
 
   const sugestoes = ALL_VENUE_TAGS.filter((t) => !tags.includes(t));
 
   return (
     <Card className="p-4 space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium">Perfil & características da casa</p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setConfirmIA(true)}
-          disabled={analyzing}
-          title="Analisar perfil da casa com IA — busca na web (pode gerar custo)"
-        >
-          {analyzing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Sparkles className="size-4" />
-          )}
-          {analyzing ? "Analisando…" : "Analisar com IA"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmPlaces(true)}
+            disabled={analyzing}
+            title="Perfil a partir das avaliações do Google (mais barato)"
+          >
+            {analyzing ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <MapPin className="size-4" />
+            )}
+            Google Reviews
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmIA(true)}
+            disabled={analyzing}
+            title="Analisar perfil da casa com IA — busca na web (pode gerar custo)"
+          >
+            {analyzing ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
+            {analyzing ? "Analisando…" : "Analisar com IA"}
+          </Button>
+        </div>
+
+        <AlertDialog open={confirmPlaces} onOpenChange={setConfirmPlaces}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Analisar pelo Google Reviews?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Busca a casa no Google (crédito gratuito do Google), filtra as
+                avaliações no servidor e manda só um resumo curtinho pra IA
+                devolver 3 palavras-chave. <strong>Bem mais barato</strong> que a
+                análise por web. Confirmar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel render={<Button variant="outline" />}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                render={<Button />}
+                onClick={() => {
+                  setConfirmPlaces(false);
+                  analyzePlaces();
+                }}
+              >
+                Analisar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <AlertDialog open={confirmIA} onOpenChange={setConfirmIA}>
           <AlertDialogContent>

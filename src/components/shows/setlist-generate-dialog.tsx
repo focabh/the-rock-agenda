@@ -100,8 +100,12 @@ export function SetlistGenerateDialog({
       }
       const tot = fmtMin(r.totalSeg ?? 0);
       if (r.faltou) {
+        const sug = r.sugestoesAprender?.length
+          ? ` Pra crescer: aprender ${r.sugestoesAprender.slice(0, 3).join("; ")}.`
+          : "";
         toast.warning(
-          `${r.count} música(s) · ${tot} — repertório não chega aos ${min} min pedidos. Cadastre mais músicas ou reduza a duração.`
+          `${r.count} música(s) · ${tot} — repertório não chega aos ${min} min pedidos.${sug}`,
+          { duration: 9000 }
         );
       } else {
         toast.success(

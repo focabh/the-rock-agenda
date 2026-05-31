@@ -11,6 +11,7 @@ import {
   NoApiKeyError,
   type VenueAISuggestion,
 } from "@/lib/venue-ai";
+import { fetchPlaceProfile, keywordsFromPlace } from "@/lib/venue-places";
 
 /**
  * Registra um contato feito com a casa pelo app e dispara as automações:
@@ -96,6 +97,41 @@ export async function analyzeVenueAction(venueId: string): Promise<{
       ok: false,
       error: e instanceof Error ? e.message : "Falha na análise.",
     };
+  }
+}
+
+/**
+ * Analisa via Google Places (reviews) + filtro local + 1 chamada IA enxuta.
+ * Bem mais barato que a análise por web search. Retorna sugestão (não salva).
+ */
+export async function analyzeVenuePlacesAction(venueId: string): Promise<{
+  ok: boolean;
+  suggestion?: VenueAISuggestion;
+  error?: string;
+  needsKey?: boolean;
+}> {
+  await requireAdmin();
+  const [v] = await db.select().from(venues).where(eq(venues.id, venueId)).limit(1);
+  if (!v) return { ok: false, error: "Casa não encontrada." };
+
+  const place = await fetchPlaceProfile(v.nome, v.cidade);
+  if (!place.found)
+    return { ok: false, error: "Não encontrei essa casa no Google Places." };
+  if (!place.resumoLimpo && !place.categoria)
+    return { ok: false, error: "Sem avaliações úteis no Google pra analisar." };
+
+  try {
+    const kw = await keywordsFromPlace({
+      nome: v.nome,
+      categoria: place.categoria,
+      resumoLimpo: place.resumoLimpo,
+      instagram: v.instagram,
+    });
+    return { ok: true, suggestion: kw };
+  } catch (e) {
+    if (e instanceof NoApiKeyError)
+      return { ok: false, needsKey: true, error: e.message };
+    return { ok: false, error: e instanceof Error ? e.message : "Falha." };
   }
 }
 
