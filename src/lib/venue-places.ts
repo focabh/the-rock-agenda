@@ -69,6 +69,116 @@ export async function fetchPlaceProfile(
   }
 }
 
+/** Extrai "@handle" de uma URL de instagram, se for o caso. */
+export function instagramFromUrl(url?: string | null): string | null {
+  if (!url) return null;
+  const m = url.match(/instagram\.com\/([A-Za-z0-9._]+)/i);
+  if (!m) return null;
+  const h = m[1].replace(/\/$/, "");
+  if (!h || /^(p|reel|explore|accounts)$/i.test(h)) return null;
+  return `@${h}`;
+}
+
+/** Busca o site oficial da casa no Google Places (pra extrair o Instagram). */
+export async function fetchPlaceWebsite(
+  nome: string,
+  cidade?: string | null
+): Promise<string | null> {
+  const key = process.env.GOOGLE_PLACES_API_KEY;
+  if (!key) return null;
+  try {
+    const r = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": "places.websiteUri,places.displayName",
+      },
+      body: JSON.stringify({ textQuery: [nome, cidade].filter(Boolean).join(", "), languageCode: "pt-BR", maxResultCount: 1 }),
+    });
+    const data = (await r.json()) as { places?: { websiteUri?: string }[] };
+    return data.places?.[0]?.websiteUri ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export type CasaCandidata = {
+  nome: string;
+  endereco: string;
+  lat: number | null;
+  lng: number | null;
+  categoria: string;
+  website: string | null;
+  instagram: string | null;
+};
+
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371, toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/** Descobre casas perto (lat/lng + raio) que batem com o termo do perfil da
+ *  banda (ex.: "bar música ao vivo rock pub"). Custo: Google Places (crédito). */
+export async function descobrirCasas(params: {
+  lat: number;
+  lng: number;
+  raioM: number;
+  termo: string;
+}): Promise<CasaCandidata[]> {
+  const key = process.env.GOOGLE_PLACES_API_KEY;
+  if (!key) return [];
+  const { lat, lng, raioM, termo } = params;
+  try {
+    const r = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask":
+          "places.displayName,places.formattedAddress,places.location,places.websiteUri,places.primaryTypeDisplayName",
+      },
+      body: JSON.stringify({
+        textQuery: termo,
+        languageCode: "pt-BR",
+        maxResultCount: 20,
+        locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: Math.min(50000, Math.max(500, raioM)) } },
+      }),
+    });
+    const data = (await r.json()) as {
+      places?: {
+        displayName?: { text?: string };
+        formattedAddress?: string;
+        location?: { latitude?: number; longitude?: number };
+        websiteUri?: string;
+        primaryTypeDisplayName?: { text?: string };
+      }[];
+    };
+    const raioKm = raioM / 1000;
+    return (data.places ?? [])
+      .map((p) => {
+        const plat = p.location?.latitude ?? null;
+        const plng = p.location?.longitude ?? null;
+        return {
+          nome: p.displayName?.text ?? "",
+          endereco: p.formattedAddress ?? "",
+          lat: plat,
+          lng: plng,
+          categoria: p.primaryTypeDisplayName?.text ?? "",
+          website: p.websiteUri ?? null,
+          instagram: instagramFromUrl(p.websiteUri),
+        };
+      })
+      .filter((c) => c.nome)
+      // dentro do raio (o locationBias é só "viés" — filtramos de fato)
+      .filter((c) => c.lat == null || c.lng == null || haversineKm({ lat, lng }, { lat: c.lat, lng: c.lng }) <= raioKm * 1.2);
+  } catch {
+    return [];
+  }
+}
+
 /** Manda o bloco JÁ ENXUTO pra IA e recebe só 3 palavras-chave + 1 frase. */
 export async function keywordsFromPlace(input: {
   nome: string;

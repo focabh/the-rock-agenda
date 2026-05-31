@@ -9,6 +9,7 @@ import { venues } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin } from "@/lib/auth";
 import { maskPhone, telefoneValido } from "@/lib/validators";
+import { fetchPlaceWebsite, instagramFromUrl, descobrirCasas, type CasaCandidata } from "@/lib/venue-places";
 
 const casaSchema = z.object({
   nome: z.string().min(1, "Obrigatório").max(120),
@@ -72,25 +73,77 @@ export async function buscarLogoInstagramAction(
   return { ok: true, dataUrl };
 }
 
-/** Lote: percorre as casas que têm @ e ainda não têm logo, e tenta puxar de
- *  cada uma (grátis). Limita por execução pra não estourar o tempo do servidor. */
-export async function buscarLogosCasasAction(): Promise<{ tentadas: number; ok: number; restantes: number }> {
+/** Lote: pra cada casa SEM logo, tenta (1) achar o @ no Google Places (site
+ *  oficial → instagram) se ainda não tiver, e (2) puxar a logo do Instagram.
+ *  Grátis (Places usa crédito do Google). Processa um lote por execução. */
+export async function buscarLogosCasasAction(): Promise<{
+  tentadas: number;
+  ok: number;
+  achouArroba: number;
+  restantes: number;
+}> {
   await requireAdmin();
   const rows = await db
-    .select({ id: venues.id, instagram: venues.instagram, logoUrl: venues.logoUrl })
+    .select({ id: venues.id, instagram: venues.instagram, logoUrl: venues.logoUrl, nome: venues.nome, cidade: venues.cidade })
     .from(venues);
-  const alvo = rows.filter((v) => igHandle(v.instagram || "") && !(v.logoUrl || "").trim());
-  const lote = alvo.slice(0, 25);
+  const alvo = rows.filter((v) => !(v.logoUrl || "").trim());
+  const lote = alvo.slice(0, 12);
   let ok = 0;
+  let achouArroba = 0;
   for (const v of lote) {
-    const logo = await fetchInstagramLogo(v.instagram || "");
+    let ig = igHandle(v.instagram || "");
+    if (!ig) {
+      // tenta descobrir o @ pelo site oficial registrado no Google Places
+      const arroba = instagramFromUrl(await fetchPlaceWebsite(v.nome, v.cidade));
+      if (arroba) {
+        ig = igHandle(arroba);
+        await db.update(venues).set({ instagram: arroba }).where(eq(venues.id, v.id));
+        achouArroba++;
+      }
+    }
+    if (!ig) continue;
+    const logo = await fetchInstagramLogo(ig);
     if (logo) {
       await db.update(venues).set({ logoUrl: logo }).where(eq(venues.id, v.id));
       ok++;
     }
   }
   revalidatePath("/casas");
-  return { tentadas: lote.length, ok, restantes: alvo.length - lote.length };
+  return { tentadas: lote.length, ok, achouArroba, restantes: alvo.length - lote.length };
+}
+
+/** Descobre casas perto que batem com o perfil (termo) + raio. */
+export async function descobrirCasasAction(params: {
+  lat: number;
+  lng: number;
+  raioM: number;
+  termo: string;
+}): Promise<{ candidatas: CasaCandidata[]; jaCadastradas: string[] }> {
+  await requireAdmin();
+  const candidatas = await descobrirCasas(params);
+  const existentes = await db.select({ nome: venues.nome }).from(venues);
+  const jaCadastradas = existentes.map((e) => e.nome.trim().toLowerCase());
+  return { candidatas, jaCadastradas };
+}
+
+/** Adiciona uma casa descoberta (com @/logo se vier do Places). */
+export async function adicionarCasaDescobertaAction(c: CasaCandidata): Promise<{ ok: boolean }> {
+  await requireAdmin();
+  if (!c.nome?.trim()) return { ok: false };
+  let logoUrl: string | null = null;
+  const ig = igHandle(c.instagram || "");
+  if (ig) logoUrl = await fetchInstagramLogo(ig);
+  await db.insert(venues).values({
+    nome: c.nome.trim().slice(0, 120),
+    endereco: c.endereco?.slice(0, 300) || null,
+    latitude: c.lat ?? null,
+    longitude: c.lng ?? null,
+    instagram: c.instagram || null,
+    logoUrl,
+    querTocar: true, // descoberta = candidata pra tocar
+  });
+  revalidatePath("/casas");
+  return { ok: true };
 }
 
 /** Normaliza o telefone pra máscara padrão (ou null se vazio). */

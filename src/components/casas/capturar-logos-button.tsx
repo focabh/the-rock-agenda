@@ -17,11 +17,12 @@ export function CapturarLogosButton() {
         start(async () => {
           const r = await buscarLogosCasasAction();
           if (r.tentadas === 0) {
-            toast.info("Nenhuma casa com @ (e sem logo) pra buscar.");
+            toast.info("Todas as casas já têm logo. 🎉");
           } else {
             toast.success(
-              `${r.ok} de ${r.tentadas} logos capturadas.` +
-                (r.restantes > 0 ? ` Faltam ${r.restantes} — rode de novo.` : "")
+              `${r.ok} logo(s) capturada(s) de ${r.tentadas} casa(s)` +
+                (r.achouArroba > 0 ? ` · ${r.achouArroba} @ achados no Google` : "") +
+                (r.restantes > 0 ? `. Faltam ${r.restantes} — rode de novo.` : ".")
             );
           }
         })
