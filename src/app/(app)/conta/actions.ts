@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { users, members, appSettings } from "@/db/schema";
 import {
   getAvailablePositions,
+  getSession,
   hashPassword,
   requireAdmin,
   requireCurrentUser,
@@ -16,6 +17,15 @@ import { parseForm } from "@/lib/form";
 import { pixValido, telefoneValido } from "@/lib/validators";
 
 const profileSchema = z.object({
+  // Mesmas regras do cadastro. Aceita maiúsculas digitadas e guarda em minúsculas
+  // (o login é case-insensitive).
+  username: z
+    .string()
+    .trim()
+    .min(3, "Use pelo menos 3 caracteres")
+    .max(40, "Máximo 40 caracteres")
+    .regex(/^[a-zA-Z0-9._-]+$/, "Use só letras, números, ponto, underline ou hífen (sem espaços)")
+    .transform((s) => s.toLowerCase()),
   apelido: z.string().trim().max(60).optional(),
   nome: z.string().trim().min(1, "Informe seu nome").max(80),
   sobrenome: z.string().trim().min(1, "Informe seu sobrenome").max(80),
@@ -43,16 +53,40 @@ export async function updateProfileAction(
   const user = await requireCurrentUser();
   const parsed = parseForm(profileSchema, formData);
   if (!parsed.ok) return parsed.state;
-  const { apelido, nome, sobrenome } = parsed.data;
+  const { username, apelido, nome, sobrenome } = parsed.data;
+
+  // Se mudou o nome de usuário, garante que não está em uso por outra pessoa.
+  const usernameChanged = username !== user.username;
+  if (usernameChanged) {
+    const [taken] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.username, username), ne(users.id, user.id)))
+      .limit(1);
+    if (taken) {
+      return {
+        fieldErrors: { username: ["Esse nome de usuário já está em uso"] },
+        error: "Esse nome de usuário já está em uso.",
+      };
+    }
+  }
 
   await db
     .update(users)
     .set({
+      username,
       apelido: apelido && apelido.length > 0 ? apelido : null,
       nome,
       sobrenome,
     })
     .where(eq(users.id, user.id));
+
+  // A sessão é resolvida pelo username — atualiza pra não derrubar o login.
+  if (usernameChanged) {
+    const session = await getSession();
+    session.username = username;
+    await session.save();
+  }
 
   // Se há músico vinculado, sincroniza o nome dele com o apelido (preferido)
   // ou com "nome sobrenome", pra que a Banda/Repartição/Presença reflitam tudo.

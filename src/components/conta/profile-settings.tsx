@@ -11,10 +11,12 @@ import { updateProfileAction } from "@/app/(app)/conta/actions";
 import { toast } from "sonner";
 
 export function ProfileSettings({
+  username,
   apelido,
   nome,
   sobrenome,
 }: {
+  username: string;
   apelido: string | null;
   nome: string | null;
   sobrenome: string | null;
@@ -51,6 +53,24 @@ export function ProfileSettings({
         </div>
 
         <form action={formAction} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="username">Nome de usuário (login)</Label>
+            <Input
+              id="username"
+              name="username"
+              defaultValue={username}
+              autoCapitalize="none"
+              autoComplete="username"
+              spellCheck={false}
+              maxLength={40}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              É o que você usa pra entrar. Mín. 3 caracteres, só letras, números, ponto, underline ou hífen.
+            </p>
+            <FieldError state={state} name="username" />
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="apelido">Como gostaria de ser chamado</Label>
             <Input

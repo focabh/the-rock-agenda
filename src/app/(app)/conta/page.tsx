@@ -48,6 +48,7 @@ export default async function ContaPage() {
       />
       <div className="p-6 max-w-2xl space-y-6">
         <ProfileSettings
+          username={user?.username ?? ""}
           apelido={user?.apelido ?? null}
           nome={user?.nome ?? null}
           sobrenome={user?.sobrenome ?? null}
