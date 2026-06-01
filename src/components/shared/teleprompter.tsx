@@ -37,7 +37,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [speed, setSpeed] = useState(DEFAULT_SPEED);
   const [fontIdx, setFontIdx] = useState(3);
   const [current, setCurrent] = useState(0);
-  const [isFs, setIsFs] = useState(false);
+  const [mode, setMode] = useState<"full" | "half">("full");
   const [showControls, setShowControls] = useState(true);
   const [showList, setShowList] = useState(false);
 
@@ -110,20 +110,27 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     };
   }, [open]);
 
-  // Sincroniza estado de fullscreen real.
+  // Se sair da tela cheia real (Esc) estando em "full", volta pra metade.
   useEffect(() => {
-    const onFs = () => setIsFs(Boolean(document.fullscreenElement));
+    const onFs = () => {
+      if (!document.fullscreenElement) setMode((m) => (m === "full" ? "half" : m));
+    };
     document.addEventListener("fullscreenchange", onFs);
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
 
-  // Reseta ao abrir.
+  // Abre já em tela cheia.
   useEffect(() => {
     if (open) {
       setPlaying(false);
       setCurrent(0);
+      setMode("full");
       bumpControls();
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      // Tela cheia real (best-effort; iOS não suporta em elementos → overlay já cobre tudo).
+      requestAnimationFrame(() => {
+        rootRef.current?.requestFullscreen?.().catch(() => {});
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -182,13 +189,18 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     bumpControls();
   }
 
-  async function toggleFullscreen() {
+  async function enterFull() {
+    setMode("full");
     try {
-      if (!document.fullscreenElement) await rootRef.current?.requestFullscreen();
-      else await document.exitFullscreen();
+      await rootRef.current?.requestFullscreen?.();
     } catch {
-      /* alguns navegadores não permitem — overlay já ocupa a tela toda */
+      /* iOS não permite em elementos — o overlay já ocupa tudo */
     }
+  }
+
+  async function goHalf() {
+    setMode("half");
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
   }
 
   async function close() {
@@ -213,7 +225,14 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       </Button>
 
       {open && (
-        <div ref={rootRef} className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+        <div
+          ref={rootRef}
+          className={`fixed z-50 flex flex-col bg-black text-white ${
+            mode === "full"
+              ? "inset-0"
+              : "inset-x-0 bottom-0 h-[58vh] rounded-t-2xl border-t border-white/20 shadow-2xl"
+          }`}
+        >
           {/* Topo: música atual + sair (some junto com os controles) */}
           <div
             className={`pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 bg-linear-to-b from-black/80 to-transparent px-4 pb-6 pt-3 transition-opacity ${
@@ -224,8 +243,12 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
               {songs[current] ? `${songs[current].n}. ${songs[current].titulo}` : ""}
               {songs[current]?.tom ? ` · ${songs[current].tom}` : ""}
             </span>
-            <button onClick={close} className={`pointer-events-auto size-9 ${ctrlBtn}`} title="Sair">
-              <X className="size-5" />
+            <button
+              onClick={close}
+              className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20"
+              title="Sair do teleprompter (voltar pras letras)"
+            >
+              <X className="size-4" /> Sair
             </button>
           </div>
 
@@ -301,8 +324,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
           >
             {/* Velocidade — slider fino */}
             <div className="flex items-center gap-3">
-              <button onClick={() => changeSpeed(speed - 1)} className={`size-9 ${ctrlBtn}`} title="Mais devagar">
-                <Minus className="size-4" />
+              <button onClick={() => changeSpeed(speed - 5)} className={`size-9 ${ctrlBtn}`} title="Mais devagar">
+                <Minus className="size-5" />
               </button>
               <input
                 type="range"
@@ -311,11 +334,11 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                 step={1}
                 value={speed}
                 onChange={(e) => changeSpeed(Number(e.target.value))}
-                className="h-1 flex-1 cursor-pointer accent-primary"
+                className="h-2 flex-1 cursor-pointer accent-primary"
                 aria-label="Velocidade"
               />
-              <button onClick={() => changeSpeed(speed + 1)} className={`size-9 ${ctrlBtn}`} title="Mais rápido">
-                <Plus className="size-4" />
+              <button onClick={() => changeSpeed(speed + 5)} className={`size-9 ${ctrlBtn}`} title="Mais rápido">
+                <Plus className="size-5" />
               </button>
               <span className="w-16 text-right font-mono text-xs text-white/60">{speed} px/s</span>
             </div>
@@ -349,9 +372,15 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                 <SkipForward className="size-6 fill-current" />
               </button>
 
-              <button onClick={toggleFullscreen} className={`size-11 ${ctrlBtn}`} title={isFs ? "Sair da tela cheia" : "Tela cheia"}>
-                {isFs ? <Minimize className="size-5" /> : <Maximize className="size-5" />}
-              </button>
+              {mode === "full" ? (
+                <button onClick={goHalf} className={`size-11 ${ctrlBtn}`} title="Minimizar (metade da tela)">
+                  <Minimize className="size-5" />
+                </button>
+              ) : (
+                <button onClick={enterFull} className={`size-11 ${ctrlBtn}`} title="Tela cheia">
+                  <Maximize className="size-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>

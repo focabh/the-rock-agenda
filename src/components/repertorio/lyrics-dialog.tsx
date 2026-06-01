@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { FileText, Loader2, Pencil, ExternalLink } from "lucide-react";
+import { FileText, Loader2, Pencil, ExternalLink, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -60,6 +60,24 @@ export function LyricsDialog({
     setEditing(true);
   }
 
+  // Envolve o trecho selecionado com ^...^ (marca de grito). Sem seleção, insere
+  // ^^ e deixa o cursor no meio.
+  function marcarGrito() {
+    const ta = document.getElementById("lyrics-edit-ta") as HTMLTextAreaElement | null;
+    if (!ta) return;
+    const s = ta.selectionStart ?? draft.length;
+    const e = ta.selectionEnd ?? draft.length;
+    const sel = draft.slice(s, e);
+    const wrapped = sel ? `^${sel}^` : "^^";
+    const next = draft.slice(0, s) + wrapped + draft.slice(e);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const pos = sel ? s + wrapped.length : s + 1;
+      ta.setSelectionRange(pos, pos);
+    });
+  }
+
   function handleSave() {
     startSave(async () => {
       const r = await saveLyricsAction(songId, draft);
@@ -107,6 +125,7 @@ export function LyricsDialog({
         ) : editing ? (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             <Textarea
+              id="lyrics-edit-ta"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={16}
@@ -114,10 +133,14 @@ export function LyricsDialog({
               placeholder="Cole ou corrija a letra aqui…"
               autoFocus
             />
-            <p className="text-xs text-muted-foreground">
-              Dica: marque os trechos de <strong>grito/voz forte</strong> entre circunflexos —
-              <code className="mx-1 rounded bg-muted px-1">^assim^</code>— que aparecem destacados na letra e no teleprompter.
-            </p>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={marcarGrito} title="Selecione o trecho e marque como grito">
+                <Megaphone className="size-4" /> Marcar grito
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Selecione o trecho de <strong>voz forte/grito</strong> e clique — fica em destaque na letra e no teleprompter.
+              </p>
+            </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setEditing(false)}>
                 Cancelar
