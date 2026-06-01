@@ -58,7 +58,7 @@ export default async function ModoShowPage({
 
   const cues = computeStageCues(
     items.map((it) => ({ energia: it.song.energia, momento: it.song.momento })),
-    { casaNome: show.casa.nome, bandName: brand.bandName }
+    { casaNome: show.casa.nome, bandName: brand.bandName, dataMs: show.data.getTime() }
   );
   const cueSlotLabel = (slot: number) =>
     slot === 0 ? "Antes de começar" : slot >= items.length ? "No fim" : `Depois da ${slot}ª`;

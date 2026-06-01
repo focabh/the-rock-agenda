@@ -194,12 +194,17 @@ export async function refineStageCuesAction(
   if (items.length === 0) return { ok: false, error: "Setlist vazio." };
 
   let casaNome: string | null = null;
+  let dataEspecial: string | null = null;
   if (sl.showId) {
     const show = await db.query.shows.findFirst({
       where: eq(shows.id, sl.showId),
       with: { casa: { columns: { nome: true } } },
     });
     casaNome = show?.casa?.nome ?? null;
+    if (show?.data) {
+      const { specialDateLabel } = await import("@/lib/stage-cues");
+      dataEspecial = specialDateLabel(show.data.getTime());
+    }
   }
   const { getBrand } = await import("@/lib/auth");
   const brand = await getBrand();
@@ -217,6 +222,7 @@ export async function refineStageCuesAction(
       casaNome,
       bandName: brand.bandName,
       redes: null,
+      dataEspecial,
     });
     return { ok: true, cues };
   } catch (e) {

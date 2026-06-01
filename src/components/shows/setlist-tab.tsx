@@ -25,6 +25,7 @@ import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
 import { SetlistCritiqueDialog } from "@/components/shows/setlist-critique-dialog";
 import { EnsaioGenerateDialog } from "@/components/ensaios/ensaio-generate-dialog";
+import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
 import {
   DndContext,
   KeyboardSensor,
@@ -647,6 +648,14 @@ function SortableSetlistItem({
           );
         })()
       )}
+      {/* Letra por música (igual ao repertório) — vale show e ensaio. */}
+      <LyricsDialog
+        songId={item.song.id}
+        titulo={item.song.titulo}
+        artista={item.song.artista}
+        spotifyTrackId={item.song.spotifyTrackId}
+        admin={canEdit}
+      />
       <Input
         defaultValue={item.tom ?? item.song.tom ?? ""}
         placeholder="Tom"

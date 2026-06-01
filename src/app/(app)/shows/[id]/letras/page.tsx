@@ -39,7 +39,7 @@ export default async function LetrasPage({
   const [user, brand] = await Promise.all([getCurrentUser(), getBrand()]);
   const cues = computeStageCues(
     items.map((it) => ({ energia: it.song.energia, momento: it.song.momento })),
-    { casaNome: show.casa.nome, bandName: brand.bandName }
+    { casaNome: show.casa.nome, bandName: brand.bandName, dataMs: show.data.getTime() }
   );
 
   return (

@@ -243,6 +243,7 @@ Se estiver bem montado, "alertas":[] e veredito "forte" ou "ok". Máx 6 alertas.
 const CUE_TYPES: StageCueType[] = [
   "publico",
   "casa",
+  "data",
   "banda",
   "redes",
   "saideira",
@@ -255,6 +256,7 @@ export async function refineStageCuesAI(input: {
   casaNome?: string | null;
   bandName?: string | null;
   redes?: string | null;
+  dataEspecial?: string | null;
 }): Promise<StageCue[]> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new NoApiKeyError("IA não configurada.");
@@ -270,12 +272,12 @@ export async function refineStageCuesAI(input: {
 
   const prompt = `Você é diretor de show. Olhando este setlist NA ORDEM, sugira os MOMENTOS DE FALA do vocalista entre as músicas, pra um show de bar/pub.
 
-BANDA: ${input.bandName || "The Rock"}.${input.casaNome ? ` CASA: ${input.casaNome}.` : ""}${input.redes ? ` REDES: ${input.redes}.` : ""}
+BANDA: ${input.bandName || "The Rock"}.${input.casaNome ? ` CASA: ${input.casaNome}.` : ""}${input.dataEspecial ? ` DATA ESPECIAL: hoje é ${input.dataEspecial} (agradeça quem tirou um tempo nessa data pra vir).` : ""}${input.redes ? ` REDES: ${input.redes}.` : ""}
 
 SETLIST (${n} músicas, na ordem):
 ${JSON.stringify(lista)}
 
-Tipos de fala possíveis (use estes códigos): publico (cumprimentar/animar), casa (agradecer ao lugar), banda (apresentar integrantes), redes (chamar pra seguir — no MÁX 2 no show, sem exagero), saideira (avisar que tá acabando), ultima (anunciar a última música), presenca (agradecer a presença no fim).
+Tipos de fala possíveis (use estes códigos): publico (cumprimentar/animar), casa (agradecer ao lugar, citando o nome), data (mencionar a data especial/feriado e agradecer quem veio mesmo assim — só se houver DATA ESPECIAL acima), banda (apresentar integrantes), redes (chamar pra seguir — no MÁX 2 no show, sem exagero), saideira (avisar que tá acabando), ultima (anunciar a última música), presenca (agradecer a presença no fim).
 
 REGRAS:
 - "slot" = posição onde a fala entra: 0 = antes da 1ª música; ${n} = depois da última. Use a estrutura/energia: agradecer casa/público cedo, apresentar banda num respiro do meio, saideira perto do fim, "ultima" logo antes da última, "presenca" no fim (slot ${n}).
