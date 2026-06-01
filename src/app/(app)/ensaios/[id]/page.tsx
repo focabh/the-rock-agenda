@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil, MapPin, Clock, Target, StickyNote } from "lucide-react";
 import { db } from "@/db";
@@ -69,6 +69,39 @@ export default async function EnsaioDetailPage({
     });
     if (linked) importarDoShow = { showId: linked.id, label: `${linked.casa.nome} · ${formatDataBR(linked.data)}` };
   }
+
+  // "Simular show": shows que têm setlist com músicas, ordenados pela
+  // proximidade da data do ensaio (o mais próximo vem pré-selecionado).
+  let simular: { shows: { id: string; label: string }[]; defaultShowId: string } | null = null;
+  if (admin) {
+    const setRows = await db.query.setlists.findMany({
+      where: isNotNull(setlists.showId),
+      columns: { showId: true },
+      with: { items: { columns: { id: true } } },
+    });
+    const showIdsComSet = [
+      ...new Set(setRows.filter((s) => s.items.length > 0).map((s) => s.showId!)),
+    ];
+    if (showIdsComSet.length > 0) {
+      const showRows = await db.query.shows.findMany({
+        where: inArray(shows.id, showIdsComSet),
+        with: { casa: { columns: { nome: true } } },
+      });
+      const rData = r.data.getTime();
+      const ordenados = showRows
+        .map((s) => ({
+          id: s.id,
+          label: `${s.casa.nome} · ${formatDataBR(s.data)}`,
+          dist: Math.abs(s.data.getTime() - rData),
+        }))
+        .sort((a, b) => a.dist - b.dist);
+      simular = {
+        shows: ordenados.map(({ id, label }) => ({ id, label })),
+        defaultShowId: ordenados[0].id,
+      };
+    }
+  }
+
   const maps = mapsUrl(r);
   const quando = `dia ${formatDataBR(r.data)}${
     r.inicio ? ` às ${r.inicio}` : ""
@@ -197,6 +230,7 @@ export default async function EnsaioDetailPage({
           ensaioInfo={{ dataLabel: formatDataBR(r.data), foco: r.foco }}
           groupLink={grupoEnsaio}
           importarDoShow={importarDoShow}
+          simular={simular}
         />
       </div>
     </div>

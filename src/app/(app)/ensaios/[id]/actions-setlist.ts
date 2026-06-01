@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { setlists, setlistItems, songs } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { arrangeSetlist } from "@/lib/setlist-arrange";
-import { generateSetlist } from "@/lib/setlist-generator";
+import { generateEnsaioSetlist } from "@/lib/setlist-generator";
 
 // Setlist de ENSAIO: mesma estrutura do show, mas ligado a um rehearsal e sem
 // duração-alvo (ensaio não tem tempo a cumprir).
@@ -104,16 +104,17 @@ export async function importarSetlistDeShowAction(
   return { ok: true, setlists: nSets, musicas: nMus };
 }
 
-/** Gera um setlist de ensaio (simplificado, sem casa): escolhe/ordena por
- *  energia até um alvo de tempo. Grátis (heurística, sem IA). Substitui o set. */
+/** Gera um setlist de ENSAIO (conceito próprio, sem casa): prioriza músicas
+ *  marcadas pra ensaiar + recém-adicionadas, treina as que ainda não estão
+ *  prontas, agrupa drops. Grátis (heurística, sem IA). Substitui o set. */
 export async function gerarEnsaioSetlistAction(
   rehearsalId: string,
   setlistId: string,
-  opts: { targetMin: number; priConhecidas: boolean; priPesadas: boolean; levesNoComeco: boolean }
+  opts: { targetMin: number; priNovas: boolean; priPesadas: boolean; levesNoComeco: boolean }
 ): Promise<{ ok: boolean; count: number }> {
   await requireAdmin();
   const all = await db.select().from(songs);
-  const gen = generateSetlist(
+  const gen = generateEnsaioSetlist(
     all.map((s) => ({
       id: s.id,
       status: s.status,
@@ -126,18 +127,14 @@ export async function gerarEnsaioSetlistAction(
       artista: s.artista,
       dropada: s.dropada,
       popularidade: s.popularidade,
+      prioridade: s.prioridade,
+      createdAtMs: s.createdAt instanceof Date ? s.createdAt.getTime() : 0,
     })),
     {
       targetSeg: Math.max(5, Math.min(600, opts.targetMin)) * 60,
-      venueTags: [],
-      priConhecidas: opts.priConhecidas,
+      priNovas: opts.priNovas,
       priPesadas: opts.priPesadas,
-      priAlternativas: false,
       levesNoComeco: opts.levesNoComeco,
-      evitarVocalDificil: false,
-      ordem: "equilibrada",
-      evitarRepetir: false,
-      avoidIds: [],
       seed: (Date.now() % 2147483647) || 1,
     }
   );
@@ -147,6 +144,36 @@ export async function gerarEnsaioSetlistAction(
   }
   rev(rehearsalId);
   return { ok: true, count: gen.orderedIds.length };
+}
+
+/** "Simular show": copia o setlist de um show específico pro setlist de ensaio
+ *  (substitui), pra banda ensaiar o set real. Mantém ordem, tom e prioridade. */
+export async function simularShowNoEnsaioAction(
+  rehearsalId: string,
+  setlistId: string,
+  showId: string
+): Promise<{ ok: boolean; count: number }> {
+  await requireAdmin();
+  const showSetlists = await db.query.setlists.findMany({
+    where: eq(setlists.showId, showId),
+    with: { items: true },
+  });
+  // Junta os itens de todos os setlists do show, preservando ordem entre eles.
+  const allItems = showSetlists
+    .flatMap((sl, slIdx) => sl.items.map((it) => ({ ...it, slIdx })))
+    .sort((a, b) => (a.slIdx - b.slIdx) || (a.ordem - b.ordem));
+  await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
+  for (let i = 0; i < allItems.length; i++) {
+    await db.insert(setlistItems).values({
+      setlistId,
+      songId: allItems[i].songId,
+      ordem: i,
+      tom: allItems[i].tom,
+      prioridade: allItems[i].prioridade,
+    });
+  }
+  rev(rehearsalId);
+  return { ok: true, count: allItems.length };
 }
 
 /** Reorganiza as músicas atuais numa curva de energia (grátis, sem IA). */

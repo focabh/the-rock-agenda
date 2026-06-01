@@ -16,6 +16,7 @@ import {
   Guitar,
   Drum,
   Piano,
+  Target,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ import {
   bulkSetStatusAction,
   bulkSetFavoritaAction,
   setSongDropAction,
+  setSongPrioridadeAction,
   verificarDropsAction,
 } from "@/app/(app)/repertorio/actions";
 
@@ -100,6 +102,7 @@ export function SongList({
     new Set()
   );
   const [onlyFav, setOnlyFav] = useState(false);
+  const [onlyPri, setOnlyPri] = useState(false);
   // Filtrar por músico: "atrasados de Fulano"
   const [memberFilter, setMemberFilter] = useState<string>(""); // memberId
   const [memberStatusFilter, setMemberStatusFilter] =
@@ -142,6 +145,7 @@ export function SongList({
       if (selectedStatuses.size > 0 && !selectedStatuses.has(s.status))
         return false;
       if (onlyFav && !s.favorita) return false;
+      if (onlyPri && !s.prioridade) return false;
       if (
         term &&
         !s.titulo.toLowerCase().includes(term) &&
@@ -158,7 +162,7 @@ export function SongList({
       }
       return true;
     });
-  }, [songs, q, selectedStatuses, onlyFav, memberFilter, memberStatusFilter]);
+  }, [songs, q, selectedStatuses, onlyFav, onlyPri, memberFilter, memberStatusFilter]);
 
   function handleToggleFav(id: string, current: boolean) {
     startTransition(() => toggleFavoritaAction(id, !current));
@@ -338,6 +342,21 @@ export function SongList({
             );
           })()}
 
+        {(admin || s.prioridade) && (
+          <button
+            onClick={() => admin && startTransition(() => setSongPrioridadeAction(s.id, !s.prioridade))}
+            disabled={!admin}
+            title={s.prioridade ? "Prioridade de ensaio — toque pra desmarcar" : "Marcar como prioridade de ensaio (nova / treinar)"}
+            className={cn(
+              "shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold ring-1 ring-inset transition-colors",
+              s.prioridade ? "bg-red-500/15 text-red-300 ring-red-500/30" : "text-muted-foreground ring-border hover:text-red-300"
+            )}
+          >
+            <Target className="size-3" />
+            ENSAIAR
+          </button>
+        )}
+
         {(admin || s.dropada) && (
           <button
             onClick={() => admin && startTransition(() => setSongDropAction(s.id, !s.dropada))}
@@ -388,6 +407,14 @@ export function SongList({
           >
             <Star className={cn("size-4", onlyFav && "fill-current")} />
             Favoritas
+          </Button>
+          <Button
+            variant={onlyPri ? "default" : "outline"}
+            onClick={() => setOnlyPri((v) => !v)}
+            title="Só músicas marcadas como prioridade de ensaio"
+          >
+            <Target className="size-4" />
+            Ensaiar
           </Button>
           {admin && (
             <Button

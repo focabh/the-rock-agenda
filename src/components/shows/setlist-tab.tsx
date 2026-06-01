@@ -113,6 +113,7 @@ export function SetlistTab({
   ensaioInfo = null,
   groupLink = null,
   importarDoShow = null,
+  simular = null,
 }: {
   showId?: string;
   rehearsalId?: string;
@@ -124,6 +125,7 @@ export function SetlistTab({
   ensaioInfo?: { dataLabel: string; foco: string | null } | null;
   groupLink?: string | null;
   importarDoShow?: { showId: string; label: string } | null;
+  simular?: { shows: { id: string; label: string }[]; defaultShowId: string } | null;
 }) {
   const isEnsaio = !!rehearsalId;
   const play = materialForPosicao(userPosicao).play;
@@ -335,7 +337,7 @@ export function SetlistTab({
             <div className="flex flex-wrap gap-2">
               {/* Ensaio: gerar + importar do show + reorganizar (grátis) + lembrete */}
               {isEnsaio && canEdit && selected && (
-                <EnsaioGenerateDialog rehearsalId={rehearsalId!} setlistId={selected.id} hasItems={localItems.length > 0} />
+                <EnsaioGenerateDialog rehearsalId={rehearsalId!} setlistId={selected.id} hasItems={localItems.length > 0} simular={simular ?? undefined} />
               )}
               {isEnsaio && canEdit && importarDoShow && (
                 <Button variant="outline" size="sm" onClick={handleImportarDoShow} disabled={mgrPending} title={`Copiar o setlist do show: ${importarDoShow.label}`}>

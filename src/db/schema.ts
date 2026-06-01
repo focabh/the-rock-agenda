@@ -257,6 +257,10 @@ export const songs = sqliteTable("songs", {
   // Popularidade Spotify (0–100), atualizada sob demanda. Desempata o setlist.
   popularidade: integer("popularidade"),
   estilo: text("estilo"), // categoria/estilo livre (ex.: "grunge")
+  // Prioridade de ENSAIO: música nova / que a banda não passa com frequência e
+  // precisa treinar. O "Gerar" do ensaio puxa estas pra frente (junto com as
+  // recém-adicionadas via createdAt). Independente do "favorita".
+  prioridade: integer("prioridade", { mode: "boolean" }).notNull().default(false),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

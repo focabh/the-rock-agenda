@@ -450,6 +450,15 @@ export async function setSongDropAction(id: string, dropada: boolean) {
   revalidatePath("/ensaios", "layout");
 }
 
+/** Marca/desmarca uma música como prioridade de ensaio (treinar: nova ou pouco
+ *  passada). O "Gerar" do ensaio puxa estas pra frente. */
+export async function setSongPrioridadeAction(id: string, prioridade: boolean) {
+  await requireAdmin();
+  await db.update(songs).set({ prioridade }).where(eq(songs.id, id));
+  revalidatePath("/repertorio");
+  revalidatePath("/ensaios", "layout");
+}
+
 /** Verifica o repertório e marca como drop as músicas detectadas (heurística).
  *  Só adiciona (não desmarca) — o admin ajusta manualmente o que quiser. */
 export async function verificarDropsAction(): Promise<{ marcadas: number }> {

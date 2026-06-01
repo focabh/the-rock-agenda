@@ -152,7 +152,16 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        {/* Scroller principal. overflow-x-hidden + scrollbar-gutter:stable
+            garantem que (a) nada estoura na horizontal e (b) abrir/fechar um
+            diálogo não "rouba" a margem (sem pulo de layout). O container
+            interno garante margem e largura máxima em TODAS as telas. */}
+        <main
+          className="flex-1 overflow-y-auto overflow-x-hidden"
+          style={{ scrollbarGutter: "stable" }}
+        >
+          <div className="mx-auto w-full min-w-0 max-w-screen-2xl">{children}</div>
+        </main>
       </div>
     </div>
   );

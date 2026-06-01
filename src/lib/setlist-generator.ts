@@ -123,3 +123,74 @@ export function generateSetlist(songs: GenSong[], o: GenOptions): GenResult {
     totalSeg: picked.reduce((t, s) => t + dur(s), 0),
   };
 }
+
+// ---------------- ENSAIO ----------------
+// Ensaio é OUTRO conceito: não é um show pra agradar a casa, é pra TREINAR.
+// A preferência é por músicas novas / pouco passadas. Como o app não sabe
+// "frequência de ensaio", o sinal é: marcadas como prioridade (Target) +
+// recém-adicionadas ao repertório (createdAt). Drops são agrupados pelo arrange
+// (sem exagero). É dinâmico: cada geração varia um pouco.
+
+export type EnsaioGenSong = GenSong & {
+  prioridade?: boolean; // marcada "ENSAIAR" no repertório
+  createdAtMs?: number; // pra favorecer recém-adicionadas
+};
+
+export type EnsaioGenOptions = {
+  targetSeg: number;
+  priNovas: boolean; // priorizar prioridade + recém-adicionadas (padrão do ensaio)
+  priPesadas: boolean;
+  levesNoComeco: boolean;
+  seed: number;
+};
+
+export function generateEnsaioSetlist(
+  songs: EnsaioGenSong[],
+  o: EnsaioGenOptions
+): GenResult {
+  const rand = mulberry32(o.seed || 1);
+  const dur = (s: GenSong) =>
+    s.duracaoSeg && s.duracaoSeg > 0 ? s.duracaoSeg : DEFAULT_DUR;
+  const energy = (s: GenSong) => s.energia ?? 2;
+
+  const eligible = songs.filter(
+    (s) => s.status !== "aposentada" && s.status !== "ideia_futura"
+  );
+
+  // Recência normalizada (0 = mais antiga, 1 = mais nova) pra favorecer as
+  // recém-adicionadas sem precisar de data absoluta.
+  const times = eligible.map((s) => s.createdAtMs ?? 0);
+  const minT = Math.min(...times, 0);
+  const maxT = Math.max(...times, 1);
+  const recency = (s: EnsaioGenSong) =>
+    maxT > minT ? ((s.createdAtMs ?? 0) - minT) / (maxT - minT) : 0;
+
+  const scored = eligible
+    .map((s) => {
+      let score = 1 + rand() * 3; // dinâmico: ensaio varia mais que show
+      if (o.priNovas) {
+        // Prioridade é o sinal forte: praticamente garante a inclusão.
+        if (s.prioridade) score += 1000;
+        // Recém-adicionadas sobem (até +20).
+        score += recency(s) * 20;
+      }
+      // Ensaio treina o que ainda não está pronto.
+      if (s.status === "precisa_ensaiar") score += 6;
+      else if (s.status === "aprendendo") score += 4;
+      else if (s.status === "pronta") score += 1;
+      if (o.priPesadas) score += energy(s);
+      return { s, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const picked: GenSong[] = [];
+  let total = 0;
+  for (const { s } of scored) {
+    if (total >= o.targetSeg) break;
+    picked.push(s);
+    total += dur(s) + 10;
+  }
+
+  const orderedIds = arrangeSetlist(picked.map(toArrange));
+  return { orderedIds, totalSeg: picked.reduce((t, s) => t + dur(s), 0) };
+}
