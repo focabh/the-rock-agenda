@@ -210,6 +210,17 @@ export async function setSpotifyListsAction(
   return { ok: true };
 }
 
+/** Opacidade dos blocos/cards (60–100). <100 = efeito vidro. */
+export async function setSurfaceOpacityAction(value: number): Promise<{ ok: boolean }> {
+  await requireAdmin();
+  const v = Math.max(60, Math.min(100, Math.round(value)));
+  const [row] = await db.select().from(appSettings).limit(1);
+  if (row) await db.update(appSettings).set({ surfaceOpacity: v }).where(eq(appSettings.id, row.id));
+  else await db.insert(appSettings).values({ surfaceOpacity: v });
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 const ALLOWED_BG = /^data:image\/(png|jpe?g|webp);base64,/;
 
 /** Salva o fundo do LOGIN (kind="login") ou o fundo GERAL do app (kind="app"). */

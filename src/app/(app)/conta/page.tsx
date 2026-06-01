@@ -7,6 +7,7 @@ import { ProfileSettings } from "@/components/conta/profile-settings";
 import { MaterialPrefToggle } from "@/components/conta/material-pref-toggle";
 import { BrandSettings } from "@/components/conta/brand-settings";
 import { BackgroundCard } from "@/components/conta/background-card";
+import { SurfaceCard } from "@/components/conta/surface-card";
 import { SpotifyListsCard } from "@/components/conta/spotify-lists-card";
 import {
   adminMaterialPorPosicao,
@@ -89,6 +90,7 @@ export default async function ContaPage() {
             hint="Aparece em todas as telas internas, atrás do conteúdo. O layout continua igual."
           />
         )}
+        {admin && <SurfaceCard initial={brand.surfaceOpacity} />}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   MonitorPlay,
   Play,
@@ -14,11 +15,12 @@ import {
   Minimize,
   ListMusic,
   Type,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
 
-type Song = { n: number; titulo: string; artista: string; tom: string | null; lyrics: string | null };
+type Song = { n: number; titulo: string; artista: string; tom: string | null; lyrics: string | null; durationSeg?: number | null };
 
 // Tamanhos responsivos: já começam grandes no celular.
 const FONTS = [
@@ -29,10 +31,12 @@ const FONTS = [
   "text-7xl sm:text-8xl",
   "text-8xl sm:text-9xl",
 ];
-const SPEED_KEY = "teleprompter-speeds-v1";
+const SPEED_KEY = "teleprompter-speeds-v1"; // overrides do usuário, por música
+const AUTO_KEY = "teleprompter-auto-v1";
 const DEFAULT_SPEED = 24; // px/s — bem mais lento por padrão
 const MIN_SPEED = 3;
 const MAX_SPEED = 90;
+const AUTO_MAX = 60; // teto da calibração automática (nunca absurdo)
 
 const songKey = (s: Song) => `${s.titulo}__${s.artista}`.toLowerCase();
 
@@ -48,6 +52,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [mode, setMode] = useState<"full" | "half">("full");
   const [showControls, setShowControls] = useState(true);
   const [showList, setShowList] = useState(false);
+  const [auto, setAuto] = useState(true); // Inteliprompter: calibra por música
 
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -61,14 +66,42 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
 
   playingRef.current = playing;
 
-  // Carrega memória de velocidade por música.
+  // Carrega memória de velocidade por música + preferência do Inteliprompter.
   useEffect(() => {
     try {
       speeds.current = JSON.parse(localStorage.getItem(SPEED_KEY) || "{}");
     } catch {
       speeds.current = {};
     }
+    try {
+      const a = localStorage.getItem(AUTO_KEY);
+      if (a !== null) setAuto(a === "1");
+    } catch {
+      /* ignora */
+    }
   }, []);
+
+  // Velocidade ideal pra uma música: override do usuário vence; senão, calibra
+  // pela duração (altura da letra ÷ duração), com teto pra nunca ficar absurda.
+  function speedForIndex(idx: number): number | null {
+    const s = songs[idx];
+    if (!s) return null;
+    const ov = speeds.current[songKey(s)];
+    if (ov) return ov;
+    if (auto) {
+      const sec = s.durationSeg ?? 0;
+      const el = sectionRefs.current[idx];
+      if (el && sec > 0) {
+        return Math.min(AUTO_MAX, Math.max(MIN_SPEED, Math.round(el.offsetHeight / sec)));
+      }
+    }
+    return null;
+  }
+
+  function applyForIndex(idx: number) {
+    const v = speedForIndex(idx);
+    if (v != null) setSpeed(v);
+  }
 
   // Loop de rolagem.
   useEffect(() => {
@@ -137,9 +170,22 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       setMode("full");
       bumpControls();
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      // Calibra a 1ª música assim que as seções renderizam.
+      requestAnimationFrame(() => requestAnimationFrame(() => applyForIndex(0)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Ao ligar/desligar o Inteliprompter, recalibra a música atual e persiste.
+  useEffect(() => {
+    try {
+      localStorage.setItem(AUTO_KEY, auto ? "1" : "0");
+    } catch {
+      /* ignora */
+    }
+    if (open) applyForIndex(current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto]);
 
   const bumpControls = useCallback(() => {
     setShowControls(true);
@@ -165,8 +211,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       }
       if (idx !== current) {
         setCurrent(idx);
-        const saved = speeds.current[songKey(songs[idx])];
-        if (saved) setSpeed(saved);
+        applyForIndex(idx); // override do usuário ou calibração automática
       }
     });
   }
@@ -230,13 +275,13 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
         {label}
       </Button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div
           ref={rootRef}
-          className={`fixed z-50 flex flex-col bg-black text-white ${
+          className={`fixed z-100 flex flex-col bg-black text-white ${
             mode === "full"
-              ? "inset-0"
-              : "inset-x-0 bottom-0 h-[58vh] rounded-t-2xl border-t border-white/20 shadow-2xl"
+              ? "left-0 top-0 h-dvh w-screen"
+              : "inset-x-0 bottom-0 h-[58dvh] rounded-t-2xl border-t border-white/20 shadow-2xl"
           }`}
         >
           {/* Topo: música atual + sair (some junto com os controles) */}
@@ -346,11 +391,20 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
               <button onClick={() => changeSpeed(speed + 5)} className={`size-9 ${ctrlBtn}`} title="Mais rápido">
                 <Plus className="size-5" />
               </button>
-              <span className="w-16 text-right font-mono text-xs text-white/60">{speed} px/s</span>
+              <span className="w-20 text-right font-mono text-xs text-white/60">
+                {speed} px/s{auto && songs[current] && !speeds.current[songKey(songs[current])] ? " ·auto" : ""}
+              </span>
             </div>
 
             {/* Linha de transporte */}
             <div className="flex items-center justify-center gap-1.5">
+              <button
+                onClick={() => setAuto((a) => !a)}
+                className={`size-11 ${ctrlBtn} ${auto ? "text-amber-400" : ""}`}
+                title={auto ? "Inteliprompter LIGADO (calibra a velocidade por música) — toque pra desligar" : "Ligar Inteliprompter (calibra a velocidade por música)"}
+              >
+                <Sparkles className="size-5" />
+              </button>
               <button onClick={() => setShowList(true)} className={`size-11 ${ctrlBtn}`} title="Lista de músicas">
                 <ListMusic className="size-5" />
               </button>
@@ -389,7 +443,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

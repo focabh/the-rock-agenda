@@ -72,6 +72,7 @@ export default async function ModoShowPage({
     artista: it.song.artista,
     tom: it.tom ?? it.song.tom ?? null,
     lyrics: it.song.lyrics ?? null,
+    durationSeg: it.song.duracaoSeg,
   }));
 
   // Outros shows pra alternar.

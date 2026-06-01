@@ -88,6 +88,7 @@ export function AppShell({
   displayName,
   logoUrl,
   appBackgroundUrl,
+  surfaceOpacity = 100,
   children,
 }: {
   username?: string;
@@ -95,12 +96,19 @@ export function AppShell({
   displayName?: string | null;
   logoUrl: string;
   appBackgroundUrl?: string | null;
+  surfaceOpacity?: number;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // Efeito vidro só faz sentido com fundo e opacidade < 100.
+  const glass = !!appBackgroundUrl && surfaceOpacity < 100;
 
   return (
-    <div className="min-h-screen flex">
+    <div
+      className="min-h-screen flex"
+      data-glass={glass ? "" : undefined}
+      style={glass ? ({ "--surface-opacity": `${surfaceOpacity}%` } as React.CSSProperties) : undefined}
+    >
       {/* Fundo geral do app (atrás do conteúdo, sem alterar o layout). Usa <img>
           real (renderiza sempre, igual ao login) + overlay leve pra leitura. */}
       {appBackgroundUrl && (

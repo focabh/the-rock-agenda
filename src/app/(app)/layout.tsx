@@ -15,6 +15,7 @@ export default async function AppLayout({
       displayName={userDisplayName(user)}
       logoUrl={logoUrl}
       appBackgroundUrl={brand.appBackgroundUrl ?? brand.backgroundUrl}
+      surfaceOpacity={brand.surfaceOpacity}
     >
       {children}
     </AppShell>

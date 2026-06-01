@@ -85,6 +85,9 @@ export const appSettings = sqliteTable("app_settings", {
   spotifyListRepertorio: text("spotify_list_repertorio"),
   spotifyListSetlist: text("spotify_list_setlist"), // shows
   spotifyListEnsaio: text("spotify_list_ensaio"),
+  // Opacidade dos blocos/cards (60–100). <100 = efeito vidro deixando o fundo
+  // vazar. Só tem efeito visível quando há fundo do app.
+  surfaceOpacity: integer("surface_opacity").notNull().default(100),
   // Quando true, o ADMIN também vê só o material da sua posição (ex.: baterista
   // não vê letras). Quando false (padrão), o admin sempre vê letras p/ gerenciar.
   adminMaterialPorPosicao: integer("admin_material_por_posicao", {

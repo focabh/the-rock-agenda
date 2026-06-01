@@ -36,6 +36,7 @@ type BookletSong = {
   artista: string;
   tom: string | null;
   lyrics: string | null;
+  durationSeg?: number | null;
 };
 
 const SIZES = ["text-base", "text-lg", "text-xl", "text-2xl", "text-3xl"];
