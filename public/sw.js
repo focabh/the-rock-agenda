@@ -9,7 +9,7 @@
 //  - "Modo Show": a página warm-a o próprio cache via postMessage pra garantir
 //    o pacote do show inteiro disponível offline.
 
-const VERSION = "v2-offline";
+const VERSION = "v3-safe";
 const STATIC_CACHE = "rock-static-" + VERSION;
 const RUNTIME_CACHE = "rock-runtime-" + VERSION;
 
@@ -50,19 +50,16 @@ async function cacheFirst(request) {
   return res;
 }
 
-async function networkFirst(request) {
+// Páginas e dados: SEMPRE pela rede quando online (nunca serve build velha,
+// nunca trava o app interativo). Só cai no cache quando está OFFLINE — e o
+// cache só tem o que foi explicitamente baixado ("Baixar pra offline" do Modo
+// Show) ou os assets imutáveis. Não cacheia navegações automaticamente.
+async function networkThenCacheOffline(request) {
   try {
-    const res = await fetch(request);
-    // Não cacheia redirecionado (ex.: sessão expirada → /login) nem opaco.
-    if (res && res.ok && res.type === "basic" && !res.redirected) {
-      const cache = await caches.open(RUNTIME_CACHE);
-      cache.put(request, res.clone());
-    }
-    return res;
+    return await fetch(request);
   } catch (err) {
     const cached = await caches.match(request);
     if (cached) return cached;
-    // Navegação sem rede e sem cache → tenta o Modo Show (pacote offline).
     if (request.mode === "navigate") {
       const fallback =
         (await caches.match("/modo-show")) || (await caches.match("/"));
@@ -83,7 +80,7 @@ self.addEventListener("fetch", (event) => {
   if (isImmutableAsset(url)) {
     event.respondWith(cacheFirst(request));
   } else {
-    event.respondWith(networkFirst(request));
+    event.respondWith(networkThenCacheOffline(request));
   }
 });
 
