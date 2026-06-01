@@ -20,7 +20,15 @@ import { LyricsText } from "@/components/shared/lyrics-text";
 
 type Song = { n: number; titulo: string; artista: string; tom: string | null; lyrics: string | null };
 
-const FONTS = ["text-2xl", "text-3xl", "text-4xl", "text-5xl", "text-6xl", "text-7xl"];
+// Tamanhos responsivos: já começam grandes no celular.
+const FONTS = [
+  "text-3xl sm:text-4xl",
+  "text-4xl sm:text-5xl",
+  "text-5xl sm:text-6xl",
+  "text-6xl sm:text-7xl",
+  "text-7xl sm:text-8xl",
+  "text-8xl sm:text-9xl",
+];
 const SPEED_KEY = "teleprompter-speeds-v1";
 const DEFAULT_SPEED = 24; // px/s — bem mais lento por padrão
 const MIN_SPEED = 3;
@@ -119,7 +127,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
 
-  // Abre já em tela cheia.
+  // Abre em tela cheia (overlay cobre tudo). NÃO pede fullscreen do navegador
+  // aqui (no celular é rejeitado e jogava pro modo metade). O botão de
+  // maximizar pede o fullscreen real quando o usuário quiser (desktop/Android).
   useEffect(() => {
     if (open) {
       setPlaying(false);
@@ -127,10 +137,6 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       setMode("full");
       bumpControls();
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
-      // Tela cheia real (best-effort; iOS não suporta em elementos → overlay já cobre tudo).
-      requestAnimationFrame(() => {
-        rootRef.current?.requestFullscreen?.().catch(() => {});
-      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);

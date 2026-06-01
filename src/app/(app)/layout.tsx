@@ -14,7 +14,7 @@ export default async function AppLayout({
       role={user.role}
       displayName={userDisplayName(user)}
       logoUrl={logoUrl}
-      appBackgroundUrl={brand.appBackgroundUrl}
+      appBackgroundUrl={brand.appBackgroundUrl ?? brand.backgroundUrl}
     >
       {children}
     </AppShell>

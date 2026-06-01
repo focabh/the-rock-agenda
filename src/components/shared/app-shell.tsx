@@ -101,18 +101,14 @@ export function AppShell({
 
   return (
     <div className="min-h-screen flex">
-      {/* Fundo geral do app (atrás do conteúdo, sem alterar o layout). Overlay
-          em gradiente: um pouco mais escuro no topo (leitura) e bem mais claro
-          embaixo, pra a imagem realmente aparecer. */}
+      {/* Fundo geral do app (atrás do conteúdo, sem alterar o layout). Usa <img>
+          real (renderiza sempre, igual ao login) + overlay leve pra leitura. */}
       {appBackgroundUrl && (
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-0 z-0 bg-cover bg-center"
-          style={{
-            backgroundImage: `linear-gradient(rgba(9,9,11,0.72), rgba(9,9,11,0.4)), url(${appBackgroundUrl})`,
-            backgroundAttachment: "fixed",
-          }}
-        />
+        <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={appBackgroundUrl} alt="" className="size-full object-cover" />
+          <div className="absolute inset-0 bg-linear-to-b from-black/70 to-black/40" />
+        </div>
       )}
       {/* Desktop sidebar */}
       <aside className="relative z-10 hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar print:hidden">

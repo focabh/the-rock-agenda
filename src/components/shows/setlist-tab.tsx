@@ -26,6 +26,7 @@ import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialo
 import { SetlistCritiqueDialog } from "@/components/shows/setlist-critique-dialog";
 import { EnsaioGenerateDialog } from "@/components/ensaios/ensaio-generate-dialog";
 import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
+import { setSongDropAction } from "@/app/(app)/repertorio/actions";
 import {
   DndContext,
   KeyboardSensor,
@@ -138,6 +139,7 @@ export function SetlistTab({
   const [newOpen, setNewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
+  const [dropOverride, setDropOverride] = useState<Record<string, boolean>>({});
 
   // ---- ações (mesmo componente p/ show e ensaio) ----
   const aAddSong = (slId: string, songId: string) =>
@@ -150,6 +152,12 @@ export function SetlistTab({
     isEnsaio ? updateEnsaioSetlistItemAction(rehearsalId!, itemId, { tom }) : updateSetlistItemAction(showId!, itemId, { tom });
   const aPrioridade = (itemId: string, prioridade: boolean) =>
     updateEnsaioSetlistItemAction(rehearsalId!, itemId, { prioridade });
+  // DROP é propriedade da MÚSICA (songs.dropada): marcar/desmarcar aqui reflete
+  // no repertório e em todos os setlists. Atualiza na hora (otimista) + persiste.
+  const aDrop = (songId: string, dropada: boolean) => {
+    setDropOverride((m) => ({ ...m, [songId]: dropada }));
+    startTransition(() => setSongDropAction(songId, dropada));
+  };
 
   useEffect(() => {
     if (setlists.length === 0) {
@@ -449,6 +457,8 @@ export function SetlistTab({
                         onTom={(tom) => aTom(item.id, tom)}
                         onRemove={() => aRemove(item.id)}
                         onPrioridade={(v) => aPrioridade(item.id, v)}
+                        dropada={dropOverride[item.song.id] ?? item.song.dropada}
+                        onDrop={(v) => aDrop(item.song.id, v)}
                       />
                     ))}
                   </ul>
@@ -570,6 +580,8 @@ function SortableSetlistItem({
   onTom,
   onRemove,
   onPrioridade,
+  dropada,
+  onDrop,
 }: {
   item: Item;
   index: number;
@@ -579,6 +591,8 @@ function SortableSetlistItem({
   onTom: (tom: string | null) => void;
   onRemove: () => void;
   onPrioridade: (v: boolean) => void;
+  dropada: boolean;
+  onDrop: (v: boolean) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: !canEdit });
   const [, startTransition] = useTransition();
@@ -624,10 +638,21 @@ function SortableSetlistItem({
         <p className="truncate text-xs text-muted-foreground">{item.song.artista}</p>
       </div>
 
-      {item.song.dropada && (
-        <span className="inline-flex shrink-0 items-center rounded bg-amber-500/10 px-1 py-0.5 text-[9px] font-bold text-amber-300 ring-1 ring-inset ring-amber-500/30 sm:px-1.5 sm:text-[10px]" title="Afinação dropada">
+      {(canEdit || dropada) && (
+        <button
+          type="button"
+          onClick={() => canEdit && startTransition(() => onDrop(!dropada))}
+          disabled={!canEdit}
+          title={dropada ? "Afinação dropada — toque pra desmarcar (vale em todo lugar)" : "Marcar afinação dropada (Drop D/C…)"}
+          className={cn(
+            "inline-flex shrink-0 items-center rounded px-1 py-0.5 text-[9px] font-bold ring-1 ring-inset transition-colors sm:px-1.5 sm:text-[10px]",
+            dropada
+              ? "bg-amber-500/15 text-amber-300 ring-amber-500/30"
+              : "text-muted-foreground ring-border hover:text-amber-300"
+          )}
+        >
           DROP
-        </span>
+        </button>
       )}
       {dur > 0 && (
         <span className="hidden shrink-0 font-mono text-xs tabular-nums text-muted-foreground sm:inline">{fmtMMSS(dur)}</span>
