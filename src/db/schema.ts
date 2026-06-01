@@ -510,6 +510,29 @@ export const songMemberReadiness = sqliteTable(
   }),
 );
 
+// Feedback POR MÚSICA de um show (marcação da banda — qualquer um edita).
+// Alimenta o aprendizado: o que bombou/caiu por casa, pra sugerir em casas de
+// perfil parecido. Uma linha por (show, música).
+export const showSongFeedback = sqliteTable(
+  "show_song_feedback",
+  {
+    id: id(),
+    showId: text("show_id")
+      .notNull()
+      .references(() => shows.id, { onDelete: "cascade" }),
+    songId: text("song_id")
+      .notNull()
+      .references(() => songs.id, { onDelete: "cascade" }),
+    publicoCurtiu: integer("publico_curtiu", { mode: "boolean" }).notNull().default(false),
+    bandaCurtiu: integer("banda_curtiu", { mode: "boolean" }).notNull().default(false),
+    caiu: integer("caiu", { mode: "boolean" }).notNull().default(false),
+    updatedAt: updatedAt(),
+  },
+  (t) => ({
+    uniqShowSong: uniqueIndex("uniq_show_song_feedback").on(t.showId, t.songId),
+  }),
+);
+
 // Token OAuth da Spotify (singleton — uma conta conectada para toda a banda)
 export const spotifyAuth = sqliteTable("spotify_auth", {
   id: id(),
@@ -963,6 +986,7 @@ export type Setlist = typeof setlists.$inferSelect;
 export type SetlistItem = typeof setlistItems.$inferSelect;
 export type Show = typeof shows.$inferSelect;
 export type VenueEvaluation = typeof venueEvaluations.$inferSelect;
+export type ShowSongFeedback = typeof showSongFeedback.$inferSelect;
 export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
 export type ChecklistTemplateItem = typeof checklistTemplateItems.$inferSelect;
 export type ShowChecklist = typeof showChecklists.$inferSelect;

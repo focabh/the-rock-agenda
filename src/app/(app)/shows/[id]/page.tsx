@@ -25,6 +25,11 @@ import { VenueShowCard } from "@/components/casas/venue-show-card";
 import { CompatCheck } from "@/components/shows/compat-check";
 import { parseTags } from "@/lib/venue-tags";
 import { SetlistTab } from "@/components/shows/setlist-tab";
+import { AvaliacaoTab } from "@/components/shows/avaliacao-tab";
+import { SongFeedbackList } from "@/components/shows/song-feedback-list";
+import { VenueInsights } from "@/components/shows/venue-insights";
+import { getShowFeedbackMap } from "@/app/(app)/shows/[id]/actions-feedback";
+import { getVenueSongInsights } from "@/lib/show-learning";
 import { Button } from "@/components/ui/button";
 import { NotifyBandButton } from "@/components/shared/notify-band-button";
 import { formatDataBR } from "@/lib/formatters";
@@ -49,6 +54,22 @@ export default async function ShowDetailPage({
   if (!show) notFound();
 
   const userPosicao = user?.posicao ?? user?.member?.funcao ?? null;
+
+  // Músicas únicas do setlist (pra avaliar uma a uma) + feedback já marcado.
+  const feedbackSongs = (() => {
+    const seen = new Set<string>();
+    const rows: { songId: string; titulo: string; artista: string }[] = [];
+    for (const sl of show.setlists) {
+      for (const it of [...sl.items].sort((a, b) => a.ordem - b.ordem)) {
+        if (seen.has(it.songId)) continue;
+        seen.add(it.songId);
+        rows.push({ songId: it.songId, titulo: it.song.titulo, artista: it.song.artista });
+      }
+    }
+    return rows;
+  })();
+  const feedbackMap = await getShowFeedbackMap(show.id);
+  const venueInsights = await getVenueSongInsights(show.casaId);
 
   const [allSongs, allMembers, dayBlocks, presences, payments, paidRows] = await Promise.all([
     db.select().from(songs).orderBy(asc(songs.titulo)),
@@ -214,14 +235,27 @@ export default async function ShowDetailPage({
             </div>
           }
           setlist={
-            <SetlistTab
-              showId={show.id}
-              setlists={show.setlists}
-              allSongs={allSongs}
-              canEdit={admin}
-              defaultDuracaoMin={show.duracaoMin ?? 60}
-              userPosicao={userPosicao}
-            />
+            <div className="space-y-4">
+              <VenueInsights data={venueInsights} />
+              <SetlistTab
+                showId={show.id}
+                setlists={show.setlists}
+                allSongs={allSongs}
+                canEdit={admin}
+                defaultDuracaoMin={show.duracaoMin ?? 60}
+                userPosicao={userPosicao}
+              />
+            </div>
+          }
+          posShow={
+            <div className="space-y-4">
+              <AvaliacaoTab showId={show.id} avaliacao={show.avaliacao ?? null} />
+              <SongFeedbackList
+                showId={show.id}
+                songs={feedbackSongs}
+                initial={feedbackMap}
+              />
+            </div>
           }
         />
       </div>
