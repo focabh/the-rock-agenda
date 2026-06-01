@@ -101,20 +101,21 @@ export function AppShell({
 
   return (
     <div className="min-h-screen flex">
-      {/* Fundo geral do app (atrás de tudo, sem alterar o layout). Overlay escuro
-          pra manter cards/textos legíveis. */}
+      {/* Fundo geral do app (atrás do conteúdo, sem alterar o layout). Overlay
+          em gradiente: um pouco mais escuro no topo (leitura) e bem mais claro
+          embaixo, pra a imagem realmente aparecer. */}
       {appBackgroundUrl && (
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
+          className="pointer-events-none fixed inset-0 z-0 bg-cover bg-center"
           style={{
-            backgroundImage: `linear-gradient(rgba(9,9,11,0.86), rgba(9,9,11,0.86)), url(${appBackgroundUrl})`,
+            backgroundImage: `linear-gradient(rgba(9,9,11,0.72), rgba(9,9,11,0.4)), url(${appBackgroundUrl})`,
             backgroundAttachment: "fixed",
           }}
         />
       )}
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar print:hidden">
+      <aside className="relative z-10 hidden md:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar print:hidden">
         <SidebarContent
           username={username}
           role={role}
@@ -123,7 +124,7 @@ export function AppShell({
         />
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0">
         {/* Mobile topbar */}
         <header className="md:hidden flex items-center gap-3 border-b border-border px-4 py-3 bg-card print:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
