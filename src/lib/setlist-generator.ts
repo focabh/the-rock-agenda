@@ -43,6 +43,10 @@ export type GenOptions = {
   seed: number;
   /** Teto de energia (feedback CRM: casa pediu som mais baixo). */
   tetoEnergia?: number;
+  /** Campeãs em casas de perfil parecido (aprendizado pós-show) → sobem. */
+  preferIds?: string[];
+  /** Costumam cair em casas assim (aprendizado pós-show) → descem. */
+  penalizeIds?: string[];
 };
 
 export type GenResult = { orderedIds: string[]; totalSeg: number };
@@ -100,6 +104,9 @@ export function generateSetlist(songs: GenSong[], o: GenOptions): GenResult {
       if (wantAlt && !s.conhecida) score += 1.5;
       if (o.evitarVocalDificil && s.exigeVocal) score -= 3;
       if (o.evitarRepetir && o.avoidIds.includes(s.id)) score -= 4;
+      // Aprendizado pós-show (casas parecidas): campeãs sobem, "caiu" desce.
+      if (o.preferIds?.includes(s.id)) score += 6;
+      if (o.penalizeIds?.includes(s.id)) score -= 4;
       return { s, score };
     })
     .sort((a, b) => b.score - a.score);

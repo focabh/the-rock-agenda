@@ -313,6 +313,16 @@ export async function generateSetlistAction(
 
   const byId = new Map(allSongs.map((s) => [s.id, s]));
 
+  // Aprendizado pós-show: campeãs/evitar em casas de perfil parecido.
+  let preferIds: string[] = [];
+  let penalizeIds: string[] = [];
+  if (show) {
+    const { getVenueSongInsights } = await import("@/lib/show-learning");
+    const ins = await getVenueSongInsights(show.casaId);
+    preferIds = ins.campeas.map((c) => c.songId);
+    penalizeIds = ins.evitar.map((c) => c.songId);
+  }
+
   // Memória: aprende abre/fecha dos setlists já salvos + regras fixas da banda.
   const allItems = await db
     .select({
@@ -404,6 +414,8 @@ export async function generateSetlistAction(
       avoidIds,
       seed: opts.seed,
       tetoEnergia: crm.somBaixo ? 2 : undefined,
+      preferIds,
+      penalizeIds,
     };
     const result = generateSetlist(
       allSongs.map((s) => ({

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { CUE_EMOJI, CUE_LABEL, type StageCue } from "@/lib/stage-cues";
+import { Teleprompter } from "@/components/shared/teleprompter";
 import { refineStageCuesAction } from "@/app/(app)/shows/[id]/actions-setlist";
 
 type BookletSong = {
@@ -129,6 +130,8 @@ export function LyricsBooklet({
           <ArrowLeft className="size-4" />
           Voltar ao app
         </Button>
+
+        <Teleprompter songs={songs} />
 
         {cueList.length > 0 && (
           <Button
