@@ -11,6 +11,7 @@ import {
   Wallet,
   BookOpen,
   ChevronDown,
+  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -100,6 +101,16 @@ export function SidebarNav({
       <Link href="/" onClick={onNavigate} className={linkCls(pathname === "/")}>
         <LayoutDashboard className="size-5 shrink-0" />
         <span>Painel</span>
+      </Link>
+
+      {/* Modo Show — tela única do show (offline) */}
+      <Link
+        href="/modo-show"
+        onClick={onNavigate}
+        className={cn(linkCls(isActive("/modo-show")), "text-primary hover:text-primary")}
+      >
+        <Radio className="size-5 shrink-0" />
+        <span className="font-medium">Modo Show</span>
       </Link>
 
       {/* Grupos colapsáveis */}
