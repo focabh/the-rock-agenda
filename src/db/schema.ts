@@ -306,6 +306,9 @@ export const setlistItems = sqliteTable("setlist_items", {
   nota: text("nota"), // anotações entre músicas
   // Música que precisa de atenção especial antes do ensaio (marcador).
   prioridade: integer("prioridade", { mode: "boolean" }).notNull().default(false),
+  // "Emenda": esta música emenda direto na próxima (sem pausa). Mostra conector
+  // no setlist e alerta se houver mudança de tom/afinação no meio da emenda.
+  emenda: integer("emenda", { mode: "boolean" }).notNull().default(false),
 });
 
 // ---------------- SHOWS ----------------

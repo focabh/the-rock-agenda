@@ -629,7 +629,7 @@ export async function removeSetlistItemAction(showId: string, itemId: string) {
 export async function updateSetlistItemAction(
   showId: string,
   itemId: string,
-  patch: { tom?: string | null; duracaoSeg?: number | null; nota?: string | null }
+  patch: { tom?: string | null; duracaoSeg?: number | null; nota?: string | null; emenda?: boolean }
 ) {
   await requireAdmin();
   await db.update(setlistItems).set(patch).where(eq(setlistItems.id, itemId));

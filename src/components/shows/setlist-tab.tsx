@@ -20,6 +20,8 @@ import {
   Star,
   Wand2,
   Send,
+  Link2,
+  TriangleAlert,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
@@ -142,6 +144,7 @@ export function SetlistTab({
   const [editOpen, setEditOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [dropOverride, setDropOverride] = useState<Record<string, boolean>>({});
+  const [emendaOverride, setEmendaOverride] = useState<Record<string, boolean>>({});
 
   // ---- ações (mesmo componente p/ show e ensaio) ----
   const aAddSong = (slId: string, songId: string) =>
@@ -159,6 +162,15 @@ export function SetlistTab({
   const aDrop = (songId: string, dropada: boolean) => {
     setDropOverride((m) => ({ ...m, [songId]: dropada }));
     startTransition(() => setSongDropAction(songId, dropada));
+  };
+  // "Emenda": esta música emenda na próxima (propriedade do item do setlist).
+  const aEmenda = (itemId: string, emenda: boolean) => {
+    setEmendaOverride((m) => ({ ...m, [itemId]: emenda }));
+    startTransition(() =>
+      isEnsaio
+        ? updateEnsaioSetlistItemAction(rehearsalId!, itemId, { emenda })
+        : updateSetlistItemAction(showId!, itemId, { emenda })
+    );
   };
 
   useEffect(() => {
@@ -193,6 +205,24 @@ export function SetlistTab({
 
   const totalSeg = localItems.reduce((s, i) => s + (i.duracaoSeg ?? 0), 0);
   const prioridades = localItems.filter((i) => i.prioridade);
+
+  // Resolvedores (consideram as edições otimistas) + alerta de emenda.
+  const tomOf = (it: Item) => (it.tom ?? it.song.tom ?? "").trim();
+  const dropOf = (it: Item) => dropOverride[it.song.id] ?? it.song.dropada;
+  const emendaOf = (it: Item) => emendaOverride[it.id] ?? it.emenda;
+  /** Se a música emenda na próxima e há mudança de tom/afinação no meio. */
+  const warnFor = (idx: number): string | null => {
+    const it = localItems[idx];
+    const nx = localItems[idx + 1];
+    if (!nx || !emendaOf(it)) return null;
+    const probs: string[] = [];
+    if (dropOf(it) !== dropOf(nx)) probs.push(dropOf(it) ? "sai do DROP pra afinação normal" : "entra em DROP");
+    const a = tomOf(it);
+    const b = tomOf(nx);
+    if (a && b && a.toLowerCase() !== b.toLowerCase()) probs.push(`muda de tom (${a} → ${b})`);
+    if (probs.length === 0) return null;
+    return `Emenda: ${probs.join(" e ")} — vai precisar ajustar no meio.`;
+  };
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -463,6 +493,10 @@ export function SetlistTab({
                         onPrioridade={(v) => aPrioridade(item.id, v)}
                         dropada={dropOverride[item.song.id] ?? item.song.dropada}
                         onDrop={(v) => aDrop(item.song.id, v)}
+                        emenda={emendaOf(item)}
+                        onEmenda={(v) => aEmenda(item.id, v)}
+                        hasNext={idx < localItems.length - 1}
+                        warn={warnFor(idx)}
                       />
                     ))}
                   </ul>
@@ -586,6 +620,10 @@ function SortableSetlistItem({
   onPrioridade,
   dropada,
   onDrop,
+  emenda,
+  onEmenda,
+  hasNext,
+  warn,
 }: {
   item: Item;
   index: number;
@@ -597,6 +635,10 @@ function SortableSetlistItem({
   onPrioridade: (v: boolean) => void;
   dropada: boolean;
   onDrop: (v: boolean) => void;
+  emenda: boolean;
+  onEmenda: (v: boolean) => void;
+  hasNext: boolean;
+  warn: string | null;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: !canEdit });
   const [, startTransition] = useTransition();
@@ -658,6 +700,29 @@ function SortableSetlistItem({
           DROP
         </button>
       )}
+
+      {/* Alerta de emenda (tom/afinação mudam no meio) */}
+      {warn && (
+        <span className="inline-flex shrink-0 items-center text-amber-400" title={warn} aria-label={warn}>
+          <TriangleAlert className="size-4" />
+        </span>
+      )}
+      {/* Emenda na próxima música */}
+      {hasNext && (canEdit || emenda) && (
+        <button
+          type="button"
+          onClick={() => canEdit && startTransition(() => onEmenda(!emenda))}
+          disabled={!canEdit}
+          title={emenda ? "Emenda na próxima — toque pra desmarcar" : "Emendar na próxima música (sem pausa)"}
+          className={cn(
+            "inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors",
+            emenda ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-primary"
+          )}
+        >
+          <Link2 className="size-4" />
+        </button>
+      )}
+
       {dur > 0 && (
         <span className="hidden shrink-0 font-mono text-xs tabular-nums text-muted-foreground sm:inline">{fmtMMSS(dur)}</span>
       )}
