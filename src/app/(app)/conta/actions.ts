@@ -186,6 +186,30 @@ export async function setBrandAction(
   return { ok: true };
 }
 
+/** Salva as listas do Spotify pré-configuradas (repertório, setlist, ensaio). */
+export async function setSpotifyListsAction(
+  repertorio: string,
+  setlist: string,
+  ensaio: string
+): Promise<{ ok: boolean }> {
+  await requireAdmin();
+  const norm = (s: string) => {
+    const t = s.trim().slice(0, 300);
+    return t || null;
+  };
+  const patch = {
+    spotifyListRepertorio: norm(repertorio),
+    spotifyListSetlist: norm(setlist),
+    spotifyListEnsaio: norm(ensaio),
+  };
+  const [row] = await db.select().from(appSettings).limit(1);
+  if (row) await db.update(appSettings).set(patch).where(eq(appSettings.id, row.id));
+  else await db.insert(appSettings).values(patch);
+  revalidatePath("/", "layout");
+  revalidatePath("/repertorio");
+  return { ok: true };
+}
+
 const ALLOWED_BG = /^data:image\/(png|jpe?g|webp);base64,/;
 
 /** Salva o fundo do LOGIN (kind="login") ou o fundo GERAL do app (kind="app"). */

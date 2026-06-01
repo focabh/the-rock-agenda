@@ -244,6 +244,7 @@ export default async function ShowDetailPage({
                 canEdit={admin}
                 defaultDuracaoMin={show.duracaoMin ?? 60}
                 userPosicao={userPosicao}
+                spotifyDefaultUrl={brand.spotifyListSetlist}
               />
             </div>
           }

@@ -7,6 +7,7 @@ import { ProfileSettings } from "@/components/conta/profile-settings";
 import { MaterialPrefToggle } from "@/components/conta/material-pref-toggle";
 import { BrandSettings } from "@/components/conta/brand-settings";
 import { BackgroundCard } from "@/components/conta/background-card";
+import { SpotifyListsCard } from "@/components/conta/spotify-lists-card";
 import {
   adminMaterialPorPosicao,
   getAvailablePositions,
@@ -62,6 +63,13 @@ export default async function ContaPage() {
             initialName={brand.bandName ?? ""}
             initialGrupo={brand.whatsappGrupo ?? ""}
             initialGrupoMusicos={brand.whatsappGrupoMusicos ?? ""}
+          />
+        )}
+        {admin && (
+          <SpotifyListsCard
+            repertorio={brand.spotifyListRepertorio ?? ""}
+            setlist={brand.spotifyListSetlist ?? ""}
+            ensaio={brand.spotifyListEnsaio ?? ""}
           />
         )}
         {admin && <LogoUploader currentLogo={logo} />}

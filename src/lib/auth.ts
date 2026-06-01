@@ -165,6 +165,9 @@ export async function getBrand(): Promise<{
   bioTexto: string | null;
   whatsappGrupo: string | null;
   whatsappGrupoMusicos: string | null;
+  spotifyListRepertorio: string | null;
+  spotifyListSetlist: string | null;
+  spotifyListEnsaio: string | null;
 }> {
   try {
     const [s] = await db
@@ -176,6 +179,9 @@ export async function getBrand(): Promise<{
         bioTexto: appSettings.bioTexto,
         whatsappGrupo: appSettings.whatsappGrupo,
         whatsappGrupoMusicos: appSettings.whatsappGrupoMusicos,
+        spotifyListRepertorio: appSettings.spotifyListRepertorio,
+        spotifyListSetlist: appSettings.spotifyListSetlist,
+        spotifyListEnsaio: appSettings.spotifyListEnsaio,
       })
       .from(appSettings)
       .limit(1);
@@ -187,9 +193,12 @@ export async function getBrand(): Promise<{
       bioTexto: s?.bioTexto ?? null,
       whatsappGrupo: s?.whatsappGrupo ?? null,
       whatsappGrupoMusicos: s?.whatsappGrupoMusicos ?? null,
+      spotifyListRepertorio: s?.spotifyListRepertorio ?? null,
+      spotifyListSetlist: s?.spotifyListSetlist ?? null,
+      spotifyListEnsaio: s?.spotifyListEnsaio ?? null,
     };
   } catch {
-    return { logoUrl: null, backgroundUrl: null, appBackgroundUrl: null, bandName: null, bioTexto: null, whatsappGrupo: null, whatsappGrupoMusicos: null };
+    return { logoUrl: null, backgroundUrl: null, appBackgroundUrl: null, bandName: null, bioTexto: null, whatsappGrupo: null, whatsappGrupoMusicos: null, spotifyListRepertorio: null, spotifyListSetlist: null, spotifyListEnsaio: null };
   }
 }
 

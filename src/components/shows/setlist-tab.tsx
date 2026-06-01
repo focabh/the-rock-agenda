@@ -116,6 +116,7 @@ export function SetlistTab({
   groupLink = null,
   importarDoShow = null,
   simular = null,
+  spotifyDefaultUrl = null,
 }: {
   showId?: string;
   rehearsalId?: string;
@@ -128,6 +129,7 @@ export function SetlistTab({
   groupLink?: string | null;
   importarDoShow?: { showId: string; label: string } | null;
   simular?: { shows: { id: string; label: string }[]; defaultShowId: string } | null;
+  spotifyDefaultUrl?: string | null;
 }) {
   const isEnsaio = !!rehearsalId;
   const play = materialForPosicao(userPosicao).play;
@@ -370,6 +372,7 @@ export function SetlistTab({
                 <SpotifyImportDialog
                   mode="setlist"
                   setlistId={selected.id}
+                  defaultUrl={spotifyDefaultUrl}
                   trigger={
                     <Button variant="outline" size="sm">
                       <Download className="size-4" /> Spotify
@@ -399,6 +402,7 @@ export function SetlistTab({
                   mode="setlist"
                   showId={showId!}
                   setlistId={selected.id}
+                  defaultUrl={spotifyDefaultUrl}
                   trigger={
                     <Button variant="outline" size="sm">
                       <Download className="size-4" /> Spotify

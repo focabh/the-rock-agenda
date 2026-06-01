@@ -81,6 +81,10 @@ export const appSettings = sqliteTable("app_settings", {
   bioTexto: text("bio_texto"), // bio institucional (manual ou IA) — cache definitivo
   whatsappGrupo: text("whatsapp_grupo"), // grupo GERAL (shows/avisos) — manager participa
   whatsappGrupoMusicos: text("whatsapp_grupo_musicos"), // grupo dos MÚSICOS (ensaio/repertório)
+  // Listas do Spotify pré-configuradas (URLs) — pré-preenchem o import por contexto.
+  spotifyListRepertorio: text("spotify_list_repertorio"),
+  spotifyListSetlist: text("spotify_list_setlist"), // shows
+  spotifyListEnsaio: text("spotify_list_ensaio"),
   // Quando true, o ADMIN também vê só o material da sua posição (ex.: baterista
   // não vê letras). Quando false (padrão), o admin sempre vê letras p/ gerenciar.
   adminMaterialPorPosicao: integer("admin_material_por_posicao", {

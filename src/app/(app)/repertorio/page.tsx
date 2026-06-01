@@ -8,7 +8,7 @@ import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { members, songMemberReadiness, songs } from "@/db/schema";
-import { adminMaterialPorPosicao, getCurrentUser, isAdmin } from "@/lib/auth";
+import { adminMaterialPorPosicao, getBrand, getCurrentUser, isAdmin } from "@/lib/auth";
 import { BAND } from "@/lib/band";
 import { isSpotifyConnected } from "@/lib/spotify";
 import { asc, desc, eq } from "drizzle-orm";
@@ -27,6 +27,7 @@ export default async function RepertorioPage() {
     .orderBy(desc(songs.favorita), asc(songs.titulo));
   // Por padrão o admin sempre vê letras; se ligou a preferência, segue a posição.
   const matPorPosicao = admin ? await adminMaterialPorPosicao() : false;
+  const brand = admin ? await getBrand() : null;
   // Nudge: músicas sem metadados deixam o gerador de setlist "cego".
   const semMeta = lista.filter(
     (s) => s.status !== "aposentada" && s.energia == null
@@ -78,6 +79,7 @@ export default async function RepertorioPage() {
                 />
                 <SpotifyImportDialog
                   mode="repertorio"
+                  defaultUrl={brand?.spotifyListRepertorio}
                   trigger={
                     <Button variant="outline">
                       <Download className="size-4" />

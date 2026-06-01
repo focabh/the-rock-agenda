@@ -231,6 +231,7 @@ export default async function EnsaioDetailPage({
           groupLink={grupoEnsaio}
           importarDoShow={importarDoShow}
           simular={simular}
+          spotifyDefaultUrl={brand.spotifyListEnsaio}
         />
       </div>
     </div>

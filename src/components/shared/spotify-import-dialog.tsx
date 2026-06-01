@@ -37,17 +37,18 @@ import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 type Props =
-  | { mode: "repertorio"; trigger: React.ReactNode }
+  | { mode: "repertorio"; trigger: React.ReactNode; defaultUrl?: string | null }
   | {
       mode: "setlist";
       showId?: string; // ignorado pelo server (revalida pelo dono do setlist); ensaio passa vazio
       setlistId: string;
       trigger: React.ReactNode;
+      defaultUrl?: string | null;
     };
 
 export function SpotifyImportDialog(props: Props) {
   const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState<string>(BAND.spotifyPlaylistUrl as string);
+  const [url, setUrl] = useState<string>(props.defaultUrl?.trim() || (BAND.spotifyPlaylistUrl as string));
   const [text, setText] = useState("");
   const [replace, setReplace] = useState(false);
   const [pending, startTransition] = useTransition();
