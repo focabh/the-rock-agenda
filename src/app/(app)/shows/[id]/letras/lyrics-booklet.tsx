@@ -93,17 +93,27 @@ export function LyricsBooklet({
     });
   }
 
+  const n = songs.length;
+  const cueSlotLabel = (slot: number) =>
+    slot === 0 ? "Antes de começar" : slot >= n ? "No fim do show" : `Depois da ${slot}ª música`;
+
+  // Bloco bem destacado, entre as músicas (e também impresso).
   const CueBlock = ({ list }: { list: StageCue[] }) => (
-    <div className="my-4 space-y-1.5 rounded-md border-l-4 border-amber-500 bg-amber-50 px-3 py-2 print:bg-amber-50">
-      {list.map((c, i) => (
-        <p key={i} className="text-sm leading-snug text-amber-900">
-          <span className="mr-1">{CUE_EMOJI[c.tipo]}</span>
-          <span className="font-bold uppercase tracking-wide text-amber-700">
-            {CUE_LABEL[c.tipo]}:
-          </span>{" "}
-          {c.fala}
-        </p>
-      ))}
+    <div className="my-5 overflow-hidden rounded-lg border-2 border-amber-500 bg-amber-100 print:bg-amber-100">
+      <div className="flex items-center gap-1.5 bg-amber-500 px-3 py-1.5 text-xs font-extrabold uppercase tracking-widest text-white">
+        <Mic className="size-3.5" /> Momento de falar
+      </div>
+      <div className="space-y-2 px-4 py-3">
+        {list.map((c, i) => (
+          <p key={i} className="text-base leading-snug text-amber-950">
+            <span className="mr-1.5 text-lg">{CUE_EMOJI[c.tipo]}</span>
+            <span className="font-extrabold uppercase tracking-wide text-amber-800">
+              {CUE_LABEL[c.tipo]}:
+            </span>{" "}
+            {c.fala}
+          </p>
+        ))}
+      </div>
     </div>
   );
 
@@ -112,13 +122,12 @@ export function LyricsBooklet({
       {/* Toolbar — não imprime */}
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white/95 px-4 py-2.5 backdrop-blur print:hidden">
         <Button
-          variant="ghost"
           size="sm"
-          className="text-gray-700 hover:bg-gray-100"
+          className="bg-zinc-900 text-white hover:bg-zinc-800"
           render={<Link href={backHref} />}
         >
           <ArrowLeft className="size-4" />
-          Voltar
+          Voltar ao app
         </Button>
 
         {cueList.length > 0 && (
@@ -202,6 +211,32 @@ export function LyricsBooklet({
             {songs.length === 1 ? "música" : "músicas"}
           </p>
         </header>
+
+        {/* Resumo do roteiro — aparece de cara, sem precisar rolar. */}
+        {showCues && cueList.length > 0 && (
+          <div className="mb-8 overflow-hidden rounded-lg border-2 border-amber-500 print:break-inside-avoid">
+            <div className="flex items-center gap-2 bg-amber-500 px-4 py-2 font-extrabold uppercase tracking-wide text-white">
+              <Mic className="size-4" /> Roteiro de palco — o que falar e quando
+            </div>
+            <ol className="divide-y divide-amber-200 bg-amber-50">
+              {cueList.map((c, i) => (
+                <li key={i} className="flex gap-2 px-4 py-2 text-sm text-amber-950">
+                  <span className="text-base">{CUE_EMOJI[c.tipo]}</span>
+                  <span>
+                    <span className="font-bold">{cueSlotLabel(c.slot)}</span>
+                    {" — "}
+                    <span className="font-semibold uppercase tracking-wide text-amber-800">{CUE_LABEL[c.tipo]}</span>
+                    {": "}
+                    {c.fala}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="bg-amber-50 px-4 pb-2 text-xs text-amber-700">
+              Estes lembretes também aparecem em destaque entre as músicas, no ponto certo. Toque em “Roteiro” na barra pra ocultar.
+            </p>
+          </div>
+        )}
 
         {songs.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-16 text-gray-500">
