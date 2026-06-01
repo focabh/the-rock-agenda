@@ -12,12 +12,15 @@ import { setBrandAction } from "@/app/(app)/conta/actions";
 export function BrandSettings({
   initialName,
   initialGrupo,
+  initialGrupoMusicos,
 }: {
   initialName: string;
   initialGrupo: string;
+  initialGrupoMusicos: string;
 }) {
   const [name, setName] = useState(initialName);
   const [grupo, setGrupo] = useState(initialGrupo);
+  const [grupoMusicos, setGrupoMusicos] = useState(initialGrupoMusicos);
   const [pending, start] = useTransition();
 
   return (
@@ -35,11 +38,18 @@ export function BrandSettings({
           <Input id="bandName" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: The Rock" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="whatsappGrupo">Link do grupo da banda no WhatsApp</Label>
+          <Label htmlFor="whatsappGrupo">Grupo da banda — shows e avisos gerais</Label>
           <Input id="whatsappGrupo" value={grupo} onChange={(e) => setGrupo(e.target.value)} placeholder="https://chat.whatsapp.com/…" />
           <p className="text-xs text-muted-foreground">
-            No WhatsApp: grupo → Convidar via link → Copiar. Cole aqui uma vez. Os
-            avisos abrem o grupo já (você cola a mensagem e envia).
+            Grupo com a manager. Recebe avisos de show, agenda e recebimento.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="whatsappGrupoMusicos">Grupo dos músicos — ensaio e repertório (opcional)</Label>
+          <Input id="whatsappGrupoMusicos" value={grupoMusicos} onChange={(e) => setGrupoMusicos(e.target.value)} placeholder="https://chat.whatsapp.com/…" />
+          <p className="text-xs text-muted-foreground">
+            Se preenchido, os lembretes de ensaio/repertório vão pra este grupo
+            (sem a manager). Vazio → tudo cai no grupo da banda.
           </p>
         </div>
         <div className="flex justify-end">
@@ -47,7 +57,7 @@ export function BrandSettings({
             disabled={pending}
             onClick={() =>
               start(async () => {
-                const r = await setBrandAction(name, grupo);
+                const r = await setBrandAction(name, grupo, grupoMusicos);
                 if (r.ok) toast.success("Salvo.");
                 else toast.error("Não foi possível salvar.");
               })

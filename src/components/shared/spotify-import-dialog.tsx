@@ -40,7 +40,7 @@ type Props =
   | { mode: "repertorio"; trigger: React.ReactNode }
   | {
       mode: "setlist";
-      showId: string;
+      showId?: string; // ignorado pelo server (revalida pelo dono do setlist); ensaio passa vazio
       setlistId: string;
       trigger: React.ReactNode;
     };
@@ -84,7 +84,7 @@ export function SpotifyImportDialog(props: Props) {
         props.mode === "repertorio"
           ? await importPastedToRepertorioAction(text)
           : await importPastedToSetlistAction(
-              props.showId,
+              props.showId ?? "",
               props.setlistId,
               text,
               replace
@@ -103,7 +103,7 @@ export function SpotifyImportDialog(props: Props) {
         props.mode === "repertorio"
           ? await importFromSpotifyAction(url)
           : await importPlaylistToSetlistAction(
-              props.showId,
+              props.showId ?? "",
               props.setlistId,
               url,
               replace

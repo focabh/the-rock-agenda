@@ -135,16 +135,18 @@ export async function removeLogoAction() {
 /** Define o nome da banda e o link do grupo no WhatsApp. (Os fundos têm ação própria.) */
 export async function setBrandAction(
   bandName: string,
-  whatsappGrupo = ""
+  whatsappGrupo = "",
+  whatsappGrupoMusicos = ""
 ): Promise<{ ok: boolean }> {
   await requireAdmin();
   const name = bandName.trim().slice(0, 80) || null;
   const grupo = whatsappGrupo.trim().slice(0, 300) || null;
+  const grupoMusicos = whatsappGrupoMusicos.trim().slice(0, 300) || null;
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) {
-    await db.update(appSettings).set({ bandName: name, whatsappGrupo: grupo }).where(eq(appSettings.id, row.id));
+    await db.update(appSettings).set({ bandName: name, whatsappGrupo: grupo, whatsappGrupoMusicos: grupoMusicos }).where(eq(appSettings.id, row.id));
   } else {
-    await db.insert(appSettings).values({ bandName: name, whatsappGrupo: grupo });
+    await db.insert(appSettings).values({ bandName: name, whatsappGrupo: grupo, whatsappGrupoMusicos: grupoMusicos });
   }
   revalidatePath("/", "layout");
   return { ok: true };

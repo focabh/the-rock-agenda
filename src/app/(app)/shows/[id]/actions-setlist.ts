@@ -416,6 +416,16 @@ export async function generateSetlistAction(
 
 // ---------------- SETLISTS (vários por show) ----------------
 
+/** Revalida a página do dono do setlist (show OU ensaio). */
+async function revalidarDonoSetlist(setlistId: string) {
+  const [owner] = await db
+    .select({ showId: setlists.showId, rehearsalId: setlists.rehearsalId })
+    .from(setlists)
+    .where(eq(setlists.id, setlistId));
+  if (owner?.showId) revalidatePath(`/shows/${owner.showId}`);
+  if (owner?.rehearsalId) revalidatePath(`/ensaios/${owner.rehearsalId}`);
+}
+
 export async function createSetlistAction(showId: string, nome: string) {
   await requireAdmin();
   const [created] = await db
@@ -655,7 +665,7 @@ export async function importPlaylistToSetlistAction(
       added++;
     }
 
-    revalidatePath(`/shows/${showId}`);
+    await revalidarDonoSetlist(setlistId);
     revalidatePath("/repertorio");
     return {
       ok: true,
@@ -744,7 +754,7 @@ export async function importPastedToSetlistAction(
     added++;
   }
 
-  revalidatePath(`/shows/${showId}`);
+  await revalidarDonoSetlist(setlistId);
   revalidatePath("/repertorio");
   return { ok: true, added, duplicados, songsCriadas, total: parsed.length };
 }

@@ -24,6 +24,7 @@ import {
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
 import { SetlistCritiqueDialog } from "@/components/shows/setlist-critique-dialog";
+import { EnsaioGenerateDialog } from "@/components/ensaios/ensaio-generate-dialog";
 import {
   DndContext,
   KeyboardSensor,
@@ -332,7 +333,10 @@ export function SetlistTab({
               )}
             </h3>
             <div className="flex flex-wrap gap-2">
-              {/* Ensaio: importar do show + reorganizar (grátis) + lembrete */}
+              {/* Ensaio: gerar + importar do show + reorganizar (grátis) + lembrete */}
+              {isEnsaio && canEdit && selected && (
+                <EnsaioGenerateDialog rehearsalId={rehearsalId!} setlistId={selected.id} hasItems={localItems.length > 0} />
+              )}
               {isEnsaio && canEdit && importarDoShow && (
                 <Button variant="outline" size="sm" onClick={handleImportarDoShow} disabled={mgrPending} title={`Copiar o setlist do show: ${importarDoShow.label}`}>
                   <Download className="size-4" /> Importar do show
@@ -347,6 +351,30 @@ export function SetlistTab({
                 <Button variant="outline" size="sm" onClick={enviarLembrete} title="Mandar lembrete das músicas prioritárias no WhatsApp">
                   <Send className="size-4" /> Lembrete
                 </Button>
+              )}
+              {isEnsaio && selected && localItems.length > 0 && (
+                <SetlistCritiqueDialog rehearsalId={rehearsalId} setlistId={selected.id} canEdit={canEdit} />
+              )}
+              {isEnsaio && canEdit && selected && (
+                <SpotifyImportDialog
+                  mode="setlist"
+                  setlistId={selected.id}
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      <Download className="size-4" /> Spotify
+                    </Button>
+                  }
+                />
+              )}
+              {isEnsaio && selected && (
+                <>
+                  <Button variant="outline" size="sm" render={<Link href={`/ensaios/${rehearsalId}/letras?sl=${selected.id}`} target="_blank" />} title="Letras na ordem — exportar PDF/Word">
+                    <FileText className="size-4" /> Letras
+                  </Button>
+                  <Button variant="outline" size="sm" render={<Link href={`/ensaios/${rehearsalId}/imprimir-setlist?sl=${selected.id}`} target="_blank" />}>
+                    <Printer className="size-4" /> Imprimir
+                  </Button>
+                </>
               )}
               {/* Show: geração/crítica/spotify/letras/imprimir */}
               {!isEnsaio && canEdit && selected && (

@@ -36,8 +36,8 @@ export default async function LetrasPage({
 
   return (
     <LyricsBooklet
-      showId={id}
-      setlistId={setlist?.id ?? null}
+      backHref={`/shows/${id}`}
+      docxHref={`/shows/${id}/letras/docx${setlist?.id ? `?sl=${setlist.id}` : ""}`}
       titulo={show.casa.nome}
       subtitulo={`${formatDataBR(show.data, true)}${
         setlist?.nome ? ` · ${setlist.nome}` : ""

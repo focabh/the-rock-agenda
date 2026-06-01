@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { setlists, setlistItems, songs } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { arrangeSetlist } from "@/lib/setlist-arrange";
+import { generateSetlist } from "@/lib/setlist-generator";
 
 // Setlist de ENSAIO: mesma estrutura do show, mas ligado a um rehearsal e sem
 // duração-alvo (ensaio não tem tempo a cumprir).
@@ -101,6 +102,51 @@ export async function importarSetlistDeShowAction(
   }
   rev(rehearsalId);
   return { ok: true, setlists: nSets, musicas: nMus };
+}
+
+/** Gera um setlist de ensaio (simplificado, sem casa): escolhe/ordena por
+ *  energia até um alvo de tempo. Grátis (heurística, sem IA). Substitui o set. */
+export async function gerarEnsaioSetlistAction(
+  rehearsalId: string,
+  setlistId: string,
+  opts: { targetMin: number; priConhecidas: boolean; priPesadas: boolean; levesNoComeco: boolean }
+): Promise<{ ok: boolean; count: number }> {
+  await requireAdmin();
+  const all = await db.select().from(songs);
+  const gen = generateSetlist(
+    all.map((s) => ({
+      id: s.id,
+      status: s.status,
+      duracaoSeg: s.duracaoSeg,
+      energia: s.energia,
+      conhecida: s.conhecida,
+      exigeVocal: s.exigeVocal,
+      momento: s.momento,
+      finalBoss: s.finalBoss,
+      artista: s.artista,
+      dropada: s.dropada,
+      popularidade: s.popularidade,
+    })),
+    {
+      targetSeg: Math.max(5, Math.min(600, opts.targetMin)) * 60,
+      venueTags: [],
+      priConhecidas: opts.priConhecidas,
+      priPesadas: opts.priPesadas,
+      priAlternativas: false,
+      levesNoComeco: opts.levesNoComeco,
+      evitarVocalDificil: false,
+      ordem: "equilibrada",
+      evitarRepetir: false,
+      avoidIds: [],
+      seed: (Date.now() % 2147483647) || 1,
+    }
+  );
+  await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
+  for (let i = 0; i < gen.orderedIds.length; i++) {
+    await db.insert(setlistItems).values({ setlistId, songId: gen.orderedIds[i], ordem: i });
+  }
+  rev(rehearsalId);
+  return { ok: true, count: gen.orderedIds.length };
 }
 
 /** Reorganiza as músicas atuais numa curva de energia (grátis, sem IA). */

@@ -57,6 +57,8 @@ export default async function EnsaioDetailPage({
   ]);
   const admin = isAdmin(user);
   const brand = await getBrand();
+  // Ensaio/repertório → grupo dos músicos (se existir); senão, o grupo geral.
+  const grupoEnsaio = brand.whatsappGrupoMusicos || brand.whatsappGrupo;
 
   // Show vinculado (opcional) → permite importar o setlist dele pro ensaio.
   let importarDoShow: { showId: string; label: string } | null = null;
@@ -180,7 +182,7 @@ export default async function EnsaioDetailPage({
             local: r.local || r.endereco || "",
             path: `/ensaios/${r.id}`,
           }}
-          groupLink={brand.whatsappGrupo}
+          groupLink={grupoEnsaio}
         />
       </div>
 
@@ -193,7 +195,7 @@ export default async function EnsaioDetailPage({
           canEdit={admin}
           userPosicao={user?.posicao ?? user?.member?.funcao ?? null}
           ensaioInfo={{ dataLabel: formatDataBR(r.data), foco: r.foco }}
-          groupLink={brand.whatsappGrupo}
+          groupLink={grupoEnsaio}
           importarDoShow={importarDoShow}
         />
       </div>

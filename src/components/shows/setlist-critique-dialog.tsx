@@ -24,6 +24,7 @@ import {
   reorganizeSetlistAction,
   type CritiqueResult,
 } from "@/app/(app)/shows/[id]/actions-setlist";
+import { reorganizeEnsaioSetlistAction } from "@/app/(app)/ensaios/[id]/actions-setlist";
 
 const VEREDITO = {
   forte: { label: "Curva forte", cls: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30" },
@@ -33,10 +34,12 @@ const VEREDITO = {
 
 export function SetlistCritiqueDialog({
   showId,
+  rehearsalId,
   setlistId,
   canEdit = false,
 }: {
-  showId: string;
+  showId?: string;
+  rehearsalId?: string;
   setlistId: string;
   canEdit?: boolean;
 }) {
@@ -58,7 +61,9 @@ export function SetlistCritiqueDialog({
 
   function aplicar() {
     startApply(async () => {
-      const r = await reorganizeSetlistAction(showId, setlistId);
+      const r = rehearsalId
+        ? await reorganizeEnsaioSetlistAction(rehearsalId, setlistId)
+        : await reorganizeSetlistAction(showId!, setlistId);
       if (r.ok) {
         toast.success("Setlist reorganizado na curva de energia. 🤘");
         setOpen(false);

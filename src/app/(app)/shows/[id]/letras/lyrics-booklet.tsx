@@ -23,14 +23,14 @@ type BookletSong = {
 const SIZES = ["text-base", "text-lg", "text-xl", "text-2xl", "text-3xl"];
 
 export function LyricsBooklet({
-  showId,
-  setlistId,
+  backHref,
+  docxHref,
   titulo,
   subtitulo,
   songs,
 }: {
-  showId: string;
-  setlistId: string | null;
+  backHref: string;
+  docxHref: string;
   titulo: string;
   subtitulo: string;
   songs: BookletSong[];
@@ -45,7 +45,7 @@ export function LyricsBooklet({
           variant="ghost"
           size="sm"
           className="text-gray-700 hover:bg-gray-100"
-          render={<Link href={`/shows/${showId}`} />}
+          render={<Link href={backHref} />}
         >
           <ArrowLeft className="size-4" />
           Voltar
@@ -81,13 +81,7 @@ export function LyricsBooklet({
           variant="outline"
           size="sm"
           className="border-gray-300 text-gray-700 hover:bg-gray-100"
-          render={
-            <a
-              href={`/shows/${showId}/letras/docx${
-                setlistId ? `?sl=${setlistId}` : ""
-              }`}
-            />
-          }
+          render={<a href={docxHref} />}
         >
           <FileDown className="size-4" />
           Word
