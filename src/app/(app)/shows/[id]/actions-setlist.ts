@@ -166,6 +166,65 @@ export async function critiqueSetlistAction(
   }
 }
 
+export type StageCuesResult =
+  | { ok: true; cues: import("@/lib/stage-cues").StageCue[] }
+  | { ok: false; needsKey?: boolean; error: string };
+
+/** Refina os momentos de fala (roteiro de palco) com IA (Haiku). Opcional e sob
+ *  confirmação de custo — o roteiro grátis (heurística) já roda sem isto. */
+export async function refineStageCuesAction(
+  setlistId: string
+): Promise<StageCuesResult> {
+  await requireCurrentUser();
+  const [sl] = await db.select().from(setlists).where(eq(setlists.id, setlistId)).limit(1);
+  if (!sl) return { ok: false, error: "Setlist não encontrado." };
+
+  const items = await db
+    .select({
+      titulo: songs.titulo,
+      artista: songs.artista,
+      energia: songs.energia,
+      momento: songs.momento,
+      lyrics: songs.lyrics,
+    })
+    .from(setlistItems)
+    .innerJoin(songs, eq(songs.id, setlistItems.songId))
+    .where(eq(setlistItems.setlistId, setlistId))
+    .orderBy(asc(setlistItems.ordem));
+  if (items.length === 0) return { ok: false, error: "Setlist vazio." };
+
+  let casaNome: string | null = null;
+  if (sl.showId) {
+    const show = await db.query.shows.findFirst({
+      where: eq(shows.id, sl.showId),
+      with: { casa: { columns: { nome: true } } },
+    });
+    casaNome = show?.casa?.nome ?? null;
+  }
+  const { getBrand } = await import("@/lib/auth");
+  const brand = await getBrand();
+
+  try {
+    const { refineStageCuesAI } = await import("@/lib/setlist-ai");
+    const cues = await refineStageCuesAI({
+      songs: items.map((r) => ({
+        titulo: r.titulo,
+        artista: r.artista,
+        energia: r.energia,
+        momento: r.momento,
+        temLetra: !!r.lyrics?.trim(),
+      })),
+      casaNome,
+      bandName: brand.bandName,
+      redes: null,
+    });
+    return { ok: true, cues };
+  } catch (e) {
+    if (e instanceof NoApiKeyError) return { ok: false, needsKey: true, error: e.message };
+    return { ok: false, error: e instanceof Error ? e.message : "Falha." };
+  }
+}
+
 /** Gera (substitui) o setlist com base na casa + duração + opções. Sugestão. */
 export async function generateSetlistAction(
   showId: string,

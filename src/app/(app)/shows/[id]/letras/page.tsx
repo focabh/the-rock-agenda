@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { shows } from "@/db/schema";
 import { formatDataBR } from "@/lib/formatters";
+import { computeStageCues } from "@/lib/stage-cues";
+import { getCurrentUser, isAdmin, getBrand } from "@/lib/auth";
 import { LyricsBooklet } from "./lyrics-booklet";
 
 export default async function LetrasPage({
@@ -34,6 +36,12 @@ export default async function LetrasPage({
     lyrics: it.song.lyrics?.trim() || null,
   }));
 
+  const [user, brand] = await Promise.all([getCurrentUser(), getBrand()]);
+  const cues = computeStageCues(
+    items.map((it) => ({ energia: it.song.energia, momento: it.song.momento })),
+    { casaNome: show.casa.nome, bandName: brand.bandName }
+  );
+
   return (
     <LyricsBooklet
       backHref={`/shows/${id}`}
@@ -43,6 +51,9 @@ export default async function LetrasPage({
         setlist?.nome ? ` · ${setlist.nome}` : ""
       }`}
       songs={songs}
+      cues={cues}
+      setlistId={setlist?.id}
+      canRefine={isAdmin(user)}
     />
   );
 }

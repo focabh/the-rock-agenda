@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { rehearsals } from "@/db/schema";
 import { formatDataBR } from "@/lib/formatters";
+import { computeStageCues } from "@/lib/stage-cues";
+import { getCurrentUser, isAdmin, getBrand } from "@/lib/auth";
 import { LyricsBooklet } from "@/app/(app)/shows/[id]/letras/lyrics-booklet";
 
 export default async function EnsaioLetrasPage({
@@ -30,6 +32,12 @@ export default async function EnsaioLetrasPage({
     lyrics: it.song.lyrics?.trim() || null,
   }));
 
+  const [user, brand] = await Promise.all([getCurrentUser(), getBrand()]);
+  const cues = computeStageCues(
+    items.map((it) => ({ energia: it.song.energia, momento: it.song.momento })),
+    { bandName: brand.bandName }
+  );
+
   return (
     <LyricsBooklet
       backHref={`/ensaios/${id}`}
@@ -37,6 +45,9 @@ export default async function EnsaioLetrasPage({
       titulo={r.local || "Ensaio"}
       subtitulo={`${formatDataBR(r.data, true)}${setlist?.nome ? ` · ${setlist.nome}` : ""}`}
       songs={songs}
+      cues={cues}
+      setlistId={setlist?.id}
+      canRefine={isAdmin(user)}
     />
   );
 }

@@ -4,6 +4,7 @@
 // no gerador heurístico). Não usa web (tudo vem no prompt) → barato e rápido.
 
 import { NoApiKeyError } from "@/lib/venue-ai";
+import type { StageCue, StageCueType } from "@/lib/stage-cues";
 
 const MODEL = "claude-haiku-4-5-20251001";
 
@@ -235,4 +236,86 @@ Se estiver bem montado, "alertas":[] e veredito "forte" ou "ok". Máx 6 alertas.
     ? parsed.alertas.filter((x) => typeof x === "string").slice(0, 6)
     : [];
   return { veredito, alertas };
+}
+
+// ---- Roteiro de palco por IA (opcional): refina os momentos de fala ----
+
+const CUE_TYPES: StageCueType[] = [
+  "publico",
+  "casa",
+  "banda",
+  "redes",
+  "saideira",
+  "ultima",
+  "presenca",
+];
+
+export async function refineStageCuesAI(input: {
+  songs: { titulo: string; artista: string; energia: number | null; momento: string; temLetra: boolean }[];
+  casaNome?: string | null;
+  bandName?: string | null;
+  redes?: string | null;
+}): Promise<StageCue[]> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new NoApiKeyError("IA não configurada.");
+
+  const n = input.songs.length;
+  const lista = input.songs.map((s, i) => ({
+    pos: i + 1,
+    titulo: s.titulo,
+    artista: s.artista,
+    energia: s.energia ?? 2,
+    momento: s.momento,
+  }));
+
+  const prompt = `Você é diretor de show. Olhando este setlist NA ORDEM, sugira os MOMENTOS DE FALA do vocalista entre as músicas, pra um show de bar/pub.
+
+BANDA: ${input.bandName || "The Rock"}.${input.casaNome ? ` CASA: ${input.casaNome}.` : ""}${input.redes ? ` REDES: ${input.redes}.` : ""}
+
+SETLIST (${n} músicas, na ordem):
+${JSON.stringify(lista)}
+
+Tipos de fala possíveis (use estes códigos): publico (cumprimentar/animar), casa (agradecer ao lugar), banda (apresentar integrantes), redes (chamar pra seguir — no MÁX 2 no show, sem exagero), saideira (avisar que tá acabando), ultima (anunciar a última música), presenca (agradecer a presença no fim).
+
+REGRAS:
+- "slot" = posição onde a fala entra: 0 = antes da 1ª música; ${n} = depois da última. Use a estrutura/energia: agradecer casa/público cedo, apresentar banda num respiro do meio, saideira perto do fim, "ultima" logo antes da última, "presenca" no fim (slot ${n}).
+- Cada fala curta (1 frase), em PT-BR, tom de palco, acionável (o que falar).
+- Não exagere nas redes (máx 2). Não repita tipos sem necessidade.
+
+Responda SOMENTE com JSON:
+{"cues":[{"slot":0,"tipo":"publico","fala":"..."}, ...]}`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!res.ok)
+    throw new Error(`Anthropic falhou (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+  const text = (data.content ?? [])
+    .filter((b) => b.type === "text" && b.text)
+    .map((b) => b.text as string)
+    .join("\n");
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("IA não devolveu JSON.");
+  const parsed = JSON.parse(m[0]) as { cues?: { slot?: number; tipo?: string; fala?: string }[] };
+  const cues = (parsed.cues ?? [])
+    .filter((c) => typeof c.fala === "string" && CUE_TYPES.includes(c.tipo as StageCueType))
+    .map((c) => ({
+      slot: Math.max(0, Math.min(n, Math.round(Number(c.slot) || 0))),
+      tipo: c.tipo as StageCueType,
+      fala: (c.fala as string).slice(0, 200),
+    }))
+    .sort((a, b) => a.slot - b.slot);
+  if (cues.length === 0) throw new Error("IA não devolveu momentos válidos.");
+  return cues;
 }
