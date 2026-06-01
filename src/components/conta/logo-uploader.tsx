@@ -5,7 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ImageUp, Trash2 } from "lucide-react";
 import { saveLogoAction, removeLogoAction } from "@/app/(app)/conta/actions";
+import { ImageCropper } from "@/components/shared/image-cropper";
 import { toast } from "sonner";
+
+function readRaw(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 
 const DEFAULT_LOGO = "/the-rock-logo.png";
 
@@ -51,6 +61,7 @@ export function LogoUploader({ currentLogo }: { currentLogo: string }) {
   const [, startTransition] = useTransition();
   const [preview, setPreview] = useState(currentLogo);
   const [dataUrl, setDataUrl] = useState("");
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   useEffect(() => {
     if (state?.success) toast.success("Logo atualizada.");
@@ -63,10 +74,19 @@ export function LogoUploader({ currentLogo }: { currentLogo: string }) {
       toast.error("Selecione uma imagem.");
       return;
     }
+    // SVG não dá pra recortar no canvas — usa direto (vetorial, leve).
+    if (file.type === "image/svg+xml") {
+      try {
+        const url = await resizeToDataUrl(file);
+        setDataUrl(url);
+        setPreview(url);
+      } catch {
+        toast.error("Não consegui ler a imagem.");
+      }
+      return;
+    }
     try {
-      const url = await resizeToDataUrl(file);
-      setDataUrl(url);
-      setPreview(url);
+      setCropSrc(await readRaw(file)); // abre o enquadramento
     } catch {
       toast.error("Não consegui ler a imagem.");
     }
@@ -97,7 +117,10 @@ export function LogoUploader({ currentLogo }: { currentLogo: string }) {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => onFile(e.target.files?.[0])}
+                onChange={(e) => {
+                  onFile(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
               />
             </label>
             <Button type="submit" disabled={pending || !dataUrl}>
@@ -124,6 +147,21 @@ export function LogoUploader({ currentLogo }: { currentLogo: string }) {
             <Trash2 className="size-4" /> Voltar para a logo padrão
           </Button>
         )}
+
+        <ImageCropper
+          src={cropSrc}
+          aspect={1}
+          cover={false}
+          outputSize={400}
+          format="png"
+          title="Enquadrar logo"
+          onCancel={() => setCropSrc(null)}
+          onConfirm={(url) => {
+            setDataUrl(url);
+            setPreview(url);
+            setCropSrc(null);
+          }}
+        />
       </CardContent>
     </Card>
   );

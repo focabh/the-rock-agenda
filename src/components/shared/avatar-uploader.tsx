@@ -3,9 +3,18 @@
 import { useRef, useState } from "react";
 import { Camera, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fileToAvatarDataUrl } from "@/lib/upload-helpers";
 import { MemberAvatar } from "@/components/shared/member-avatar";
+import { ImageCropper } from "@/components/shared/image-cropper";
 import { toast } from "sonner";
+
+function readRaw(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 
 /**
  * Upload de foto do músico, integrado a um <form>.
@@ -26,20 +35,19 @@ export function AvatarUploader({
   const [removed, setRemoved] = useState(false);
   const [data, setData] = useState<string>(""); // o que vai no form se trocou
   const [busy, setBusy] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
     try {
-      const url = await fileToAvatarDataUrl(file);
-      setPreview(url);
-      setData(url);
-      setRemoved(false);
+      setCropSrc(await readRaw(file)); // abre o enquadramento
     } catch {
       toast.error("Não consegui ler a imagem.");
     } finally {
       setBusy(false);
+      if (fileRef.current) fileRef.current.value = ""; // permite repicar o mesmo arquivo
     }
   }
 
@@ -94,6 +102,22 @@ export function AvatarUploader({
       />
       <input type="hidden" name="avatar" value={data} />
       <input type="hidden" name="removerAvatar" value={removed ? "1" : ""} />
+
+      <ImageCropper
+        src={cropSrc}
+        round
+        aspect={1}
+        outputSize={512}
+        format="jpeg"
+        title="Enquadrar foto"
+        onCancel={() => setCropSrc(null)}
+        onConfirm={(url) => {
+          setPreview(url);
+          setData(url);
+          setRemoved(false);
+          setCropSrc(null);
+        }}
+      />
     </div>
   );
 }
