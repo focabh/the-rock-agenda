@@ -5,8 +5,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
-import { fileToDownscaledDataUrl } from "@/lib/image-resize";
+import { ImageCropper } from "@/components/shared/image-cropper";
 import { setBackgroundAction, removeBackgroundAction } from "@/app/(app)/conta/actions";
+
+function readRaw(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 
 /** Uploader reutilizável de imagem de fundo (login OU app). Upload, trocar e excluir. */
 export function BackgroundCard({
@@ -22,9 +31,9 @@ export function BackgroundCard({
 }) {
   const [bg, setBg] = useState<string | null>(initial);
   const [pending, start] = useTransition();
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
-  async function onPick(file: File) {
-    const url = await fileToDownscaledDataUrl(file, 1920, 0.82);
+  function salvar(url: string) {
     start(async () => {
       const r = await setBackgroundAction(kind, url);
       if (r.ok) {
@@ -64,7 +73,16 @@ export function BackgroundCard({
           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-input px-3 py-2 text-sm hover:bg-muted">
             {pending ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
             {bg ? "Trocar imagem" : "Enviar imagem"}
-            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && onPick(e.target.files[0])} />
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.currentTarget.value = "";
+                if (f) setCropSrc(await readRaw(f));
+              }}
+            />
           </label>
           {bg && (
             <Button variant="ghost" size="sm" onClick={onRemove} disabled={pending} className="text-muted-foreground hover:text-destructive">
@@ -73,6 +91,20 @@ export function BackgroundCard({
           )}
         </div>
         <p className="text-[11px] text-muted-foreground">Formatos: JPG, PNG ou WebP. Aparece corretamente no celular e no desktop.</p>
+
+        <ImageCropper
+          src={cropSrc}
+          aspect={9 / 16}
+          outputSize={810}
+          format="jpeg"
+          quality={0.82}
+          title="Enquadrar fundo"
+          onCancel={() => setCropSrc(null)}
+          onConfirm={(url) => {
+            setCropSrc(null);
+            salvar(url);
+          }}
+        />
       </CardContent>
     </Card>
   );

@@ -12,8 +12,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
 import { AddressAutocomplete } from "@/components/shared/address-autocomplete";
 import { PhoneInput } from "@/components/shared/phone-input";
-import { fileToDownscaledDataUrl } from "@/lib/image-resize";
 import { buscarLogoCasaAction } from "@/app/(app)/casas/actions";
+import { ImageCropper } from "@/components/shared/image-cropper";
+
+function readRawFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 import type { ActionState } from "@/lib/form";
 import type { Venue } from "@/db/schema";
 
@@ -152,6 +161,7 @@ export function CasaForm({ casa, action, submitLabel = "Salvar" }: Props) {
 function LogoCasaField({ initial }: { initial: string | null }) {
   const [logo, setLogo] = useState<string | null>(initial);
   const [busca, startBusca] = useTransition();
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   function buscarNoGoogle() {
     const nome = (document.getElementById("nome") as HTMLInputElement | null)?.value ?? "";
@@ -172,12 +182,25 @@ function LogoCasaField({ initial }: { initial: string | null }) {
   }
 
   async function onUpload(file: File) {
-    setLogo(await fileToDownscaledDataUrl(file, 512, 0.85));
+    setCropSrc(await readRawFile(file));
   }
 
   return (
     <div className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="logoUrl" value={logo ?? ""} />
+      <ImageCropper
+        src={cropSrc}
+        aspect={1}
+        cover={false}
+        outputSize={400}
+        format="png"
+        title="Enquadrar logo da casa"
+        onCancel={() => setCropSrc(null)}
+        onConfirm={(url) => {
+          setLogo(url);
+          setCropSrc(null);
+        }}
+      />
       {logo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={logo} alt="logo da casa" className="size-16 rounded-md object-contain ring-1 ring-border" />
@@ -193,7 +216,7 @@ function LogoCasaField({ initial }: { initial: string | null }) {
         </Button>
         <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-sm hover:bg-accent">
           <Upload className="size-4" /> Enviar imagem
-          <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onUpload(f); }} />
         </label>
         {logo && (
           <Button type="button" variant="ghost" size="sm" onClick={() => setLogo(null)} className="text-muted-foreground">
