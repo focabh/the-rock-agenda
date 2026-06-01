@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { CUE_EMOJI, CUE_LABEL, type StageCue } from "@/lib/stage-cues";
 import { Teleprompter } from "@/components/shared/teleprompter";
+import { LyricsText } from "@/components/shared/lyrics-text";
 import { refineStageCuesAction } from "@/app/(app)/shows/[id]/actions-setlist";
 
 type BookletSong = {
@@ -265,11 +266,7 @@ export function LyricsBooklet({
                   )}
                 </div>
                 {s.lyrics ? (
-                  <pre
-                    className={`whitespace-pre-wrap font-sans leading-relaxed ${SIZES[sizeIdx]}`}
-                  >
-                    {s.lyrics}
-                  </pre>
+                  <LyricsText text={s.lyrics} tone="light" className={`leading-relaxed ${SIZES[sizeIdx]}`} />
                 ) : (
                   <p className="text-sm italic text-gray-500">
                     Letra não disponível — use “Sincronizar letras” no

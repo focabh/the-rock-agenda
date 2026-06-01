@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { LyricsText } from "@/components/shared/lyrics-text";
 import {
   getOrFetchLyricsAction,
   saveLyricsAction,
@@ -113,6 +114,10 @@ export function LyricsDialog({
               placeholder="Cole ou corrija a letra aqui…"
               autoFocus
             />
+            <p className="text-xs text-muted-foreground">
+              Dica: marque os trechos de <strong>grito/voz forte</strong> entre circunflexos —
+              <code className="mx-1 rounded bg-muted px-1">^assim^</code>— que aparecem destacados na letra e no teleprompter.
+            </p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setEditing(false)}>
                 Cancelar
@@ -126,9 +131,7 @@ export function LyricsDialog({
         ) : found && lyrics ? (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto rounded-md bg-muted/20 p-4">
-              <pre className="whitespace-pre-wrap font-sans text-[15px] leading-relaxed">
-                {lyrics}
-              </pre>
+              <LyricsText text={lyrics} tone="light" className="text-[15px] leading-relaxed" />
             </div>
             <Footer
               spotifyTrackId={spotifyTrackId}

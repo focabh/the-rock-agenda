@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { OfflineDownloadButton } from "@/components/shared/offline-download-button";
+import { Teleprompter } from "@/components/shared/teleprompter";
+import { LyricsText } from "@/components/shared/lyrics-text";
 import { EmptyState } from "@/components/shared/empty-state";
 import { computeStageCues, CUE_EMOJI, CUE_LABEL } from "@/lib/stage-cues";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
@@ -63,6 +65,15 @@ export default async function ModoShowPage({
   const cueSlotLabel = (slot: number) =>
     slot === 0 ? "Antes de começar" : slot >= items.length ? "No fim" : `Depois da ${slot}ª`;
 
+  // Faixas pro teleprompter.
+  const teleSongs = items.map((it, i) => ({
+    n: i + 1,
+    titulo: it.song.titulo,
+    artista: it.song.artista,
+    tom: it.tom ?? it.song.tom ?? null,
+    lyrics: it.song.lyrics ?? null,
+  }));
+
   // Outros shows pra alternar.
   const outros = allShows
     .filter((s) => s.id !== show.id)
@@ -78,6 +89,7 @@ export default async function ModoShowPage({
             <Button render={<Link href="/" />} variant="outline" size="sm">
               <ArrowLeft className="size-4" /> Voltar
             </Button>
+            {teleSongs.length > 0 && <Teleprompter songs={teleSongs} />}
             <OfflineDownloadButton extraUrls={["/"]} />
           </div>
         }
@@ -197,7 +209,7 @@ export default async function ModoShowPage({
                         {it.tom && <span className="ml-auto rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.tom}</span>}
                       </div>
                       {it.song.lyrics?.trim() ? (
-                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{it.song.lyrics}</pre>
+                        <LyricsText text={it.song.lyrics} tone="light" className="text-sm leading-relaxed" />
                       ) : (
                         <p className="text-sm italic text-muted-foreground">Letra não disponível.</p>
                       )}
