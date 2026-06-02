@@ -1,7 +1,7 @@
 import { eq, asc, and, lte, gte } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ImageIcon } from "lucide-react";
+import { ChevronLeft, ImageIcon, FileText } from "lucide-react";
 import { db } from "@/db";
 import {
   shows,
@@ -195,14 +195,26 @@ export default async function ShowDetailPage({
                 admin={admin}
                 gastosCentavos={gastosCentavos}
               />
-              <Button
-                variant="outline"
-                size="sm"
-                render={<Link href={`/shows/${show.id}/divulgacao`} />}
-              >
-                <ImageIcon className="size-4" />
-                {admin ? "Gerar flyer do show" : "Flyer do show"}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<Link href={`/shows/${show.id}/divulgacao`} />}
+                >
+                  <ImageIcon className="size-4" />
+                  {admin ? "Gerar flyer do show" : "Flyer do show"}
+                </Button>
+                {admin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={<Link href={`/shows/${show.id}/contrato`} />}
+                  >
+                    <FileText className="size-4" />
+                    Recibo / Contrato
+                  </Button>
+                )}
+              </div>
               {/* Perfil/CRM da casa não se aplica a evento particular. */}
               {!show.privado && (
                 <>
