@@ -388,6 +388,23 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     bumpControls();
   }
 
+  // Toque numa linha (modo Sync): pula o relógio pro tempo daquela linha.
+  // Linha de outra música → só pula pra ela (o relógio dela reinicia do zero).
+  function seekToLine(i: number, j: number, t: number) {
+    if (i !== current) {
+      jumpTo(i);
+      return;
+    }
+    const tt = Math.max(0, t);
+    clock.current.base = tt;
+    clock.current.startedAt = playingRef.current ? performance.now() : null;
+    setSongSec(Math.floor(tt));
+    setActiveIdx(activeLineIndex(timelines[i], tt));
+    const el = scrollRef.current?.querySelector(`[data-tl="${i}-${j}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    bumpControls();
+  }
+
   async function enterFull() {
     setMode("full");
     try {
@@ -421,7 +438,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       break;
     }
   }
-  const instrRemaining = nextVocalT != null ? Math.max(0, nextVocalT - songSec) : null;
+  const instrRemaining = nextVocalT != null ? Math.max(0, Math.ceil(nextVocalT - songSec)) : null;
   const showInstr = playing && syncedCurrent && instrRemaining != null && instrRemaining >= 6;
   const instrLabel = activeIdx < 0 ? "introdução" : activeEntry?.cue ? activeEntry.text : "instrumental";
 
@@ -507,7 +524,14 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                         const upcoming = isCur && activeIdx < 0 && j === 0; // 1ª entrada na intro
                         if (ln.cue) {
                           return (
-                            <p key={j} data-tl={`${i}-${j}`}>
+                            <p
+                              key={j}
+                              data-tl={`${i}-${j}`}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => seekToLine(i, j, ln.t)}
+                              className="cursor-pointer"
+                              title="Tocar pra pular pra aqui"
+                            >
                               <span
                                 className={`inline-block rounded-full px-4 py-1 text-[0.5em] font-bold uppercase tracking-wide ${
                                   active ? "bg-amber-400 text-black" : "bg-amber-400/20 text-amber-300"
@@ -522,12 +546,12 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                           <p
                             key={j}
                             data-tl={`${i}-${j}`}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => seekToLine(i, j, ln.t)}
+                            title="Tocar pra pular pra aqui"
                             className={
-                              active
-                                ? "text-white transition-all"
-                                : upcoming
-                                  ? "text-white/80 transition-all"
-                                  : "text-white/45 transition-all"
+                              "cursor-pointer rounded-lg transition-all hover:bg-white/5 " +
+                              (active ? "text-white" : upcoming ? "text-white/80" : "text-white/45")
                             }
                           >
                             {ln.text}
@@ -539,6 +563,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     <LyricsText
                       text={s.lyrics}
                       tone="dark"
+                      clickable
                       className={`font-semibold leading-[1.4] ${FONTS[fontIdx]}`}
                     />
                   ) : (
