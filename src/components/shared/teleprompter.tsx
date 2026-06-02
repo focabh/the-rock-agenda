@@ -113,12 +113,11 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     if (!s) return null;
     const ov = speeds.current[songKey(s)];
     if (ov) return ov;
-    if (auto) {
-      const sec = s.durationSeg && s.durationSeg > 0 ? s.durationSeg : AUTO_FALLBACK_SEG;
-      const el = sectionRefs.current[idx];
-      if (el && el.offsetHeight > 0) {
-        return Math.min(AUTO_MAX, Math.max(MIN_SPEED, Math.round(el.offsetHeight / sec)));
-      }
+    // Calibra sempre pela duração (modo "Rolar"): altura da letra ÷ duração.
+    const sec = s.durationSeg && s.durationSeg > 0 ? s.durationSeg : AUTO_FALLBACK_SEG;
+    const el = sectionRefs.current[idx];
+    if (el && el.offsetHeight > 0) {
+      return Math.min(AUTO_MAX, Math.max(MIN_SPEED, Math.round(el.offsetHeight / sec)));
     }
     return null;
   }
@@ -187,10 +186,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       if (idx !== lastIdx) {
         lastIdx = idx;
         setActiveIdx(idx);
-        const target =
-          idx >= 0
-            ? (scrollRef.current?.querySelector(`[data-tl="${current}-${idx}"]`) as HTMLElement | null)
-            : sectionRefs.current[current];
+        // Na introdução (idx -1) já centraliza a 1ª linha (a que vai entrar).
+        const q = idx >= 0 ? idx : 0;
+        const target = scrollRef.current?.querySelector(`[data-tl="${current}-${q}"]`) as HTMLElement | null;
         target?.scrollIntoView({ block: "center", behavior: "smooth" });
       }
       raf.current = requestAnimationFrame(tick);
@@ -421,21 +419,28 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     {s.tom ? ` · ${s.tom}` : ""}
                   </h2>
                   {auto && syncedLines[i].length > 0 ? (
-                    // Modo sincronizado: linha a linha, com a atual em destaque.
+                    // Modo sincronizado: linha a linha, a atual em destaque (estilo Spotify).
                     <div className={`space-y-3 font-semibold leading-[1.3] ${FONTS[fontIdx]}`}>
-                      {syncedLines[i].map((ln, j) => (
-                        <p
-                          key={j}
-                          data-tl={`${i}-${j}`}
-                          className={
-                            i === current && j === activeIdx
-                              ? "text-white transition-colors"
-                              : "text-white/35 transition-colors"
-                          }
-                        >
-                          {ln.text}
-                        </p>
-                      ))}
+                      {syncedLines[i].map((ln, j) => {
+                        const isCur = i === current;
+                        const active = isCur && j === activeIdx;
+                        const upcoming = isCur && activeIdx < 0 && j === 0; // 1ª linha na intro
+                        return (
+                          <p
+                            key={j}
+                            data-tl={`${i}-${j}`}
+                            className={
+                              active
+                                ? "text-white transition-all"
+                                : upcoming
+                                  ? "text-white/80 transition-all"
+                                  : "text-white/45 transition-all"
+                            }
+                          >
+                            {ln.text}
+                          </p>
+                        );
+                      })}
                     </div>
                   ) : s.lyrics?.trim() ? (
                     <LyricsText
@@ -523,25 +528,38 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                   <Plus className="size-5" />
                 </button>
                 <span className="w-20 text-right font-mono text-xs text-white/60">
-                  {speed} px/s{auto && songs[current] && !speeds.current[songKey(songs[current])] ? " ·auto" : ""}
+                  {speed} px/s{songs[current] && !speeds.current[songKey(songs[current])] ? " ·auto" : ""}
                 </span>
               </div>
             )}
 
             {/* Linha de transporte */}
             <div className="flex items-center justify-center gap-1.5">
-              <button
-                onClick={() => setAuto((a) => !a)}
-                className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-bold transition-colors ${
-                  auto
-                    ? "bg-amber-400 text-black shadow-[0_0_16px_rgba(251,191,36,0.55)]"
-                    : "text-white/70 ring-1 ring-white/25 hover:text-white"
-                }`}
-                title={auto ? "Inteliprompter LIGADO: sincroniza a letra com o tempo real da música (onde não há sincronização, calibra a velocidade). Toque pra desligar." : "Ligar Inteliprompter (sincroniza a letra com a música)"}
-              >
-                <Sparkles className="size-4" />
-                AUTO
-              </button>
+              {/* Seletor de modo: Rolar (rolagem suave) ou Sync (no tempo da música). */}
+              <div className="inline-flex h-11 shrink-0 items-center overflow-hidden rounded-full ring-1 ring-white/25">
+                <button
+                  onClick={() => setAuto(false)}
+                  className={`h-full px-3 text-sm font-bold transition-colors ${
+                    !auto ? "bg-white text-black" : "text-white/70 hover:text-white"
+                  }`}
+                  title="Rolagem suave (velocidade calibrada por música)"
+                >
+                  Rolar
+                </button>
+                <button
+                  onClick={() => setAuto(true)}
+                  className={`inline-flex h-full items-center gap-1 px-3 text-sm font-bold transition-colors ${
+                    auto
+                      ? "bg-amber-400 text-black"
+                      : (syncedLines[current]?.length ?? 0) > 0
+                        ? "text-white/70 hover:text-white"
+                        : "text-white/30"
+                  }`}
+                  title="Sincronizado com a música (estilo Spotify). Funciona tocando junto com o áudio original."
+                >
+                  <Sparkles className="size-4" /> Sync
+                </button>
+              </div>
               <button onClick={() => setShowList(true)} className={`size-11 ${ctrlBtn}`} title="Lista de músicas">
                 <ListMusic className="size-5" />
               </button>
