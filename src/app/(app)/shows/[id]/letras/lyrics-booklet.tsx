@@ -37,6 +37,7 @@ type BookletSong = {
   tom: string | null;
   lyrics: string | null;
   durationSeg?: number | null;
+  syncedLyrics?: string | null;
 };
 
 const SIZES = ["text-base", "text-lg", "text-xl", "text-2xl", "text-3xl"];

@@ -22,46 +22,66 @@ type LrclibTrack = {
   plainLyrics?: string | null;
   syncedLyrics?: string | null;
   instrumental?: boolean;
+  duration?: number | null; // segundos (pode ser float)
 };
 
-export async function fetchLyrics(
-  titulo: string,
-  artista: string
-): Promise<string | null> {
+export type LyricsHit = {
+  plain: string | null;
+  synced: string | null; // LRC (timestamps por linha) — alimenta o Inteliprompter
+  durationSec: number | null;
+};
+
+const EMPTY: LyricsHit = { plain: null, synced: null, durationSec: null };
+
+function pick(d: LrclibTrack): LyricsHit {
+  return {
+    plain: d.plainLyrics?.trim() || null,
+    synced: d.syncedLyrics?.trim() || null,
+    durationSec: typeof d.duration === "number" && d.duration > 0 ? Math.round(d.duration) : null,
+  };
+}
+
+/** Busca letra (simples + sincronizada) e duração no LRCLIB. */
+export async function fetchLyricsFull(titulo: string, artista: string): Promise<LyricsHit> {
   const title = cleanTrackTitle(titulo);
 
   // 1) match exato por artista + título
   try {
     const res = await fetch(
-      `https://lrclib.net/api/get?artist_name=${encodeURIComponent(
-        artista
-      )}&track_name=${encodeURIComponent(title)}`,
+      `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artista)}&track_name=${encodeURIComponent(title)}`,
       { headers: { "User-Agent": UA }, cache: "no-store" }
     );
     if (res.ok) {
       const d = (await res.json()) as LrclibTrack;
-      if (d.plainLyrics && d.plainLyrics.trim()) return d.plainLyrics.trim();
+      if ((d.plainLyrics && d.plainLyrics.trim()) || (d.syncedLyrics && d.syncedLyrics.trim())) {
+        return pick(d);
+      }
     }
   } catch {
     // ignora — tenta a busca fuzzy
   }
 
-  // 2) busca fuzzy — pega o 1º resultado que tenha letra simples
+  // 2) busca fuzzy — prioriza um resultado COM sincronizada; senão, com simples.
   try {
     const res = await fetch(
-      `https://lrclib.net/api/search?q=${encodeURIComponent(
-        `${title} ${artista}`
-      )}`,
+      `https://lrclib.net/api/search?q=${encodeURIComponent(`${title} ${artista}`)}`,
       { headers: { "User-Agent": UA }, cache: "no-store" }
     );
     if (res.ok) {
       const arr = (await res.json()) as LrclibTrack[];
-      const hit = arr.find((x) => x.plainLyrics && x.plainLyrics.trim());
-      if (hit?.plainLyrics) return hit.plainLyrics.trim();
+      const hit =
+        arr.find((x) => x.syncedLyrics && x.syncedLyrics.trim()) ||
+        arr.find((x) => x.plainLyrics && x.plainLyrics.trim());
+      if (hit) return pick(hit);
     }
   } catch {
     // ignora
   }
 
-  return null;
+  return EMPTY;
+}
+
+/** Compat: só a letra simples. */
+export async function fetchLyrics(titulo: string, artista: string): Promise<string | null> {
+  return (await fetchLyricsFull(titulo, artista)).plain;
 }

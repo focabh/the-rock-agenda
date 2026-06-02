@@ -16,7 +16,7 @@ import {
   fetchTracksPopularity,
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
-import { fetchLyrics } from "@/lib/lyrics";
+import { fetchLyricsFull } from "@/lib/lyrics";
 import { enrichSongsWithAI } from "@/lib/song-ai";
 import { NoApiKeyError } from "@/lib/venue-ai";
 import { isNull } from "drizzle-orm";
@@ -218,20 +218,42 @@ export async function importPastedToRepertorioAction(
   );
   let added = 0;
   let existing = 0;
+  const novos: { id: string; titulo: string; artista: string }[] = [];
   for (const t of parsed) {
     const key = `${t.titulo.toLowerCase()}|${t.artista.toLowerCase()}`;
     if (existingKeys.has(key)) {
       existing++;
       continue;
     }
-    await db.insert(songs).values({
-      titulo: t.titulo,
-      artista: t.artista,
-      status: "aprendendo",
-    });
+    const [row] = await db
+      .insert(songs)
+      .values({ titulo: t.titulo, artista: t.artista, status: "aprendendo" })
+      .returning({ id: songs.id });
+    novos.push({ id: row.id, titulo: t.titulo, artista: t.artista });
     existingKeys.add(key);
     added++;
   }
+
+  // A lista colada não tem duração. Puxamos do LRCLIB a duração + letra (simples
+  // e SINCRONIZADA) das novas — assim o Inteliprompter e a calibração já funcionam.
+  let j = 0;
+  async function worker() {
+    while (j < novos.length) {
+      const s = novos[j++];
+      try {
+        const hit = await fetchLyricsFull(s.titulo, s.artista);
+        const patch: Record<string, string | number> = {};
+        if (hit.plain) patch.lyrics = hit.plain;
+        if (hit.synced) patch.syncedLyrics = hit.synced;
+        if (hit.durationSec) patch.duracaoSeg = hit.durationSec;
+        if (Object.keys(patch).length) await db.update(songs).set(patch).where(eq(songs.id, s.id));
+      } catch {
+        /* best-effort */
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(5, novos.length) }, worker));
+
   revalidatePath("/repertorio");
   return { ok: true, added, existing, total: parsed.length };
 }
@@ -336,7 +358,8 @@ export async function syncAllLyricsAction(): Promise<SyncLyricsResult> {
   await requireCurrentUser();
   const all = await db.select().from(songs);
 
-  const pending = all.filter((s) => !s.lyrics || !s.lyrics.trim());
+  // Pendente = falta letra simples OU a sincronizada (que alimenta o Inteliprompter).
+  const pending = all.filter((s) => !s.lyrics?.trim() || !s.syncedLyrics?.trim());
   const alreadyHad = all.length - pending.length;
 
   let fetched = 0;
@@ -347,9 +370,13 @@ export async function syncAllLyricsAction(): Promise<SyncLyricsResult> {
   async function worker() {
     while (i < pending.length) {
       const s = pending[i++];
-      const lyr = await fetchLyrics(s.titulo, s.artista);
-      if (lyr) {
-        await db.update(songs).set({ lyrics: lyr }).where(eq(songs.id, s.id));
+      const hit = await fetchLyricsFull(s.titulo, s.artista);
+      const patch: Record<string, string | number> = {};
+      if (hit.plain && !s.lyrics?.trim()) patch.lyrics = hit.plain;
+      if (hit.synced && !s.syncedLyrics?.trim()) patch.syncedLyrics = hit.synced;
+      if (hit.durationSec && !s.duracaoSeg) patch.duracaoSeg = hit.durationSec;
+      if (Object.keys(patch).length > 0) {
+        await db.update(songs).set(patch).where(eq(songs.id, s.id));
         fetched++;
       } else {
         notFound++;
@@ -382,14 +409,27 @@ export async function getOrFetchLyricsAction(
   const [song] = await db.select().from(songs).where(eq(songs.id, songId)).limit(1);
   if (!song) return { ok: false, lyrics: null, found: false, error: "Música não encontrada." };
 
+  // Já tem letra simples no cache → devolve, mas tenta completar a sincronizada
+  // e a duração em segundo plano (sem bloquear).
   if (song.lyrics && song.lyrics.trim()) {
+    if (!song.syncedLyrics?.trim() || !song.duracaoSeg) {
+      const hit = await fetchLyricsFull(song.titulo, song.artista);
+      const patch: Record<string, string | number> = {};
+      if (hit.synced && !song.syncedLyrics?.trim()) patch.syncedLyrics = hit.synced;
+      if (hit.durationSec && !song.duracaoSeg) patch.duracaoSeg = hit.durationSec;
+      if (Object.keys(patch).length > 0) await db.update(songs).set(patch).where(eq(songs.id, songId));
+    }
     return { ok: true, lyrics: song.lyrics, found: true };
   }
 
-  const fetched = await fetchLyrics(song.titulo, song.artista);
-  if (fetched) {
-    await db.update(songs).set({ lyrics: fetched }).where(eq(songs.id, songId));
-    return { ok: true, lyrics: fetched, found: true };
+  const hit = await fetchLyricsFull(song.titulo, song.artista);
+  if (hit.plain || hit.synced) {
+    const patch: Record<string, string | number> = {};
+    if (hit.plain) patch.lyrics = hit.plain;
+    if (hit.synced) patch.syncedLyrics = hit.synced;
+    if (hit.durationSec && !song.duracaoSeg) patch.duracaoSeg = hit.durationSec;
+    await db.update(songs).set(patch).where(eq(songs.id, songId));
+    return { ok: true, lyrics: hit.plain ?? song.lyrics, found: Boolean(hit.plain) };
   }
   return { ok: true, lyrics: null, found: false };
 }

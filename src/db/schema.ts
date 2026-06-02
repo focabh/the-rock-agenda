@@ -244,6 +244,9 @@ export const songs = sqliteTable("songs", {
   // Letra (cache do LRCLIB na 1ª abertura; admin pode corrigir). Null = ainda
   // não buscada / não encontrada.
   lyrics: text("lyrics"),
+  // Letra SINCRONIZADA (LRC, com timestamps por linha) — alimenta o
+  // Inteliprompter (rolagem no tempo real da música). Cache do LRCLIB.
+  syncedLyrics: text("synced_lyrics"),
   // --- Metadados pra geração de setlist (Fase 6) ---
   duracaoSeg: integer("duracao_seg"), // duração aproximada (preenchida no import)
   energia: integer("energia"), // 1=leve, 2=média, 3=pesada

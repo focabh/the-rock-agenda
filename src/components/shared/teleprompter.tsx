@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   MonitorPlay,
@@ -16,11 +16,21 @@ import {
   ListMusic,
   Type,
   Sparkles,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
+import { parseLrc, activeLineIndex } from "@/lib/lrc";
 
-type Song = { n: number; titulo: string; artista: string; tom: string | null; lyrics: string | null; durationSeg?: number | null };
+type Song = {
+  n: number;
+  titulo: string;
+  artista: string;
+  tom: string | null;
+  lyrics: string | null;
+  durationSeg?: number | null;
+  syncedLyrics?: string | null;
+};
 
 // Tamanhos responsivos: já começam grandes no celular.
 const FONTS = [
@@ -55,6 +65,19 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [showControls, setShowControls] = useState(true);
   const [showList, setShowList] = useState(false);
   const [auto, setAuto] = useState(true); // Inteliprompter: calibra por música
+  const [activeIdx, setActiveIdx] = useState(-1); // linha ativa (modo sincronizado)
+
+  // Letra sincronizada (LRC) por música → modo Inteliprompter "no tempo real".
+  const syncedLines = useMemo(
+    () => songs.map((s) => parseLrc(s.syncedLyrics).filter((l) => l.text)),
+    [songs]
+  );
+  // Sincronizado quando: AUTO ligado E a música atual tem letra sincronizada.
+  const syncedCurrent = auto && (syncedLines[current]?.length ?? 0) > 0;
+  // Relógio do modo sincronizado: base acumulada + início do segmento tocando.
+  const clock = useRef<{ base: number; startedAt: number | null }>({ base: 0, startedAt: null });
+  const elapsed = () =>
+    clock.current.base + (clock.current.startedAt != null ? (performance.now() - clock.current.startedAt) / 1000 : 0);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -105,9 +128,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     if (v != null) setSpeed(v);
   }
 
-  // Loop de rolagem.
+  // Loop de rolagem CONSTANTE (só quando NÃO está no modo sincronizado).
   useEffect(() => {
-    if (!open || !playing) return;
+    if (!open || !playing || syncedCurrent) return;
     let active = true;
     last.current = 0;
     const step = (ts: number) => {
@@ -131,7 +154,53 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       active = false;
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [open, playing, speed]);
+  }, [open, playing, speed, syncedCurrent]);
+
+  // Liga/desliga o relógio do modo sincronizado conforme play/pause.
+  useEffect(() => {
+    if (playing) {
+      if (clock.current.startedAt == null) clock.current.startedAt = performance.now();
+    } else if (clock.current.startedAt != null) {
+      clock.current.base += (performance.now() - clock.current.startedAt) / 1000;
+      clock.current.startedAt = null;
+    }
+  }, [playing]);
+
+  // Ao trocar de música (ou abrir), zera o relógio sincronizado.
+  useEffect(() => {
+    clock.current.base = 0;
+    clock.current.startedAt = playingRef.current ? performance.now() : null;
+    setActiveIdx(-1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, open]);
+
+  // Motor SINCRONIZADO: rola a letra no tempo real da música (LRC). A linha
+  // atual fica centralizada; na introdução/instrumental a letra espera parada.
+  useEffect(() => {
+    if (!open || !playing || !syncedCurrent) return;
+    const lines = syncedLines[current];
+    let active = true;
+    let lastIdx = -2;
+    const tick = () => {
+      if (!active) return;
+      const idx = activeLineIndex(lines, elapsed());
+      if (idx !== lastIdx) {
+        lastIdx = idx;
+        setActiveIdx(idx);
+        const target =
+          idx >= 0
+            ? (scrollRef.current?.querySelector(`[data-tl="${current}-${idx}"]`) as HTMLElement | null)
+            : sectionRefs.current[current];
+        target?.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+      raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => {
+      active = false;
+      if (raf.current) cancelAnimationFrame(raf.current);
+    };
+  }, [open, playing, syncedCurrent, current, syncedLines]);
 
   // Mantém a tela acesa.
   useEffect(() => {
@@ -232,6 +301,29 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     }
   }
 
+  // Ajuste fino do tempo (modo sincronizado): empurra/atrasa a letra.
+  function nudge(delta: number) {
+    clock.current.base = Math.max(0, clock.current.base + delta);
+    const lines = syncedLines[current];
+    const idx = activeLineIndex(lines, elapsed());
+    setActiveIdx(idx);
+    const target =
+      idx >= 0
+        ? (scrollRef.current?.querySelector(`[data-tl="${current}-${idx}"]`) as HTMLElement | null)
+        : sectionRefs.current[current];
+    target?.scrollIntoView({ block: "center", behavior: "smooth" });
+    bumpControls();
+  }
+
+  // Recomeça a sincronização do zero (apertar quando a música começar).
+  function resync() {
+    clock.current.base = 0;
+    clock.current.startedAt = playingRef.current ? performance.now() : null;
+    setActiveIdx(-1);
+    sectionRefs.current[current]?.scrollIntoView({ block: "center", behavior: "smooth" });
+    bumpControls();
+  }
+
   function jumpTo(i: number) {
     const idx = Math.min(songs.length - 1, Math.max(0, i));
     const el = scrollRef.current;
@@ -328,7 +420,24 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     {s.n}. {s.titulo}
                     {s.tom ? ` · ${s.tom}` : ""}
                   </h2>
-                  {s.lyrics?.trim() ? (
+                  {auto && syncedLines[i].length > 0 ? (
+                    // Modo sincronizado: linha a linha, com a atual em destaque.
+                    <div className={`space-y-3 font-semibold leading-[1.3] ${FONTS[fontIdx]}`}>
+                      {syncedLines[i].map((ln, j) => (
+                        <p
+                          key={j}
+                          data-tl={`${i}-${j}`}
+                          className={
+                            i === current && j === activeIdx
+                              ? "text-white transition-colors"
+                              : "text-white/35 transition-colors"
+                          }
+                        >
+                          {ln.text}
+                        </p>
+                      ))}
+                    </div>
+                  ) : s.lyrics?.trim() ? (
                     <LyricsText
                       text={s.lyrics}
                       tone="dark"
@@ -375,28 +484,49 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
               showControls ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
           >
-            {/* Velocidade — slider fino */}
-            <div className="flex items-center gap-3">
-              <button onClick={() => changeSpeed(speed - STEP)} className={`size-9 ${ctrlBtn}`} title="Mais devagar">
-                <Minus className="size-5" />
-              </button>
-              <input
-                type="range"
-                min={MIN_SPEED}
-                max={MAX_SPEED}
-                step={1}
-                value={speed}
-                onChange={(e) => changeSpeed(Number(e.target.value))}
-                className="h-2 flex-1 cursor-pointer accent-primary"
-                aria-label="Velocidade"
-              />
-              <button onClick={() => changeSpeed(speed + STEP)} className={`size-9 ${ctrlBtn}`} title="Mais rápido">
-                <Plus className="size-5" />
-              </button>
-              <span className="w-20 text-right font-mono text-xs text-white/60">
-                {speed} px/s{auto && songs[current] && !speeds.current[songKey(songs[current])] ? " ·auto" : ""}
-              </span>
-            </div>
+            {syncedCurrent ? (
+              /* Modo sincronizado: ajuste fino do tempo + recomeçar */
+              <div className="flex items-center gap-2">
+                <button onClick={() => nudge(-1)} className={`h-9 px-2 ${ctrlBtn}`} title="Atrasar 1s">
+                  <Minus className="size-4" /> 1s
+                </button>
+                <div className="flex-1 text-center font-mono text-xs text-amber-300">
+                  ♪ no tempo da música ·{" "}
+                  {activeIdx >= 0
+                    ? `linha ${activeIdx + 1}/${syncedLines[current].length}`
+                    : "introdução (letra espera)"}
+                </div>
+                <button onClick={() => nudge(1)} className={`h-9 px-2 ${ctrlBtn}`} title="Adiantar 1s">
+                  <Plus className="size-4" /> 1s
+                </button>
+                <button onClick={resync} className={`size-9 ${ctrlBtn}`} title="Recomeçar — aperte quando a música começar">
+                  <RotateCcw className="size-4" />
+                </button>
+              </div>
+            ) : (
+              /* Velocidade — slider fino (modo rolagem constante) */
+              <div className="flex items-center gap-3">
+                <button onClick={() => changeSpeed(speed - STEP)} className={`size-9 ${ctrlBtn}`} title="Mais devagar">
+                  <Minus className="size-5" />
+                </button>
+                <input
+                  type="range"
+                  min={MIN_SPEED}
+                  max={MAX_SPEED}
+                  step={1}
+                  value={speed}
+                  onChange={(e) => changeSpeed(Number(e.target.value))}
+                  className="h-2 flex-1 cursor-pointer accent-primary"
+                  aria-label="Velocidade"
+                />
+                <button onClick={() => changeSpeed(speed + STEP)} className={`size-9 ${ctrlBtn}`} title="Mais rápido">
+                  <Plus className="size-5" />
+                </button>
+                <span className="w-20 text-right font-mono text-xs text-white/60">
+                  {speed} px/s{auto && songs[current] && !speeds.current[songKey(songs[current])] ? " ·auto" : ""}
+                </span>
+              </div>
+            )}
 
             {/* Linha de transporte */}
             <div className="flex items-center justify-center gap-1.5">
@@ -407,7 +537,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     ? "bg-amber-400 text-black shadow-[0_0_16px_rgba(251,191,36,0.55)]"
                     : "text-white/70 ring-1 ring-white/25 hover:text-white"
                 }`}
-                title={auto ? "Inteliprompter LIGADO (calibra a velocidade por música) — toque pra desligar" : "Ligar Inteliprompter (calibra a velocidade por música)"}
+                title={auto ? "Inteliprompter LIGADO: sincroniza a letra com o tempo real da música (onde não há sincronização, calibra a velocidade). Toque pra desligar." : "Ligar Inteliprompter (sincroniza a letra com a música)"}
               >
                 <Sparkles className="size-4" />
                 AUTO
