@@ -11,6 +11,14 @@ import {
   sendTestPushAction,
 } from "@/app/(app)/conta/push-actions";
 
+/** Garante que uma promessa não trava pra sempre (celular às vezes não resolve). */
+function withTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
+  ]);
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -54,18 +62,30 @@ export function PushManager() {
     }
     startTransition(async () => {
       try {
-        const permission = await Notification.requestPermission();
+        const permission = await withTimeout(
+          Notification.requestPermission(),
+          60000,
+          "permissão demorou demais"
+        );
         if (permission !== "granted") {
           toast.error("Permissão de notificação negada.");
           return;
         }
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapid),
-        });
+        const reg = await withTimeout(navigator.serviceWorker.ready, 15000, "service worker não pronto");
+        const sub = await withTimeout(
+          reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapid),
+          }),
+          20000,
+          "não consegui inscrever no push"
+        );
         const json = JSON.parse(JSON.stringify(sub));
-        const r = await subscribePushAction(json, window.navigator.userAgent);
+        const r = await withTimeout(
+          subscribePushAction(json, window.navigator.userAgent),
+          15000,
+          "servidor demorou demais"
+        );
         if (r?.error) {
           toast.error(r.error);
           return;
@@ -74,7 +94,7 @@ export function PushManager() {
         toast.success("Notificações ativadas neste dispositivo. 🤘");
       } catch (err) {
         console.error(err);
-        toast.error("Não consegui ativar as notificações.");
+        toast.error(err instanceof Error ? `Não consegui ativar: ${err.message}` : "Não consegui ativar as notificações.");
       }
     });
   }

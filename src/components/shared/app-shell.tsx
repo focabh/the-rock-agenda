@@ -115,7 +115,7 @@ export function AppShell({
         <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={appBackgroundUrl} alt="" className="size-full object-cover" />
-          <div className="absolute inset-0 bg-linear-to-b from-black/70 to-black/40" />
+          <div className="absolute inset-0 bg-linear-to-b from-black/55 to-black/30" />
         </div>
       )}
       {/* Desktop sidebar */}

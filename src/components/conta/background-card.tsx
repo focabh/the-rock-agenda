@@ -35,12 +35,16 @@ export function BackgroundCard({
 
   function salvar(url: string) {
     start(async () => {
-      const r = await setBackgroundAction(kind, url);
-      if (r.ok) {
-        setBg(url);
-        toast.success("Fundo atualizado.");
-      } else {
-        toast.error(r.error ?? "Não foi possível salvar.");
+      try {
+        const r = await setBackgroundAction(kind, url);
+        if (r.ok) {
+          setBg(url);
+          toast.success("Fundo atualizado.");
+        } else {
+          toast.error(r.error ?? "Não foi possível salvar.");
+        }
+      } catch {
+        toast.error("Falha ao salvar o fundo. Tente uma imagem um pouco menor.");
       }
     });
   }
