@@ -30,6 +30,7 @@ import {
   type AnnouncementView,
 } from "@/components/announcements/announcements-section";
 import { VenueRemindersSection } from "@/components/casas/venue-reminders";
+import { EnableNotifBanner } from "@/components/shared/enable-notif-banner";
 import {
   computeVenueReminders,
   type VenueReminder,
@@ -228,6 +229,9 @@ export default async function DashboardPage() {
       />
 
       <div className="p-6 space-y-6">
+        {/* Lembrete pra ativar notificações (some sozinho quando ativa) */}
+        <EnableNotifBanner />
+
         {/* Anúncios — mural da banda, em destaque no topo */}
         <AnnouncementsSection announcements={anuncios} admin={admin} />
 
