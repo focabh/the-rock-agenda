@@ -39,6 +39,7 @@ type Show = {
   logoUrl: string | null;
   casaInstagram?: string | null;
   casaLogoUrl?: string | null;
+  privado?: boolean;
 };
 
 /** "@bardozé" a partir de "@bardozé", "bardozé" ou "instagram.com/bardozé". */
@@ -215,7 +216,7 @@ async function garantirFonte(familyCss: string) {
   }
 }
 
-export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: string; url: string }[] }) {
+export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: string; url: string; removable?: boolean }[] }) {
   const [imgs, setImgs] = useState(galeria);
   const [bg, setBg] = useState<string | null>(galeria[0]?.url ?? null);
   const [grad, setGrad] = useState(GRADIENTES[0]);
@@ -249,8 +250,10 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   const [tarjaOp, setTarjaOp] = useState(78);
   const [textPos, setTextPos] = useState({ x: 20, y: 0 });
 
-  const [instagram, setInstagram] = useState(arrobaCasa(show.casaInstagram));
-  const [mostrarLogoCasa, setMostrarLogoCasa] = useState<boolean>(!!show.casaLogoUrl);
+  // Evento particular: não puxa @ da casa (privado).
+  const [instagram, setInstagram] = useState(show.privado ? "" : arrobaCasa(show.casaInstagram));
+  // Logo/foto da casa NÃO aparece sozinha (evita "resíduo" no canto). Opt-in.
+  const [mostrarLogoCasa, setMostrarLogoCasa] = useState(false);
   const [logoCasaTam, setLogoCasaTam] = useState(64);
 
   const [headline, setHeadline] = useState("AO VIVO");
@@ -556,9 +559,11 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={im.url} alt="" className="size-full object-cover" />
                   </button>
-                  <button onClick={() => excluirImg(im.id, im.url)} className="absolute -right-1.5 -top-1.5 rounded-full bg-zinc-900/90 p-0.5 text-zinc-300 ring-1 ring-zinc-700 hover:text-red-400" title="Excluir foto">
-                    <X className="size-3" />
-                  </button>
+                  {im.removable !== false && (
+                    <button onClick={() => excluirImg(im.id, im.url)} className="absolute -right-1.5 -top-1.5 rounded-full bg-zinc-900/90 p-0.5 text-zinc-300 ring-1 ring-zinc-700 hover:text-red-400" title="Excluir foto">
+                      <X className="size-3" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

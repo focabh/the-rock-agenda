@@ -23,6 +23,7 @@ const horaOptional = z
 
 const showSchema = z.object({
   casaId: z.string().min(1, "Selecione a casa"),
+  privado: z.coerce.boolean().optional(),
   // datetime-local interpretado como horário de Brasília (não do servidor).
   data: z
     .string()
@@ -53,6 +54,7 @@ function toPersist(d: z.infer<typeof showSchema>) {
   const { cacheReais, ...rest } = d;
   return {
     ...rest,
+    privado: !!d.privado, // sempre boolean (desmarcar precisa gravar false)
     cacheCentavos: cacheReais != null ? Math.round(cacheReais * 100) : 0,
   };
 }

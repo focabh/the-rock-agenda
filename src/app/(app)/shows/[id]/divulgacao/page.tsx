@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { shows } from "@/db/schema";
+import { shows, promoItems } from "@/db/schema";
 import { requireCurrentUser, getBrand, getLogoUrl } from "@/lib/auth";
 import { formatDataBR, formatHoraBR } from "@/lib/formatters";
 import { PageHeader } from "@/components/shared/page-header";
@@ -22,11 +22,19 @@ export default async function DivulgacaoShowPage({
   });
   if (!show) notFound();
 
-  const [brand, logoUrl, galeria] = await Promise.all([
+  const [brand, logoUrl, galeria, fotosBanda] = await Promise.all([
     getBrand(),
     getLogoUrl(),
     listImagensDivulgacao(),
+    db.select({ id: promoItems.id, url: promoItems.url }).from(promoItems).where(eq(promoItems.tipo, "foto")).orderBy(desc(promoItems.ordem)),
   ]);
+
+  // Galeria do flyer = fotos enviadas aqui (removíveis) + material de divulgação
+  // da banda (fotos), que ficam selecionáveis mas não são apagadas por aqui.
+  const galeriaFull = [
+    ...galeria.map((g) => ({ id: g.id, url: g.url, removable: true })),
+    ...fotosBanda.map((f) => ({ id: `promo-${f.id}`, url: f.url, removable: false })),
+  ];
 
   return (
     <div>
@@ -47,8 +55,9 @@ export default async function DivulgacaoShowPage({
             logoUrl,
             casaInstagram: show.casa.instagram,
             casaLogoUrl: show.casa.logoUrl,
+            privado: show.privado,
           }}
-          galeria={galeria.map((g) => ({ id: g.id, url: g.url }))}
+          galeria={galeriaFull}
         />
       </div>
     </div>

@@ -69,6 +69,21 @@ export function ShowForm({
             <FieldError state={state} name="casaId" />
           </div>
 
+          <label className="flex cursor-pointer items-start gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              name="privado"
+              defaultChecked={show?.privado ?? false}
+              className="mt-0.5 size-4 accent-red-600"
+            />
+            <span className="text-sm">
+              <span className="font-medium">Evento particular</span> (festa privada)
+              <span className="block text-xs text-muted-foreground">
+                Não expõe o @ da casa no flyer e trata as infos de forma mais discreta.
+              </span>
+            </span>
+          </label>
+
           <div className="sm:col-span-2">
             <AddressAutocomplete
               label="Endereço do show (opcional — sobrepõe o da casa)"

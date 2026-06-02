@@ -330,6 +330,8 @@ export const shows = sqliteTable("shows", {
     .notNull()
     .references(() => venues.id, { onDelete: "restrict" }),
   data: integer("data", { mode: "timestamp_ms" }).notNull(),
+  // Evento particular (festa privada): sem @ da casa no flyer, info mais discreta.
+  privado: integer("privado", { mode: "boolean" }).notNull().default(false),
   inicio: text("inicio"), // HH:mm
   termino: text("termino"), // HH:mm
   contatoNome: text("contato_nome"),
