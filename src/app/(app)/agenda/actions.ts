@@ -85,6 +85,7 @@ const rehearsalSchema = z.object({
   foco: z.string().max(300).optional(),
   observacoes: z.string().max(1000).optional(),
   showId: z.string().max(40).optional(),
+  lembreteNivel: z.enum(["off", "tranquila", "importante", "urgente"]).optional(),
   status: z.enum(["planejado", "confirmado", "cancelado"]).default("planejado"),
 });
 
@@ -118,6 +119,10 @@ export async function createRehearsalAction(
       observacoes: parsed.data.observacoes,
       showId: parsed.data.showId || null,
       status: parsed.data.status,
+      lembreteNivel: parsed.data.lembreteNivel ?? "off",
+      ...(parsed.data.lembreteNivel && parsed.data.lembreteNivel !== "off"
+        ? { lembreteEnviadoEm: new Date(), lembretesEnviados: 1 }
+        : {}),
     })
     .returning();
 
@@ -164,6 +169,7 @@ export async function updateRehearsalAction(
       observacoes: parsed.data.observacoes,
       showId: parsed.data.showId || null,
       status: parsed.data.status,
+      lembreteNivel: parsed.data.lembreteNivel ?? "off",
     })
     .where(eq(rehearsals.id, id));
   revalidateRehearsalPaths();
@@ -181,7 +187,8 @@ const PRESENCE_STATUSES = ["pendente", "confirmado", "recusado"] as const;
 export async function setRehearsalPresenceAction(
   rehearsalId: string,
   memberId: string,
-  status: (typeof PRESENCE_STATUSES)[number]
+  status: (typeof PRESENCE_STATUSES)[number],
+  viaPush?: boolean
 ) {
   const user = await requireCurrentUser();
   const isAdmin = user.role === "admin";
@@ -189,6 +196,7 @@ export async function setRehearsalPresenceAction(
   if (!isAdmin && !isSelf) {
     return { error: "Você só pode confirmar a própria presença." };
   }
+  const marcouPush = !!viaPush && status === "confirmado";
   const existing = await db.query.rehearsalMemberPresence.findFirst({
     where: and(
       eq(rehearsalMemberPresence.rehearsalId, rehearsalId),
@@ -198,12 +206,12 @@ export async function setRehearsalPresenceAction(
   if (existing) {
     await db
       .update(rehearsalMemberPresence)
-      .set({ status })
+      .set({ status, viaPush: marcouPush || existing.viaPush })
       .where(eq(rehearsalMemberPresence.id, existing.id));
   } else {
     await db
       .insert(rehearsalMemberPresence)
-      .values({ rehearsalId, memberId, status });
+      .values({ rehearsalId, memberId, status, viaPush: marcouPush });
   }
   revalidatePath(`/ensaios/${rehearsalId}`);
   return { ok: true };

@@ -13,7 +13,7 @@ export async function setPresenceAction(
   showId: string,
   memberId: string,
   status: Status,
-  observacao?: string
+  viaPush?: boolean
 ) {
   const user = await requireCurrentUser();
   // admin pode mudar qualquer um; membro só o próprio
@@ -22,6 +22,7 @@ export async function setPresenceAction(
   if (!isAdmin && !isSelf) {
     return { error: "Você só pode confirmar a própria presença." };
   }
+  const marcouPush = !!viaPush && status === "confirmado";
   const existing = await db.query.showMemberPresence.findFirst({
     where: and(
       eq(showMemberPresence.showId, showId),
@@ -31,15 +32,10 @@ export async function setPresenceAction(
   if (existing) {
     await db
       .update(showMemberPresence)
-      .set({ status, observacao: observacao ?? existing.observacao })
+      .set({ status, viaPush: marcouPush || existing.viaPush })
       .where(eq(showMemberPresence.id, existing.id));
   } else {
-    await db.insert(showMemberPresence).values({
-      showId,
-      memberId,
-      status,
-      observacao,
-    });
+    await db.insert(showMemberPresence).values({ showId, memberId, status, viaPush: marcouPush });
   }
   revalidatePath(`/shows/${showId}`);
   revalidatePath("/");

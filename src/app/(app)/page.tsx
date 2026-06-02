@@ -31,6 +31,7 @@ import {
 } from "@/components/announcements/announcements-section";
 import { VenueRemindersSection } from "@/components/casas/venue-reminders";
 import { EnableNotifBanner } from "@/components/shared/enable-notif-banner";
+import { ReminderPinger } from "@/components/shared/reminder-pinger";
 import {
   computeVenueReminders,
   type VenueReminder,
@@ -229,6 +230,7 @@ export default async function DashboardPage() {
       />
 
       <div className="p-6 space-y-6">
+        <ReminderPinger />
         {/* Lembrete pra ativar notificações (some sozinho quando ativa) */}
         <EnableNotifBanner />
 

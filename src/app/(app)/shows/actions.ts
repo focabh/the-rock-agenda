@@ -24,6 +24,7 @@ const horaOptional = z
 const showSchema = z.object({
   casaId: z.string().min(1, "Selecione a casa"),
   privado: z.coerce.boolean().optional(),
+  lembreteNivel: z.enum(["off", "tranquila", "importante", "urgente"]).optional(),
   // datetime-local interpretado como horário de Brasília (não do servidor).
   data: z
     .string()
@@ -55,6 +56,7 @@ function toPersist(d: z.infer<typeof showSchema>) {
   return {
     ...rest,
     privado: !!d.privado, // sempre boolean (desmarcar precisa gravar false)
+    lembreteNivel: d.lembreteNivel ?? "off",
     cacheCentavos: cacheReais != null ? Math.round(cacheReais * 100) : 0,
   };
 }
@@ -66,7 +68,15 @@ export async function createShowAction(
   await requireAdmin();
   const parsed = parseForm(showSchema, formData);
   if (!parsed.ok) return parsed.state;
-  const [row] = await db.insert(shows).values(toPersist(parsed.data)).returning();
+  const nivel = parsed.data.lembreteNivel ?? "off";
+  const [row] = await db
+    .insert(shows)
+    .values({
+      ...toPersist(parsed.data),
+      // O aviso de criação (push abaixo) conta como o 1º reforço.
+      ...(nivel !== "off" ? { lembreteEnviadoEm: new Date(), lembretesEnviados: 1 } : {}),
+    })
+    .returning();
 
   // Avisa a banda automaticamente sobre o novo show (não bloqueia se falhar).
   try {

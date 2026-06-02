@@ -14,7 +14,8 @@ type PresenceLite = { memberId: string; status: string };
 type PresenceAction = (
   eventId: string,
   memberId: string,
-  status: Status
+  status: Status,
+  viaPush?: boolean
 ) => Promise<{ error?: string } | { ok?: boolean } | void>;
 
 const STATUS_LABEL: Record<Status, string> = {
@@ -45,6 +46,7 @@ export function PresenceCard({
   admin,
   wa,
   groupLink = null,
+  pushHint = false,
 }: {
   eventId: string;
   action: PresenceAction;
@@ -55,6 +57,8 @@ export function PresenceCard({
   wa: PresenceWa;
   /** Link de convite do grupo da banda no WhatsApp (opcional). */
   groupLink?: string | null;
+  /** Abriu via notificação (?p=1) — marca a confirmação como "via push". */
+  pushHint?: boolean;
 }) {
   const [, startTransition] = useTransition();
   const byMember = new Map(presences.map((p) => [p.memberId, p]));
@@ -99,7 +103,7 @@ export function PresenceCard({
 
   function update(memberId: string, status: Status) {
     startTransition(async () => {
-      const result = await action(eventId, memberId, status);
+      const result = await action(eventId, memberId, status, pushHint && status === "confirmado");
       if (result && "error" in result && result.error) {
         toast.error(result.error);
       } else {

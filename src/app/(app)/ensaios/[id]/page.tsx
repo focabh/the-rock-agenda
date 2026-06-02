@@ -31,10 +31,13 @@ function mapsUrl(r: {
 
 export default async function EnsaioDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ p?: string }>;
 }) {
   const { id } = await params;
+  const pushHint = (await searchParams).p === "1";
   const [r] = await db.select().from(rehearsals).where(eq(rehearsals.id, id)).limit(1);
   if (!r) notFound();
 
@@ -217,6 +220,7 @@ export default async function EnsaioDetailPage({
             path: `/ensaios/${r.id}`,
           }}
           groupLink={grupoEnsaio}
+          pushHint={pushHint}
         />
       </div>
 

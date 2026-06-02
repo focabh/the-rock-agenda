@@ -165,6 +165,18 @@ export function RehearsalForm({
         </div>
       )}
       <div className="space-y-1.5">
+        <Label htmlFor="lembreteNivel">Cobrar confirmação de presença</Label>
+        <select id="lembreteNivel" name="lembreteNivel" defaultValue={rehearsal?.lembreteNivel ?? "off"} className={selectCls}>
+          <option value="off">Não cobrar (só o aviso da criação)</option>
+          <option value="tranquila">Tranquila — reforça 1x por dia</option>
+          <option value="importante">Importante — reforça a cada 12h</option>
+          <option value="urgente">Urgente — reforça a cada ~4h</option>
+        </select>
+        <p className="text-xs text-muted-foreground">
+          Reenvia notificação só pra quem ainda não confirmou, até confirmar.
+        </p>
+      </div>
+      <div className="space-y-1.5">
         <Label htmlFor="observacoes">Observações</Label>
         <Textarea
           id="observacoes"

@@ -127,6 +127,24 @@ export function ShowForm({
             <FieldError state={state} name="status" />
           </div>
 
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="lembreteNivel">Cobrar confirmação de presença</Label>
+            <select
+              id="lembreteNivel"
+              name="lembreteNivel"
+              defaultValue={show?.lembreteNivel ?? "off"}
+              className={selectCls}
+            >
+              <option value="off">Não cobrar (só o aviso da criação)</option>
+              <option value="tranquila">Tranquila — reforça 1x por dia</option>
+              <option value="importante">Importante — reforça a cada 12h</option>
+              <option value="urgente">Urgente — reforça a cada ~4h</option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Reenvia notificação só pra quem ainda não confirmou, até confirmar (ou o evento passar).
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="termino">Término (HH:mm)</Label>
             <Input

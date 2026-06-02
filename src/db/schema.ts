@@ -150,6 +150,8 @@ export const showMemberPresence = sqliteTable("show_member_presence", {
     .notNull()
     .default("pendente"),
   observacao: text("observacao"),
+  // Marca se a confirmação veio de uma notificação (medir utilidade do push).
+  viaPush: integer("via_push", { mode: "boolean" }).notNull().default(false),
   updatedAt: updatedAt(),
 });
 
@@ -332,6 +334,10 @@ export const shows = sqliteTable("shows", {
   data: integer("data", { mode: "timestamp_ms" }).notNull(),
   // Evento particular (festa privada): sem @ da casa no flyer, info mais discreta.
   privado: integer("privado", { mode: "boolean" }).notNull().default(false),
+  // Cobrança automática de confirmação de presença.
+  lembreteNivel: text("lembrete_nivel", { enum: ["off", "tranquila", "importante", "urgente"] }).notNull().default("off"),
+  lembreteEnviadoEm: integer("lembrete_enviado_em", { mode: "timestamp_ms" }),
+  lembretesEnviados: integer("lembretes_enviados").notNull().default(0),
   inicio: text("inicio"), // HH:mm
   termino: text("termino"), // HH:mm
   contatoNome: text("contato_nome"),
@@ -456,6 +462,10 @@ export const rehearsals = sqliteTable("rehearsals", {
   data: integer("data", { mode: "timestamp_ms" }).notNull(),
   // Show relacionado (opcional) — permite importar o setlist do show pro ensaio.
   showId: text("show_id").references(() => shows.id, { onDelete: "set null" }),
+  // Cobrança automática de confirmação de presença.
+  lembreteNivel: text("lembrete_nivel", { enum: ["off", "tranquila", "importante", "urgente"] }).notNull().default("off"),
+  lembreteEnviadoEm: integer("lembrete_enviado_em", { mode: "timestamp_ms" }),
+  lembretesEnviados: integer("lembretes_enviados").notNull().default(0),
   inicio: text("inicio"), // HH:mm
   termino: text("termino"), // HH:mm
   local: text("local"),
@@ -488,6 +498,8 @@ export const rehearsalMemberPresence = sqliteTable("rehearsal_member_presence", 
     .notNull()
     .default("pendente"),
   observacao: text("observacao"),
+  // Marca se a confirmação veio de uma notificação (medir utilidade do push).
+  viaPush: integer("via_push", { mode: "boolean" }).notNull().default(false),
   updatedAt: updatedAt(),
 });
 

@@ -39,6 +39,15 @@ await addCol("setlists", "oficial", "INTEGER NOT NULL DEFAULT 0");
 await addCol("shows", "privado", "INTEGER NOT NULL DEFAULT 0");
 await addCol("rehearsals", "show_id", "TEXT REFERENCES shows(id) ON DELETE SET NULL");
 
+// cobrança de presença (lembretes automáticos)
+for (const t of ["shows", "rehearsals"]) {
+  await addCol(t, "lembrete_nivel", "TEXT NOT NULL DEFAULT 'off'");
+  await addCol(t, "lembrete_enviado_em", "INTEGER");
+  await addCol(t, "lembretes_enviados", "INTEGER NOT NULL DEFAULT 0");
+}
+await addCol("show_member_presence", "via_push", "INTEGER NOT NULL DEFAULT 0");
+await addCol("rehearsal_member_presence", "via_push", "INTEGER NOT NULL DEFAULT 0");
+
 // --- tabelas ---
 await c.execute(`CREATE TABLE IF NOT EXISTS show_song_feedback (
   id TEXT PRIMARY KEY,

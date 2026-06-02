@@ -36,10 +36,13 @@ import { formatDataBR } from "@/lib/formatters";
 
 export default async function ShowDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ p?: string }>;
 }) {
   const { id } = await params;
+  const pushHint = (await searchParams).p === "1";
   const user = await getCurrentUser();
   const admin = isAdmin(user);
   const show = await db.query.shows.findFirst({
@@ -217,6 +220,7 @@ export default async function ShowDetailPage({
                   path: `/shows/${show.id}`,
                 }}
                 groupLink={brand.whatsappGrupo}
+                pushHint={pushHint}
               />
               <PaymentBreakdown
                 showId={show.id}
