@@ -79,6 +79,7 @@ import {
   createSetlistAction,
   updateSetlistAction,
   deleteSetlistAction,
+  setSetlistOficialAction,
 } from "@/app/(app)/shows/[id]/actions-setlist";
 import {
   addSongToEnsaioSetlistAction,
@@ -419,6 +420,20 @@ export function SetlistTab({
                     <Printer className="size-4" /> Imprimir
                   </Button>
                 </>
+              )}
+              {/* Oficial do show (o Modo Show/flyer usam este) */}
+              {!isEnsaio && selected && (
+                selected.oficial ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-300 ring-1 ring-inset ring-amber-500/30">
+                    <Star className="size-3.5 fill-amber-300" /> Oficial
+                  </span>
+                ) : (
+                  canEdit && (
+                    <Button variant="outline" size="sm" onClick={() => startMgr(async () => { await setSetlistOficialAction(showId!, selected.id); toast.success("Marcado como setlist oficial."); })} disabled={mgrPending} title="Usar este setlist no Modo Show e no flyer">
+                      <Star className="size-4" /> Tornar oficial
+                    </Button>
+                  )
+                )
               )}
               {/* Show: geração/crítica/spotify/letras/imprimir */}
               {!isEnsaio && canEdit && selected && (

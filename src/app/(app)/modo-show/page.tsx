@@ -53,10 +53,13 @@ export default async function ModoShowPage({
 
   const brand = await getBrand();
 
-  // Junta todos os setlists do show, em ordem.
-  const items = show.setlists
-    .flatMap((sl, slIdx) => sl.items.map((it) => ({ ...it, slIdx })))
-    .sort((a, b) => a.slIdx - b.slIdx || a.ordem - b.ordem);
+  // Usa o setlist OFICIAL do show (1 por show). Sem oficial marcado, cai no
+  // de mais músicas. Nunca junta vários (era o que duplicava as músicas).
+  const oficial =
+    show.setlists.find((s) => s.oficial) ??
+    [...show.setlists].sort((a, b) => b.items.length - a.items.length)[0] ??
+    null;
+  const items = [...(oficial?.items ?? [])].sort((a, b) => a.ordem - b.ordem);
 
   const cues = computeStageCues(
     items.map((it) => ({ energia: it.song.energia, momento: it.song.momento })),

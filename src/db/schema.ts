@@ -292,6 +292,8 @@ export const setlists = sqliteTable("setlists", {
   rehearsalId: text("rehearsal_id").references(() => rehearsals.id, {
     onDelete: "cascade",
   }),
+  // Setlist OFICIAL do show (só 1 por show). É o que o Modo Show / flyer usam.
+  oficial: integer("oficial", { mode: "boolean" }).notNull().default(false),
   duracaoEstimadaSeg: integer("duracao_estimada_seg").default(0),
   // Duração-alvo deste set (min). Null → usa a duração do show. Permite
   // 1º set 60min, bis 20min etc.

@@ -636,6 +636,16 @@ export async function updateSetlistItemAction(
   revalidatePath(`/shows/${showId}`);
 }
 
+/** Marca um setlist como OFICIAL do show (só 1). Usado pelo Modo Show/flyer. */
+export async function setSetlistOficialAction(showId: string, setlistId: string) {
+  await requireAdmin();
+  await db.update(setlists).set({ oficial: false }).where(eq(setlists.showId, showId));
+  await db.update(setlists).set({ oficial: true }).where(eq(setlists.id, setlistId));
+  revalidatePath(`/shows/${showId}`);
+  revalidatePath("/modo-show");
+  return { ok: true };
+}
+
 export async function reorderSetlistItemsAction(
   showId: string,
   orderedIds: string[]
