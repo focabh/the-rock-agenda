@@ -400,10 +400,15 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             <div className="flex items-center justify-center gap-1.5">
               <button
                 onClick={() => setAuto((a) => !a)}
-                className={`size-11 ${ctrlBtn} ${auto ? "text-amber-400" : ""}`}
+                className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-bold transition-colors ${
+                  auto
+                    ? "bg-amber-400 text-black shadow-[0_0_16px_rgba(251,191,36,0.55)]"
+                    : "text-white/70 ring-1 ring-white/25 hover:text-white"
+                }`}
                 title={auto ? "Inteliprompter LIGADO (calibra a velocidade por música) — toque pra desligar" : "Ligar Inteliprompter (calibra a velocidade por música)"}
               >
-                <Sparkles className="size-5" />
+                <Sparkles className="size-4" />
+                AUTO
               </button>
               <button onClick={() => setShowList(true)} className={`size-11 ${ctrlBtn}`} title="Lista de músicas">
                 <ListMusic className="size-5" />

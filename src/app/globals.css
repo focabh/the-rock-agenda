@@ -145,30 +145,39 @@ select optgroup {
    do data-glass), então continuam sólidos pra leitura. */
 [data-glass] .bg-card,
 [data-glass] [data-slot="card"] {
-  background-color: color-mix(
-    in oklab,
-    var(--card) var(--surface-opacity, 100%),
-    transparent
-  );
+  background-color: color-mix(in oklab, var(--card) var(--surface-opacity, 100%), transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 [data-glass] .bg-sidebar {
-  background-color: color-mix(
-    in oklab,
-    var(--sidebar) var(--surface-opacity, 100%),
-    transparent
-  );
+  background-color: color-mix(in oklab, var(--sidebar) var(--surface-opacity, 100%), transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
-/* Blocos internos sutis (muted) acompanham, um pouco mais opacos pra leitura. */
+/* Botões e campos: outline (bg-background), secundário, accent, inputs. */
+[data-glass] .bg-background {
+  background-color: color-mix(in oklab, var(--background) var(--surface-opacity, 100%), transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+[data-glass] .bg-secondary {
+  background-color: color-mix(in oklab, var(--secondary) var(--surface-opacity, 100%), transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+[data-glass] .bg-accent {
+  background-color: color-mix(in oklab, var(--accent) var(--surface-opacity, 100%), transparent);
+}
+/* Ações (primário/destrutivo) acompanham, mas mais opacas pra não perder força. */
+[data-glass] .bg-primary {
+  background-color: color-mix(in oklab, var(--primary) calc(var(--surface-opacity, 100%) + 22%), transparent);
+}
+[data-glass] .bg-destructive {
+  background-color: color-mix(in oklab, var(--destructive) calc(var(--surface-opacity, 100%) + 22%), transparent);
+}
+/* Blocos internos sutis (muted) — um pouco mais opacos pra leitura. */
 [data-glass] .bg-muted\/30,
 [data-glass] .bg-muted\/20,
 [data-glass] .bg-muted\/10 {
-  background-color: color-mix(
-    in oklab,
-    var(--muted) calc(var(--surface-opacity, 100%) + 12%),
-    transparent
-  );
+  background-color: color-mix(in oklab, var(--muted) calc(var(--surface-opacity, 100%) + 12%), transparent);
 }

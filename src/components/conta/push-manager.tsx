@@ -19,6 +19,34 @@ function withTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
   ]);
 }
 
+/** Garante um service worker ATIVO (registra se preciso e espera ativar).
+ *  Mais robusto que navigator.serviceWorker.ready, que às vezes trava no celular. */
+async function ensureActiveReg(): Promise<ServiceWorkerRegistration> {
+  if (!("serviceWorker" in navigator)) throw new Error("sem suporte a service worker");
+  let reg = (await navigator.serviceWorker.getRegistration()) ?? null;
+  if (!reg) {
+    reg = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
+  }
+  if (reg.active) return reg;
+  await new Promise<void>((resolve, reject) => {
+    const t = setTimeout(
+      () => reject(new Error("o app ainda está iniciando, tente de novo em alguns segundos")),
+      12000
+    );
+    const done = () => {
+      if (reg!.active) {
+        clearTimeout(t);
+        clearInterval(iv);
+        resolve();
+      }
+    };
+    const sw = reg!.installing || reg!.waiting;
+    sw?.addEventListener("statechange", done);
+    const iv = setInterval(done, 400);
+  });
+  return reg;
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -71,7 +99,7 @@ export function PushManager() {
           toast.error("Permissão de notificação negada.");
           return;
         }
-        const reg = await withTimeout(navigator.serviceWorker.ready, 15000, "service worker não pronto");
+        const reg = await ensureActiveReg();
         const sub = await withTimeout(
           reg.pushManager.subscribe({
             userVisibleOnly: true,
