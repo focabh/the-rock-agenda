@@ -42,7 +42,11 @@ const FONTS = [
   "text-8xl sm:text-9xl",
 ];
 const SPEED_KEY = "teleprompter-speeds-v1"; // overrides do usuário, por música
+const RATE_KEY = "teleprompter-rates-v1"; // ritmo do sync por música (1 = igual à gravação)
 const AUTO_KEY = "teleprompter-auto-v1";
+const RATE_MIN = 0.5;
+const RATE_MAX = 1.8;
+const RATE_STEP = 0.05;
 const DEFAULT_SPEED = 18; // px/s — bem lento por padrão
 const MIN_SPEED = 2;
 const MAX_SPEED = 90;
@@ -66,6 +70,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [showList, setShowList] = useState(false);
   const [auto, setAuto] = useState(true); // Inteliprompter: calibra por música
   const [activeIdx, setActiveIdx] = useState(-1); // linha ativa (modo sincronizado)
+  const [rateView, setRateView] = useState(1); // ritmo do sync (1 = igual à gravação)
+  const rateRef = useRef(1); // fonte de verdade do ritmo pro relógio
+  const ratesMem = useRef<Record<string, number>>({});
 
   // Letra sincronizada (LRC) por música → modo Inteliprompter "no tempo real".
   const syncedLines = useMemo(
@@ -76,8 +83,10 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const syncedCurrent = auto && (syncedLines[current]?.length ?? 0) > 0;
   // Relógio do modo sincronizado: base acumulada + início do segmento tocando.
   const clock = useRef<{ base: number; startedAt: number | null }>({ base: 0, startedAt: null });
+  // Tempo da MÚSICA (segundos) = base + tempo real decorrido × ritmo.
   const elapsed = () =>
-    clock.current.base + (clock.current.startedAt != null ? (performance.now() - clock.current.startedAt) / 1000 : 0);
+    clock.current.base +
+    (clock.current.startedAt != null ? ((performance.now() - clock.current.startedAt) / 1000) * rateRef.current : 0);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -97,6 +106,11 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       speeds.current = JSON.parse(localStorage.getItem(SPEED_KEY) || "{}");
     } catch {
       speeds.current = {};
+    }
+    try {
+      ratesMem.current = JSON.parse(localStorage.getItem(RATE_KEY) || "{}");
+    } catch {
+      ratesMem.current = {};
     }
     try {
       const a = localStorage.getItem(AUTO_KEY);
@@ -160,16 +174,20 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     if (playing) {
       if (clock.current.startedAt == null) clock.current.startedAt = performance.now();
     } else if (clock.current.startedAt != null) {
-      clock.current.base += (performance.now() - clock.current.startedAt) / 1000;
+      clock.current.base += ((performance.now() - clock.current.startedAt) / 1000) * rateRef.current;
       clock.current.startedAt = null;
     }
   }, [playing]);
 
-  // Ao trocar de música (ou abrir), zera o relógio sincronizado.
+  // Ao trocar de música (ou abrir), zera o relógio e aplica o ritmo salvo dela.
   useEffect(() => {
     clock.current.base = 0;
     clock.current.startedAt = playingRef.current ? performance.now() : null;
     setActiveIdx(-1);
+    const k = songs[current] ? songKey(songs[current]) : null;
+    const r = (k && ratesMem.current[k]) || 1;
+    rateRef.current = r;
+    setRateView(r);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, open]);
 
@@ -310,6 +328,27 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
         ? (scrollRef.current?.querySelector(`[data-tl="${current}-${idx}"]`) as HTMLElement | null)
         : sectionRefs.current[current];
     target?.scrollIntoView({ block: "center", behavior: "smooth" });
+    bumpControls();
+  }
+
+  // Ritmo do sync: a banda toca mais rápido/devagar que a gravação. Re-baseia o
+  // relógio (continuidade) e guarda por música.
+  function setSongRate(r: number) {
+    const clamped = Math.min(RATE_MAX, Math.max(RATE_MIN, Math.round(r * 100) / 100));
+    const cur = elapsed(); // tempo-música atual com o ritmo antigo
+    clock.current.base = cur;
+    if (clock.current.startedAt != null) clock.current.startedAt = performance.now();
+    rateRef.current = clamped;
+    setRateView(clamped);
+    const k = songs[current] ? songKey(songs[current]) : null;
+    if (k) {
+      ratesMem.current[k] = clamped;
+      try {
+        localStorage.setItem(RATE_KEY, JSON.stringify(ratesMem.current));
+      } catch {
+        /* ignora */
+      }
+    }
     bumpControls();
   }
 
@@ -490,23 +529,35 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             }`}
           >
             {syncedCurrent ? (
-              /* Modo sincronizado: ajuste fino do tempo + recomeçar */
-              <div className="flex items-center gap-2">
-                <button onClick={() => nudge(-1)} className={`h-9 px-2 ${ctrlBtn}`} title="Atrasar 1s">
-                  <Minus className="size-4" /> 1s
-                </button>
-                <div className="flex-1 text-center font-mono text-xs text-amber-300">
-                  ♪ no tempo da música ·{" "}
-                  {activeIdx >= 0
-                    ? `linha ${activeIdx + 1}/${syncedLines[current].length}`
-                    : "introdução (letra espera)"}
+              /* Modo sincronizado: ritmo (banda mais rápida/lenta) + ajuste fino + recomeçar */
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setSongRate(rateView - RATE_STEP)} className={`h-9 px-2 ${ctrlBtn}`} title="Mais devagar (banda tocando mais lento)">
+                    <Minus className="size-5" />
+                  </button>
+                  <div className="flex-1 text-center">
+                    <div className="font-mono text-sm font-bold text-amber-300">
+                      ritmo {Math.round(rateView * 100)}%
+                    </div>
+                    <div className="font-mono text-[11px] text-white/55">
+                      {activeIdx >= 0 ? `linha ${activeIdx + 1}/${syncedLines[current].length}` : "introdução (letra espera)"}
+                    </div>
+                  </div>
+                  <button onClick={() => setSongRate(rateView + RATE_STEP)} className={`h-9 px-2 ${ctrlBtn}`} title="Mais rápido (banda tocando mais rápido)">
+                    <Plus className="size-5" />
+                  </button>
                 </div>
-                <button onClick={() => nudge(1)} className={`h-9 px-2 ${ctrlBtn}`} title="Adiantar 1s">
-                  <Plus className="size-4" /> 1s
-                </button>
-                <button onClick={resync} className={`size-9 ${ctrlBtn}`} title="Recomeçar — aperte quando a música começar">
-                  <RotateCcw className="size-4" />
-                </button>
+                <div className="flex items-center justify-center gap-2">
+                  <button onClick={() => nudge(-1)} className={`h-8 rounded-full px-3 text-xs ${ctrlBtn}`} title="Atrasar 1s">
+                    −1s
+                  </button>
+                  <button onClick={resync} className={`inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs ${ctrlBtn}`} title="Recomeçar do zero — aperte quando a música começar">
+                    <RotateCcw className="size-3.5" /> recomeçar
+                  </button>
+                  <button onClick={() => nudge(1)} className={`h-8 rounded-full px-3 text-xs ${ctrlBtn}`} title="Adiantar 1s">
+                    +1s
+                  </button>
+                </div>
               </div>
             ) : (
               /* Velocidade — slider fino (modo rolagem constante) */
