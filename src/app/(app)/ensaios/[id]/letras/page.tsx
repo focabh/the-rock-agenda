@@ -32,6 +32,7 @@ export default async function EnsaioLetrasPage({
     lyrics: it.song.lyrics?.trim() || null,
     durationSeg: it.song.duracaoSeg,
     syncedLyrics: it.song.syncedLyrics,
+    cues: it.song.cues,
   }));
 
   const [user, brand] = await Promise.all([getCurrentUser(), getBrand()]);

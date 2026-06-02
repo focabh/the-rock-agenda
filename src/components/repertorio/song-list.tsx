@@ -37,6 +37,8 @@ import {
 } from "@/components/shared/status-badge";
 import { DeleteButton } from "@/components/shared/delete-button";
 import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
+import { CuesDialog } from "@/components/repertorio/cues-dialog";
+import { parseCues } from "@/lib/lrc";
 import { EmptyState } from "@/components/shared/empty-state";
 import { materialForPosicao, type MaterialKind } from "@/lib/instrument-material";
 import { cn } from "@/lib/utils";
@@ -324,6 +326,10 @@ export function SongList({
             spotifyTrackId={s.spotifyTrackId}
             admin={admin}
           />
+        )}
+
+        {admin && (
+          <CuesDialog songId={s.id} titulo={s.titulo} initial={parseCues(s.cues)} />
         )}
 
         {material.play &&

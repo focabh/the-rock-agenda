@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
-import { parseLrc, activeLineIndex } from "@/lib/lrc";
+import { parseLrc, parseCues, buildTimeline, activeLineIndex } from "@/lib/lrc";
 
 type Song = {
   n: number;
@@ -30,6 +30,7 @@ type Song = {
   lyrics: string | null;
   durationSeg?: number | null;
   syncedLyrics?: string | null;
+  cues?: string | null;
 };
 
 // Tamanhos responsivos: já começam grandes no celular.
@@ -75,13 +76,13 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const rateRef = useRef(1); // fonte de verdade do ritmo pro relógio
   const ratesMem = useRef<Record<string, number>>({});
 
-  // Letra sincronizada (LRC) por música → modo Inteliprompter "no tempo real".
-  const syncedLines = useMemo(
-    () => songs.map((s) => parseLrc(s.syncedLyrics).filter((l) => l.text)),
+  // Linha do tempo por música: versos (LRC) + marcações (intro/solo), ordenados.
+  const timelines = useMemo(
+    () => songs.map((s) => buildTimeline(parseLrc(s.syncedLyrics), parseCues(s.cues))),
     [songs]
   );
-  // Sincronizado quando: AUTO ligado E a música atual tem letra sincronizada.
-  const syncedCurrent = auto && (syncedLines[current]?.length ?? 0) > 0;
+  // Sincronizado quando: AUTO ligado E a música atual tem timeline (letra sincronizada).
+  const syncedCurrent = auto && (timelines[current]?.length ?? 0) > 0;
   // Relógio do modo sincronizado: base acumulada + início do segmento tocando.
   const clock = useRef<{ base: number; startedAt: number | null }>({ base: 0, startedAt: null });
   // Tempo da MÚSICA (segundos) = base + tempo real decorrido × ritmo.
@@ -198,7 +199,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   // Usa um rAF PRÓPRIO (id local) pra não conflitar com a rolagem constante.
   useEffect(() => {
     if (!open || !playing || !syncedCurrent) return;
-    const lines = syncedLines[current];
+    const lines = timelines[current];
     let id = 0;
     let active = true;
     let lastIdx = -2;
@@ -227,7 +228,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       active = false;
       cancelAnimationFrame(id);
     };
-  }, [open, playing, syncedCurrent, current, syncedLines]);
+  }, [open, playing, syncedCurrent, current, timelines]);
 
   // Mantém a tela acesa.
   useEffect(() => {
@@ -331,7 +332,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   // Ajuste fino do tempo (modo sincronizado): empurra/atrasa a letra.
   function nudge(delta: number) {
     clock.current.base = Math.max(0, clock.current.base + delta);
-    const lines = syncedLines[current];
+    const lines = timelines[current];
     const idx = activeLineIndex(lines, elapsed());
     setActiveIdx(idx);
     const target =
@@ -405,15 +406,19 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const ctrlBtn =
     "inline-flex items-center justify-center rounded-full text-white/85 hover:bg-white/10 disabled:opacity-40";
 
-  // Contagem do instrumental (intro/solo): segundos até o próximo verso entrar.
-  const curLines = syncedCurrent ? syncedLines[current] : [];
-  const nextVocalT = syncedCurrent
-    ? activeIdx < 0
-      ? curLines[0]?.t
-      : curLines[activeIdx + 1]?.t
-    : undefined;
-  const instrRemaining = nextVocalT != null ? Math.round(nextVocalT - songSec) : null;
+  // Contagem do instrumental (intro/solo): segundos até o próximo VERSO entrar.
+  const tl = syncedCurrent ? timelines[current] : [];
+  const activeEntry = activeIdx >= 0 ? tl[activeIdx] : null;
+  let nextVocalT: number | undefined;
+  for (const e of tl) {
+    if (!e.cue && e.t > songSec) {
+      nextVocalT = e.t;
+      break;
+    }
+  }
+  const instrRemaining = nextVocalT != null ? Math.max(0, nextVocalT - songSec) : null;
   const showInstr = playing && syncedCurrent && instrRemaining != null && instrRemaining >= 6;
+  const instrLabel = activeIdx < 0 ? "introdução" : activeEntry?.cue ? activeEntry.text : "instrumental";
 
   return (
     <>
@@ -459,7 +464,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
           {showInstr && (
             <div className="pointer-events-none absolute inset-x-0 top-14 z-10 flex justify-center">
               <span className="rounded-full bg-amber-500/90 px-4 py-1.5 text-sm font-bold text-black shadow-lg">
-                🎸 {activeIdx < 0 ? "introdução" : "instrumental"} · vocal em {instrRemaining}s
+                🎸 {instrLabel} · vocal em {instrRemaining}s
               </span>
             </div>
           )}
@@ -487,13 +492,27 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     {s.n}. {s.titulo}
                     {s.tom ? ` · ${s.tom}` : ""}
                   </h2>
-                  {auto && syncedLines[i].length > 0 ? (
+                  {auto && timelines[i].length > 0 ? (
                     // Modo sincronizado: linha a linha, a atual em destaque (estilo Spotify).
+                    // Marcações (intro/solo) aparecem como selo 🎸.
                     <div className={`space-y-3 font-semibold leading-[1.3] ${FONTS[fontIdx]}`}>
-                      {syncedLines[i].map((ln, j) => {
+                      {timelines[i].map((ln, j) => {
                         const isCur = i === current;
                         const active = isCur && j === activeIdx;
-                        const upcoming = isCur && activeIdx < 0 && j === 0; // 1ª linha na intro
+                        const upcoming = isCur && activeIdx < 0 && j === 0; // 1ª entrada na intro
+                        if (ln.cue) {
+                          return (
+                            <p key={j} data-tl={`${i}-${j}`}>
+                              <span
+                                className={`inline-block rounded-full px-4 py-1 text-[0.5em] font-bold uppercase tracking-wide ${
+                                  active ? "bg-amber-400 text-black" : "bg-amber-400/20 text-amber-300"
+                                }`}
+                              >
+                                🎸 {ln.text}
+                              </span>
+                            </p>
+                          );
+                        }
                         return (
                           <p
                             key={j}
@@ -571,7 +590,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     </div>
                     <div className="font-mono text-[11px] text-white/55">
                       {Math.floor(songSec / 60)}:{String(songSec % 60).padStart(2, "0")} ·{" "}
-                      {activeIdx >= 0 ? `linha ${activeIdx + 1}/${syncedLines[current].length}` : "introdução (letra espera)"}
+                      {activeIdx >= 0 ? `linha ${activeIdx + 1}/${timelines[current].length}` : "introdução (letra espera)"}
                     </div>
                   </div>
                   <button onClick={() => setSongRate(rateView + RATE_STEP)} className={`h-9 px-2 ${ctrlBtn}`} title="Mais rápido (banda tocando mais rápido)">
@@ -633,7 +652,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                   className={`inline-flex h-full items-center gap-1 px-3 text-sm font-bold transition-colors ${
                     auto
                       ? "bg-amber-400 text-black"
-                      : (syncedLines[current]?.length ?? 0) > 0
+                      : (timelines[current]?.length ?? 0) > 0
                         ? "text-white/70 hover:text-white"
                         : "text-white/30"
                   }`}

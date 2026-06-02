@@ -482,6 +482,37 @@ export async function toggleFavoritaAction(id: string, favorita: boolean) {
 }
 
 /** Marca/desmarca afinação dropada de uma música (reflete nos setlists). */
+/** Salva as marcações (intro/solo) de uma música. */
+export async function setSongCuesAction(
+  id: string,
+  cues: { t: number; label: string }[]
+): Promise<{ ok: boolean }> {
+  await requireSuperuser();
+  const clean = (cues ?? [])
+    .filter((c) => typeof c.t === "number" && c.label?.trim())
+    .map((c) => ({ t: Math.max(0, Math.round(c.t)), label: c.label.trim().slice(0, 60) }))
+    .sort((a, b) => a.t - b.t);
+  await db.update(songs).set({ cues: clean.length ? JSON.stringify(clean) : null }).where(eq(songs.id, id));
+  revalidatePath("/repertorio");
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { ok: true };
+}
+
+/** Sugere marcações a partir da letra sincronizada (vãos = intro/instrumental). */
+export async function getSuggestedCuesAction(
+  id: string
+): Promise<{ ok: boolean; cues: { t: number; label: string }[]; error?: string }> {
+  await requireSuperuser();
+  const [song] = await db.select().from(songs).where(eq(songs.id, id)).limit(1);
+  if (!song) return { ok: false, cues: [], error: "Música não encontrada." };
+  const { parseLrc, suggestCues } = await import("@/lib/lrc");
+  if (!song.syncedLyrics?.trim()) {
+    return { ok: false, cues: [], error: "Essa música não tem letra sincronizada (sincronize as letras primeiro)." };
+  }
+  return { ok: true, cues: suggestCues(parseLrc(song.syncedLyrics)) };
+}
+
 export async function setSongDropAction(id: string, dropada: boolean) {
   // DROP é atributo usado ao montar setlists (que o manager também faz) — admin.
   await requireAdmin();
