@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatBRL, parseBRLToCentavos } from "@/lib/formatters";
-import { computePaymentBreakdown } from "@/lib/payment";
+import { computePaymentBreakdown, memberDefaultCentavos } from "@/lib/payment";
 import {
   updateShowFinanceAction,
   setMemberPaymentAction,
@@ -64,22 +64,38 @@ export function PaymentBreakdown({
   const [pctInput, setPctInput] = useState(String(commissionPct));
   const [apply, setApply] = useState(applyCommission);
 
-  // Resolve cada override pra centavos: percentual vira valor com base no cachê.
+  // Override REAL do show (editável/resetável aqui), por músico.
+  const showOverride = useMemo(() => new Map(overrides.map((o) => [o.memberId, o])), [overrides]);
+
+  // Valor efetivo por músico (centavos): override do show vence; senão, o
+  // pagamento PADRÃO do músico (perfil) — fixo ou % do cachê.
   const overrideMap = useMemo(() => {
     const m = new Map<string, number>();
-    for (const o of overrides) {
-      const cents = o.pct != null ? Math.round((cacheCentavos * o.pct) / 100) : o.valorCentavos;
-      m.set(o.memberId, cents);
+    for (const mem of confirmedMusicos) {
+      const o = showOverride.get(mem.id);
+      if (o) {
+        m.set(mem.id, o.pct != null ? Math.round((cacheCentavos * o.pct) / 100) : o.valorCentavos);
+      } else {
+        const d = memberDefaultCentavos(mem, cacheCentavos);
+        if (d != null) m.set(mem.id, d);
+      }
     }
     return m;
-  }, [overrides, cacheCentavos]);
+  }, [showOverride, confirmedMusicos, cacheCentavos]);
 
-  // Quais overrides são percentuais (memberId -> pct) — pra UI mostrar/editar "%".
+  // Percentual efetivo (memberId -> pct) pra UI mostrar/editar "%".
   const pctMap = useMemo(() => {
     const m = new Map<string, number>();
-    for (const o of overrides) if (o.pct != null) m.set(o.memberId, o.pct);
+    for (const mem of confirmedMusicos) {
+      const o = showOverride.get(mem.id);
+      if (o) {
+        if (o.pct != null) m.set(mem.id, o.pct);
+      } else if (mem.pagamentoFixoCentavos == null && (mem.percentualDivisao ?? 0) > 0) {
+        m.set(mem.id, mem.percentualDivisao as number);
+      }
+    }
     return m;
-  }, [overrides]);
+  }, [showOverride, confirmedMusicos]);
 
   // Participantes da divisão = músicos confirmados + subs convidados.
   const participantes = useMemo(
@@ -286,6 +302,7 @@ export function PaymentBreakdown({
                     member={m}
                     valorCentavos={info.valorCentavos}
                     manual={info.manual}
+                    isShowOverride={showOverride.has(m.id)}
                     pct={pctMap.get(m.id) ?? null}
                     admin={admin}
                     paidStatus={paid ? paid.status : "none"}
@@ -393,6 +410,7 @@ function MemberPaymentRow({
   member,
   valorCentavos,
   manual,
+  isShowOverride,
   pct,
   admin,
   paidStatus,
@@ -406,6 +424,7 @@ function MemberPaymentRow({
   member: Member;
   valorCentavos: number;
   manual: boolean;
+  isShowOverride: boolean;
   pct: number | null;
   admin: boolean;
   paidStatus: PaidStatus;
@@ -449,10 +468,19 @@ function MemberPaymentRow({
       </div>
       {manual && (
         <span
-          className="text-[10px] uppercase tracking-wider text-amber-300"
-          title={pct != null ? "Percentual do cachê" : "Valor fixo editado manualmente"}
+          className={cn(
+            "text-[10px] uppercase tracking-wider",
+            isShowOverride ? "text-amber-300" : "text-sky-300"
+          )}
+          title={
+            isShowOverride
+              ? pct != null
+                ? "Percentual do cachê (deste show)"
+                : "Valor fixo deste show"
+              : "Pagamento padrão do músico (perfil) — edite pra valer só neste show"
+          }
         >
-          {pct != null ? `${pct}%` : "fixo"}
+          {isShowOverride ? (pct != null ? `${pct}%` : "fixo") : pct != null ? `${pct}% padrão` : "padrão"}
         </span>
       )}
       {editing && admin ? (
@@ -504,11 +532,11 @@ function MemberPaymentRow({
           {formatBRL(valorCentavos)}
         </button>
       )}
-      {admin && manual && (
+      {admin && isShowOverride && (
         <button
           onClick={onReset}
           className="text-muted-foreground hover:text-foreground"
-          title="Voltar pra divisão automática"
+          title="Voltar pro padrão / divisão automática"
         >
           <RotateCcw className="size-3.5" />
         </button>

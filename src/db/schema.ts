@@ -125,7 +125,11 @@ export const members = sqliteTable("members", {
   pixBanco: text("pix_banco"), // banco/instituição da chave
   equipamentos: text("equipamentos"),
   disponibilidade: text("disponibilidade"),
+  // Pagamento PADRÃO do músico por show (opcional): % do cachê (percentualDivisao)
+  // OU valor fixo (pagamentoFixoCentavos). Vale como default quando o show não
+  // tem override próprio. Fixo vence o %; ambos vazios = divisão igualitária.
   percentualDivisao: real("percentual_divisao").default(0),
+  pagamentoFixoCentavos: integer("pagamento_fixo_centavos"),
   observacoes: text("observacoes"),
   avatar: text("avatar"), // data URL (foto do músico) — opcional
   ativo: integer("ativo", { mode: "boolean" }).notNull().default(true),

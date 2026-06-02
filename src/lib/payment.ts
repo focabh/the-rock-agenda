@@ -21,6 +21,18 @@ export type BreakdownResult = {
   overflow: boolean;
 };
 
+/** Default de pagamento do músico (perfil) resolvido em centavos pra um cachê.
+ *  Valor fixo vence o percentual; sem nenhum dos dois → null (divisão igual). */
+export function memberDefaultCentavos(
+  m: { pagamentoFixoCentavos?: number | null; percentualDivisao?: number | null },
+  cacheCentavos: number
+): number | null {
+  if (m.pagamentoFixoCentavos != null) return Math.max(0, Math.round(m.pagamentoFixoCentavos));
+  if (m.percentualDivisao != null && m.percentualDivisao > 0)
+    return Math.round((cacheCentavos * m.percentualDivisao) / 100);
+  return null;
+}
+
 export function computePaymentBreakdown(input: BreakdownInput): BreakdownResult {
   const { cacheCentavos, applyCommission, commissionPct, confirmedMusicos, overrides } = input;
 

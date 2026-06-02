@@ -24,6 +24,8 @@ const memberSchema = z.object({
   equipamentos: z.string().max(1000).optional(),
   disponibilidade: z.string().max(500).optional(),
   percentualDivisao: z.coerce.number().min(0).max(100).optional(),
+  // R$ (string vazia = sem valor fixo). Convertido pra centavos em memberValues.
+  pagamentoFixo: z.string().max(20).optional(),
   observacoes: z.string().max(2000).optional(),
   isManager: z
     .union([z.literal("on"), z.literal("true"), z.literal("")])
@@ -43,10 +45,14 @@ const memberSchema = z.object({
 
 function memberValues(d: z.infer<typeof memberSchema>) {
   // Remove campos auxiliares antes de gravar; trata "remover avatar".
-  const { removerAvatar, avatar, ...rest } = d;
-  if (removerAvatar === "1") return { ...rest, avatar: null };
-  if (avatar) return { ...rest, avatar };
-  return rest; // mantém o avatar existente
+  const { removerAvatar, avatar, pagamentoFixo, ...rest } = d;
+  // Valor fixo padrão: string vazia/inválida = null; senão R$ -> centavos.
+  const fixoNum = pagamentoFixo != null && pagamentoFixo.trim() !== "" ? Number(pagamentoFixo.replace(",", ".")) : NaN;
+  const pagamentoFixoCentavos = Number.isFinite(fixoNum) && fixoNum > 0 ? Math.round(fixoNum * 100) : null;
+  const base = { ...rest, pagamentoFixoCentavos };
+  if (removerAvatar === "1") return { ...base, avatar: null };
+  if (avatar) return { ...base, avatar };
+  return base; // mantém o avatar existente
 }
 
 export async function createMemberAction(
