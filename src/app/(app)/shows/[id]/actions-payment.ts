@@ -203,13 +203,18 @@ export async function updateShowFinanceAction(
   revalidatePath("/");
 }
 
+// Define o override de um músico: valor FIXO (centavos) ou PERCENTUAL do cachê.
+// Passe `pct` (0..100) pra percentual; senão usa `valorCentavos` (fixo).
 export async function setMemberPaymentAction(
   showId: string,
   memberId: string,
-  valorCentavos: number
+  valorCentavos: number,
+  pct?: number | null
 ) {
   await requireAdmin();
-  const v = Math.max(0, Math.round(valorCentavos));
+  const isPct = pct != null && Number.isFinite(pct);
+  const pctClamped = isPct ? Math.max(0, Math.min(100, pct!)) : null;
+  const v = isPct ? 0 : Math.max(0, Math.round(valorCentavos));
   const existing = await db.query.showMemberPayment.findFirst({
     where: and(
       eq(showMemberPayment.showId, showId),
@@ -219,13 +224,14 @@ export async function setMemberPaymentAction(
   if (existing) {
     await db
       .update(showMemberPayment)
-      .set({ valorCentavos: v })
+      .set({ valorCentavos: v, pct: pctClamped })
       .where(eq(showMemberPayment.id, existing.id));
   } else {
     await db.insert(showMemberPayment).values({
       showId,
       memberId,
       valorCentavos: v,
+      pct: pctClamped,
     });
   }
   revalidatePath(`/shows/${showId}`);

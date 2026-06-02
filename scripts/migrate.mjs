@@ -48,6 +48,9 @@ for (const t of ["shows", "rehearsals"]) {
 await addCol("show_member_presence", "via_push", "INTEGER NOT NULL DEFAULT 0");
 await addCol("rehearsal_member_presence", "via_push", "INTEGER NOT NULL DEFAULT 0");
 
+// pagamento por músico: override percentual (além do valor fixo já existente)
+await addCol("show_member_payment", "pct", "REAL");
+
 // --- tabelas ---
 await c.execute(`CREATE TABLE IF NOT EXISTS show_song_feedback (
   id TEXT PRIMARY KEY,

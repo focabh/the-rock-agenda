@@ -62,9 +62,20 @@ export function PaymentBreakdown({
   const [pctInput, setPctInput] = useState(String(commissionPct));
   const [apply, setApply] = useState(applyCommission);
 
+  // Resolve cada override pra centavos: percentual vira valor com base no cachê.
   const overrideMap = useMemo(() => {
     const m = new Map<string, number>();
-    for (const o of overrides) m.set(o.memberId, o.valorCentavos);
+    for (const o of overrides) {
+      const cents = o.pct != null ? Math.round((cacheCentavos * o.pct) / 100) : o.valorCentavos;
+      m.set(o.memberId, cents);
+    }
+    return m;
+  }, [overrides, cacheCentavos]);
+
+  // Quais overrides são percentuais (memberId -> pct) — pra UI mostrar/editar "%".
+  const pctMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const o of overrides) if (o.pct != null) m.set(o.memberId, o.pct);
     return m;
   }, [overrides]);
 
@@ -132,7 +143,13 @@ export function PaymentBreakdown({
 
   function setOverride(memberId: string, valorCentavos: number) {
     startTransition(async () => {
-      await setMemberPaymentAction(showId, memberId, valorCentavos);
+      await setMemberPaymentAction(showId, memberId, valorCentavos, null);
+    });
+  }
+
+  function setOverridePct(memberId: string, pct: number) {
+    startTransition(async () => {
+      await setMemberPaymentAction(showId, memberId, 0, pct);
     });
   }
 
@@ -269,11 +286,13 @@ export function PaymentBreakdown({
                     member={m}
                     valorCentavos={info.valorCentavos}
                     manual={info.manual}
+                    pct={pctMap.get(m.id) ?? null}
                     admin={admin}
                     paidStatus={paid ? paid.status : "none"}
                     hasComprovante={paid?.hasComprovante ?? false}
                     isSelf={currentMemberId === m.id}
                     onSet={(v) => setOverride(m.id, v)}
+                    onSetPct={(p) => setOverridePct(m.id, p)}
                     onReset={() => clearOverride(m.id)}
                   />
                 );
@@ -358,30 +377,51 @@ function MemberPaymentRow({
   member,
   valorCentavos,
   manual,
+  pct,
   admin,
   paidStatus,
   hasComprovante,
   isSelf,
   onSet,
+  onSetPct,
   onReset,
 }: {
   showId: string;
   member: Member;
   valorCentavos: number;
   manual: boolean;
+  pct: number | null;
   admin: boolean;
   paidStatus: PaidStatus;
   hasComprovante: boolean;
   isSelf: boolean;
   onSet: (v: number) => void;
+  onSetPct: (p: number) => void;
   onReset: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [input, setInput] = useState((valorCentavos / 100).toString());
+  // modo de edição: "fixo" (R$) ou "pct" (%)
+  const [modo, setModo] = useState<"fixo" | "pct">(pct != null ? "pct" : "fixo");
+  const [input, setInput] = useState(
+    pct != null ? String(pct) : (valorCentavos / 100).toString()
+  );
+
+  function startEdit() {
+    if (!admin) return;
+    const m: "fixo" | "pct" = pct != null ? "pct" : "fixo";
+    setModo(m);
+    setInput(m === "pct" ? String(pct) : (valorCentavos / 100).toString());
+    setEditing(true);
+  }
 
   function commit() {
-    const v = parseBRLToCentavos(input);
-    if (v !== valorCentavos) onSet(v);
+    if (modo === "pct") {
+      const p = Number(input.replace(",", "."));
+      if (Number.isFinite(p)) onSetPct(Math.max(0, Math.min(100, p)));
+    } else {
+      const v = parseBRLToCentavos(input);
+      if (v !== valorCentavos || pct != null) onSet(v);
+    }
     setEditing(false);
   }
 
@@ -394,43 +434,54 @@ function MemberPaymentRow({
       {manual && (
         <span
           className="text-[10px] uppercase tracking-wider text-amber-300"
-          title="Valor editado manualmente"
+          title={pct != null ? "Percentual do cachê" : "Valor fixo editado manualmente"}
         >
-          manual
+          {pct != null ? `${pct}%` : "fixo"}
         </span>
       )}
       {editing && admin ? (
-        <Input
-          type="number"
-          min={0}
-          step={0.01}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") {
-              setInput((valorCentavos / 100).toString());
-              setEditing(false);
-            }
-          }}
-          autoFocus
-          className="w-28 h-8 font-mono text-right"
-        />
+        <div className="flex items-center gap-1">
+          <div className="inline-flex h-8 overflow-hidden rounded-md ring-1 ring-border">
+            <button
+              type="button"
+              onClick={() => setModo("fixo")}
+              className={cn("px-2 text-xs font-semibold", modo === "fixo" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+            >
+              R$
+            </button>
+            <button
+              type="button"
+              onClick={() => setModo("pct")}
+              className={cn("px-2 text-xs font-semibold", modo === "pct" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+            >
+              %
+            </button>
+          </div>
+          <Input
+            type="number"
+            min={0}
+            max={modo === "pct" ? 100 : undefined}
+            step={modo === "pct" ? 1 : 0.01}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            autoFocus
+            className="w-24 h-8 font-mono text-right"
+          />
+        </div>
       ) : (
         <button
-          onClick={() => {
-            if (admin) {
-              setInput((valorCentavos / 100).toString());
-              setEditing(true);
-            }
-          }}
+          onClick={startEdit}
           disabled={!admin}
           className={cn(
             "font-mono text-sm tabular-nums",
             admin && "hover:text-primary cursor-text"
           )}
-          title={admin ? "Clique pra editar" : undefined}
+          title={admin ? "Clique pra editar (R$ ou %)" : undefined}
         >
           {formatBRL(valorCentavos)}
         </button>

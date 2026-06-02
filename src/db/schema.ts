@@ -386,7 +386,11 @@ export const showMemberPayment = sqliteTable(
     memberId: text("member_id")
       .notNull()
       .references(() => members.id, { onDelete: "cascade" }),
+    // Override de valor FIXO (em centavos). Usado quando `pct` é null.
     valorCentavos: integer("valor_centavos").notNull(),
+    // Override de PERCENTUAL do cachê total (0..100). Quando preenchido, vence
+    // o valor fixo e o repasse é recalculado se o cachê mudar.
+    pct: real("pct"),
     updatedAt: updatedAt(),
   },
   (t) => ({
