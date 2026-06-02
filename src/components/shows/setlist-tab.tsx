@@ -22,12 +22,17 @@ import {
   Send,
   Link2,
   TriangleAlert,
+  Play,
+  ExternalLink,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
 import { SetlistCritiqueDialog } from "@/components/shows/setlist-critique-dialog";
 import { EnsaioGenerateDialog } from "@/components/ensaios/ensaio-generate-dialog";
 import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
+import { CuesDialog } from "@/components/repertorio/cues-dialog";
+import { SongStatusBadge } from "@/components/shared/status-badge";
+import { parseCues } from "@/lib/lrc";
 import { setSongDropAction } from "@/app/(app)/repertorio/actions";
 import {
   DndContext,
@@ -120,12 +125,14 @@ export function SetlistTab({
   importarDoShow = null,
   simular = null,
   spotifyDefaultUrl = null,
+  superuser = false,
 }: {
   showId?: string;
   rehearsalId?: string;
   setlists: SetlistWithItems[];
   allSongs: Song[];
   canEdit?: boolean;
+  superuser?: boolean;
   defaultDuracaoMin?: number;
   userPosicao?: string | null;
   ensaioInfo?: { dataLabel: string; foco: string | null } | null;
@@ -501,6 +508,7 @@ export function SetlistTab({
                         item={item}
                         index={idx}
                         canEdit={canEdit}
+                        superuser={superuser}
                         play={play}
                         isEnsaio={isEnsaio}
                         onTom={(tom) => aTom(item.id, tom)}
@@ -628,6 +636,7 @@ function SortableSetlistItem({
   item,
   index,
   canEdit,
+  superuser,
   play,
   isEnsaio,
   onTom,
@@ -643,6 +652,7 @@ function SortableSetlistItem({
   item: Item;
   index: number;
   canEdit: boolean;
+  superuser: boolean;
   play: PlayMaterial | null;
   isEnsaio: boolean;
   onTom: (tom: string | null) => void;
@@ -657,19 +667,22 @@ function SortableSetlistItem({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: !canEdit });
   const [, startTransition] = useTransition();
+  const [playing, setPlaying] = useState(false);
   const style = { transform: CSS.Transform.toString(transform), transition };
   const dur = item.duracaoSeg ?? item.song.duracaoSeg ?? 0;
+  const trackId = item.song.spotifyTrackId;
 
   return (
     <li
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-1.5 bg-card px-2 py-2 sm:gap-2 sm:px-3",
+        "bg-card",
         item.prioridade && "border-l-2 border-amber-400",
         isDragging && "z-10 shadow-lg ring-1 ring-primary/40"
       )}
     >
+      <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2 sm:px-3">
       {canEdit && (
         <button
           {...attributes}
@@ -698,6 +711,10 @@ function SortableSetlistItem({
         <p className="truncate text-sm font-medium">{item.song.titulo}</p>
         <p className="truncate text-xs text-muted-foreground">{item.song.artista}</p>
       </div>
+
+      <span className="hidden shrink-0 md:inline">
+        <SongStatusBadge status={item.song.status} />
+      </span>
 
       {(canEdit || dropada) && (
         <button
@@ -757,6 +774,31 @@ function SortableSetlistItem({
           );
         })()
       )}
+      {/* Tocar no Spotify (player embed inline, igual ao repertório) */}
+      {trackId && (
+        <button
+          type="button"
+          onClick={() => setPlaying((p) => !p)}
+          className={cn(
+            "inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors",
+            playing ? "bg-primary text-primary-foreground" : "text-primary hover:bg-primary/15"
+          )}
+          title={playing ? "Fechar player" : "Tocar no Spotify"}
+        >
+          {playing ? <X className="size-3.5" /> : <Play className="size-3.5 fill-current" />}
+        </button>
+      )}
+      {trackId && (
+        <a
+          href={`https://open.spotify.com/track/${trackId}`}
+          target="_blank"
+          rel="noreferrer"
+          className="hidden size-7 shrink-0 items-center justify-center rounded-full text-emerald-400 transition-colors hover:bg-emerald-500/15 sm:inline-flex"
+          title="Abrir no Spotify (toca inteira no app)"
+        >
+          <ExternalLink className="size-3.5" />
+        </a>
+      )}
       {/* Letra por música — só leitura aqui; editar a letra é no Repertório. */}
       <LyricsDialog
         songId={item.song.id}
@@ -765,6 +807,10 @@ function SortableSetlistItem({
         spotifyTrackId={item.song.spotifyTrackId}
         admin={false}
       />
+      {/* Marcações (entrada do vocal / solo) — só o superusuário edita */}
+      {superuser && (
+        <CuesDialog songId={item.song.id} titulo={item.song.titulo} initial={parseCues(item.song.cues)} />
+      )}
       <Input
         defaultValue={item.tom ?? item.song.tom ?? ""}
         placeholder="Tom"
@@ -777,6 +823,22 @@ function SortableSetlistItem({
         <Button variant="ghost" size="icon" title="Remover" className="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => startTransition(() => onRemove())}>
           <X className="size-3.5" />
         </Button>
+      )}
+      </div>
+
+      {playing && trackId && (
+        <div className="border-t border-border bg-muted/20 px-3 pb-3">
+          <iframe
+            src={`https://open.spotify.com/embed/track/${trackId}?utm_source=generator`}
+            width="100%"
+            height={152}
+            loading="lazy"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            style={{ border: 0 }}
+            className="mt-3 rounded-xl"
+            title={`Spotify: ${item.song.titulo}`}
+          />
+        </div>
       )}
     </li>
   );

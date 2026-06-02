@@ -635,7 +635,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             )}
 
             {/* Linha de transporte */}
-            <div className="flex items-center justify-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
               {/* Seletor de modo: Rolar (rolagem suave) ou Sync (no tempo da música). */}
               <div className="inline-flex h-11 shrink-0 items-center overflow-hidden rounded-full ring-1 ring-white/25">
                 <button

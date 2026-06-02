@@ -237,6 +237,7 @@ export default async function EnsaioDetailPage({
           importarDoShow={importarDoShow}
           simular={simular}
           spotifyDefaultUrl={brand.spotifyListEnsaio}
+          superuser={admin}
         />
       </div>
     </div>

@@ -14,7 +14,7 @@ import {
   gastos,
 } from "@/db/schema";
 import { membersUnavailableOn } from "@/lib/conflicts";
-import { getCurrentUser, isAdmin, getBrand } from "@/lib/auth";
+import { getCurrentUser, isAdmin, isSuperuser, getBrand } from "@/lib/auth";
 import { PresenceCard } from "@/components/shows/presence-card";
 import { setPresenceAction } from "@/app/(app)/shows/[id]/actions-presence";
 import { PaymentBreakdown } from "@/components/shows/payment-breakdown";
@@ -45,6 +45,7 @@ export default async function ShowDetailPage({
   const pushHint = (await searchParams).p === "1";
   const user = await getCurrentUser();
   const admin = isAdmin(user);
+  const superuser = isSuperuser(user);
   const show = await db.query.shows.findFirst({
     where: eq(shows.id, id),
     with: {
@@ -254,6 +255,7 @@ export default async function ShowDetailPage({
                 defaultDuracaoMin={show.duracaoMin ?? 60}
                 userPosicao={userPosicao}
                 spotifyDefaultUrl={brand.spotifyListSetlist}
+                superuser={superuser}
               />
             </div>
           }
