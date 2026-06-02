@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { ArrowLeft, MapPin, Clock, Music2, Mic, Guitar } from "lucide-react";
 import { db } from "@/db";
@@ -24,15 +25,14 @@ export default async function ModoShowPage({
   await requireCurrentUser();
   const { id } = await searchParams;
 
-  const allShows = await db.query.shows.findMany({
-    with: {
-      casa: { columns: { nome: true } },
-      setlists: { with: { items: { with: { song: true } } } },
-    },
+  // Lista enxuta (só pro seletor e pra achar o show) — não carrega músicas.
+  const showList = await db.query.shows.findMany({
+    columns: { id: true, data: true },
+    with: { casa: { columns: { nome: true } } },
     orderBy: [asc(shows.data)],
   });
 
-  if (allShows.length === 0) {
+  if (showList.length === 0) {
     return (
       <div>
         <PageHeader title="Modo Show" description="Tudo do show numa tela só — funciona offline." />
@@ -45,11 +45,18 @@ export default async function ModoShowPage({
 
   // Escolha do show: ?id explícito; senão o próximo (data >= hoje); senão o último.
   const now = Date.now();
-  const proximos = allShows.filter((s) => s.data.getTime() >= now - 12 * 3600 * 1000);
-  const show =
-    (id && allShows.find((s) => s.id === id)) ||
-    proximos[0] ||
-    allShows[allShows.length - 1];
+  const proximos = showList.filter((s) => s.data.getTime() >= now - 12 * 3600 * 1000);
+  const chosen = (id && showList.find((s) => s.id === id)) || proximos[0] || showList[showList.length - 1];
+
+  // Só agora carrega o show ESCOLHIDO por inteiro (setlists + músicas + letras).
+  const show = await db.query.shows.findFirst({
+    where: eq(shows.id, chosen.id),
+    with: {
+      casa: { columns: { nome: true } },
+      setlists: { with: { items: { with: { song: true } } } },
+    },
+  });
+  if (!show) notFound();
 
   const brand = await getBrand();
 
@@ -80,8 +87,8 @@ export default async function ModoShowPage({
     cues: it.song.cues,
   }));
 
-  // Outros shows pra alternar.
-  const outros = allShows
+  // Outros shows pra alternar (da lista enxuta).
+  const outros = showList
     .filter((s) => s.id !== show.id)
     .map((s) => ({ id: s.id, label: `${s.casa.nome} · ${formatDataBR(s.data)}` }));
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireSuperuser } from "@/lib/auth";
 import {
   buildAuthorizeUrl,
   disconnectSpotify,
@@ -13,7 +13,7 @@ import {
 const STATE_COOKIE = "spotify_oauth_state";
 
 export async function connectSpotifyAction() {
-  await requireAdmin();
+  await requireSuperuser();
   let url: string;
   try {
     const state = crypto.randomUUID();
@@ -36,7 +36,7 @@ export async function connectSpotifyAction() {
 }
 
 export async function disconnectSpotifyAction() {
-  await requireAdmin();
+  await requireSuperuser();
   await disconnectSpotify();
   revalidatePath("/repertorio");
 }

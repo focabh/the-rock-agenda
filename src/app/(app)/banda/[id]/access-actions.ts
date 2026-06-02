@@ -23,9 +23,11 @@ export async function createUserForMemberAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  const me = await requireAdmin();
   const parsed = parseForm(accessSchema, formData);
   if (!parsed.ok) return parsed.state;
+  // Só o superusuário pode criar um admin; a manager cria apenas músico.
+  const role = parsed.data.role === "admin" && me.superuser ? "admin" : "membro";
 
   // garantir que o membro existe e não tem user ainda
   const [member] = await db.select().from(members).where(eq(members.id, memberId)).limit(1);
@@ -49,7 +51,7 @@ export async function createUserForMemberAction(
     .values({
       username: parsed.data.username,
       passwordHash,
-      role: parsed.data.role,
+      role,
     })
     .returning();
 

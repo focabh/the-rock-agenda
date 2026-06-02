@@ -757,13 +757,13 @@ function SortableSetlistItem({
           );
         })()
       )}
-      {/* Letra por música (igual ao repertório) — vale show e ensaio. */}
+      {/* Letra por música — só leitura aqui; editar a letra é no Repertório. */}
       <LyricsDialog
         songId={item.song.id}
         titulo={item.song.titulo}
         artista={item.song.artista}
         spotifyTrackId={item.song.spotifyTrackId}
-        admin={canEdit}
+        admin={false}
       />
       <Input
         defaultValue={item.tom ?? item.song.tom ?? ""}
