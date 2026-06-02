@@ -8,6 +8,7 @@ import {
   showMemberPresence,
   showMemberPayment,
   showMemberPaid,
+  showSubstitute,
   gastos,
   reembolsos,
 } from "@/db/schema";
@@ -74,10 +75,11 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
   );
   const ids = considera.map((s) => s.id);
 
-  const [presences, overrides, paidRows, gastoRows, reembolsoRows] = await Promise.all([
+  const [presences, overrides, paidRows, subRows, gastoRows, reembolsoRows] = await Promise.all([
     ids.length ? db.select().from(showMemberPresence).where(inArray(showMemberPresence.showId, ids)) : Promise.resolve([] as (typeof showMemberPresence.$inferSelect)[]),
     ids.length ? db.select().from(showMemberPayment).where(inArray(showMemberPayment.showId, ids)) : Promise.resolve([] as (typeof showMemberPayment.$inferSelect)[]),
     ids.length ? db.select().from(showMemberPaid).where(inArray(showMemberPaid.showId, ids)) : Promise.resolve([] as (typeof showMemberPaid.$inferSelect)[]),
+    ids.length ? db.select().from(showSubstitute).where(inArray(showSubstitute.showId, ids)) : Promise.resolve([] as (typeof showSubstitute.$inferSelect)[]),
     db.select().from(gastos),
     db.select().from(reembolsos),
   ]);
@@ -88,10 +90,17 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     if (!confirmedByShow.has(p.showId)) confirmedByShow.set(p.showId, new Set());
     confirmedByShow.get(p.showId)!.add(p.memberId);
   }
-  const overridesByShow = new Map<string, Map<string, number>>();
+  // Overrides crus por show (resolvemos o % com base no cachê dentro do loop).
+  const overrideRowsByShow = new Map<string, typeof overrides>();
   for (const o of overrides) {
-    if (!overridesByShow.has(o.showId)) overridesByShow.set(o.showId, new Map());
-    overridesByShow.get(o.showId)!.set(o.memberId, o.valorCentavos);
+    if (!overrideRowsByShow.has(o.showId)) overrideRowsByShow.set(o.showId, []);
+    overrideRowsByShow.get(o.showId)!.push(o);
+  }
+  // Subs convidados por show (entram na divisão como participantes).
+  const subsByShow = new Map<string, typeof subRows>();
+  for (const su of subRows) {
+    if (!subsByShow.has(su.showId)) subsByShow.set(su.showId, []);
+    subsByShow.get(su.showId)!.push(su);
   }
   // Repasse banda→músico considerado feito quando a linha existe (legada/null =
   // quitada) ou status confirmado.
@@ -131,17 +140,30 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     const confirmados = playable.filter((m) =>
       (confirmedByShow.get(s.id) ?? new Set<string>()).has(m.id)
     );
-    if (confirmados.length === 0) continue;
+    const subsShow = subsByShow.get(s.id) ?? [];
+    if (confirmados.length === 0 && subsShow.length === 0) continue;
+    // Resolve overrides (valor fixo OU % do cachê deste show).
+    const ovMap = new Map<string, number>();
+    for (const o of overrideRowsByShow.get(s.id) ?? []) {
+      ovMap.set(o.memberId, o.pct != null ? Math.round((c * o.pct) / 100) : o.valorCentavos);
+    }
+    // Participantes da divisão = músicos confirmados + subs convidados.
+    const participantes = [
+      ...confirmados.map((m) => ({ id: m.id })),
+      ...subsShow.map((su) => ({ id: su.id })),
+    ];
     const bd = computePaymentBreakdown({
       cacheCentavos: c,
       applyCommission: s.applyCommission,
       commissionPct: s.commissionPct,
-      confirmedMusicos: confirmados,
+      confirmedMusicos: participantes,
       managerMember,
-      overrides: overridesByShow.get(s.id) ?? new Map(),
+      overrides: ovMap,
     });
     managerTotal += bd.managerCentavos;
     for (const [mid, info] of bd.perMember) {
+      // Subs não são membros da banda — não entram na tabela por músico.
+      if (!memberById.has(mid)) continue;
       devidoM.set(mid, (devidoM.get(mid) ?? 0) + info.valorCentavos);
       showsM.set(mid, (showsM.get(mid) ?? 0) + 1);
       if (repassadoSet.has(`${s.id}-${mid}`))
