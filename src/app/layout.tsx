@@ -1,4 +1,5 @@
 import { ChunkErrorReloader } from "@/components/shared/chunk-error-reloader";
+import { ServiceWorkerRegister } from "@/components/shared/service-worker-register";
 import { Toaster } from "@/components/ui/sonner";
 import { ensureDbInitialized } from "@/db/init";
 import type { Metadata } from "next";
@@ -56,6 +57,7 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full bg-background text-foreground">
         {children}
+        <ServiceWorkerRegister />
         <ChunkErrorReloader />
         <Toaster richColors position="top-right" />
       </body>

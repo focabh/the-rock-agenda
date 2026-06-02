@@ -33,10 +33,12 @@ const FONTS = [
 ];
 const SPEED_KEY = "teleprompter-speeds-v1"; // overrides do usuário, por música
 const AUTO_KEY = "teleprompter-auto-v1";
-const DEFAULT_SPEED = 24; // px/s — bem mais lento por padrão
-const MIN_SPEED = 3;
+const DEFAULT_SPEED = 18; // px/s — bem lento por padrão
+const MIN_SPEED = 2;
 const MAX_SPEED = 90;
-const AUTO_MAX = 60; // teto da calibração automática (nunca absurdo)
+const STEP = 3; // passo dos botões -/+
+const AUTO_MAX = 55; // teto da calibração automática (nunca absurdo)
+const AUTO_FALLBACK_SEG = 210; // sem duração, assume ~3min30 pra calibrar
 
 const songKey = (s: Song) => `${s.titulo}__${s.artista}`.toLowerCase();
 
@@ -89,9 +91,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     const ov = speeds.current[songKey(s)];
     if (ov) return ov;
     if (auto) {
-      const sec = s.durationSeg ?? 0;
+      const sec = s.durationSeg && s.durationSeg > 0 ? s.durationSeg : AUTO_FALLBACK_SEG;
       const el = sectionRefs.current[idx];
-      if (el && sec > 0) {
+      if (el && el.offsetHeight > 0) {
         return Math.min(AUTO_MAX, Math.max(MIN_SPEED, Math.round(el.offsetHeight / sec)));
       }
     }
@@ -375,7 +377,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
           >
             {/* Velocidade — slider fino */}
             <div className="flex items-center gap-3">
-              <button onClick={() => changeSpeed(speed - 5)} className={`size-9 ${ctrlBtn}`} title="Mais devagar">
+              <button onClick={() => changeSpeed(speed - STEP)} className={`size-9 ${ctrlBtn}`} title="Mais devagar">
                 <Minus className="size-5" />
               </button>
               <input
@@ -388,7 +390,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                 className="h-2 flex-1 cursor-pointer accent-primary"
                 aria-label="Velocidade"
               />
-              <button onClick={() => changeSpeed(speed + 5)} className={`size-9 ${ctrlBtn}`} title="Mais rápido">
+              <button onClick={() => changeSpeed(speed + STEP)} className={`size-9 ${ctrlBtn}`} title="Mais rápido">
                 <Plus className="size-5" />
               </button>
               <span className="w-20 text-right font-mono text-xs text-white/60">

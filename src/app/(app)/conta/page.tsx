@@ -8,6 +8,7 @@ import { MaterialPrefToggle } from "@/components/conta/material-pref-toggle";
 import { BrandSettings } from "@/components/conta/brand-settings";
 import { BackgroundCard } from "@/components/conta/background-card";
 import { SurfaceCard } from "@/components/conta/surface-card";
+import { UpdateAppButton } from "@/components/conta/update-app-button";
 import { SpotifyListsCard } from "@/components/conta/spotify-lists-card";
 import {
   adminMaterialPorPosicao,
@@ -56,6 +57,7 @@ export default async function ContaPage() {
           sobrenome={user?.sobrenome ?? null}
         />
         <PushManager />
+        <UpdateAppButton />
         <ChangePasswordForm />
         <MusicoProfile member={member} availablePositions={positions} />
         {admin && <MaterialPrefToggle initial={matPorPosicao} />}
