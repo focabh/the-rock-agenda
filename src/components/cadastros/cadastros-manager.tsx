@@ -23,6 +23,7 @@ import {
   revokeInviteAction,
   resetUserPasswordAction,
   setUserRoleAction,
+  deleteUserAction,
 } from "@/app/(app)/cadastros/actions";
 
 type InviteStatus = "valido" | "usado" | "revogado" | "expirado";
@@ -44,6 +45,7 @@ type Approved = {
   sobrenome: string | null;
   username: string;
   role: "admin" | "membro";
+  superuser: boolean;
   posicao: string | null;
 };
 
@@ -85,12 +87,14 @@ export function CadastrosManager({
   approved,
   availablePositions,
   currentUserId,
+  viewerSuperuser = false,
   bandName = "a banda",
 }: {
   invites: Invite[];
   approved: Approved[];
   availablePositions: string[];
   currentUserId: string;
+  viewerSuperuser?: boolean;
   bandName?: string;
 }) {
   const [nome, setNome] = useState("");
@@ -303,26 +307,23 @@ export function CadastrosManager({
               const isSelf = u.id === currentUserId;
               const isAdmin = u.role === "admin";
               return (
-                <li key={u.id} className="flex items-center gap-3 px-4 py-3">
+                <li key={u.id} className="flex flex-wrap items-center gap-2 px-4 py-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">
                       {fullName(u)}{" "}
+                      <span className="text-xs text-muted-foreground font-mono">@{u.username}</span>{" "}
                       {u.posicao && (
-                        <span className="text-xs text-muted-foreground">
-                          · {u.posicao}
-                        </span>
+                        <span className="text-xs text-muted-foreground">· {u.posicao}</span>
                       )}
-                      {isSelf && (
-                        <span className="text-xs text-primary ml-1">(você)</span>
-                      )}
+                      {isSelf && <span className="text-xs text-primary ml-1">(você)</span>}
                     </p>
                     <p className="text-xs uppercase tracking-wider">
                       <span
                         className={
-                          isAdmin ? "text-primary" : "text-muted-foreground"
+                          u.superuser ? "text-amber-400" : isAdmin ? "text-primary" : "text-muted-foreground"
                         }
                       >
-                        {isAdmin ? "Admin" : "Músico"}
+                        {u.superuser ? "Superadmin" : isAdmin ? "Admin (manager)" : "Músico"}
                       </span>
                     </p>
                   </div>
@@ -331,9 +332,7 @@ export function CadastrosManager({
                     variant="ghost"
                     title="Redefinir senha"
                     onClick={() => {
-                      const nova = window.prompt(
-                        `Nova senha para ${fullName(u)} (mínimo 6 caracteres):`
-                      );
+                      const nova = window.prompt(`Nova senha para ${fullName(u)} (mínimo 6 caracteres):`);
                       if (!nova) return;
                       startTransition(async () => {
                         const r = await resetUserPasswordAction(u.id, nova);
@@ -344,44 +343,51 @@ export function CadastrosManager({
                   >
                     <KeyRound className="size-4" />
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isSelf}
-                    onClick={() => {
-                      const next = isAdmin ? "membro" : "admin";
-                      if (
-                        !confirm(
-                          next === "admin"
-                            ? `Tornar ${fullName(u)} administrador? Terá acesso total.`
-                            : `Remover o admin de ${fullName(u)}?`
-                        )
-                      )
-                        return;
-                      startTransition(async () => {
-                        const r = await setUserRoleAction(u.id, next);
-                        if (r?.error) toast.error(r.error);
-                        else
-                          toast.success(
+                  {/* Tornar admin/músico — só o superadmin gerencia papéis. */}
+                  {viewerSuperuser && !u.superuser && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isSelf}
+                      onClick={() => {
+                        const next = isAdmin ? "membro" : "admin";
+                        if (
+                          !confirm(
                             next === "admin"
-                              ? `${fullName(u)} agora é admin.`
-                              : `${fullName(u)} agora é músico.`
-                          );
-                      });
-                    }}
-                  >
-                    {isAdmin ? (
-                      <>
-                        <Shield className="size-4" />
-                        Tornar músico
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="size-4" />
-                        Tornar admin
-                      </>
-                    )}
-                  </Button>
+                              ? `Tornar ${fullName(u)} administrador (manager)?`
+                              : `Remover o admin de ${fullName(u)}?`
+                          )
+                        )
+                          return;
+                        startTransition(async () => {
+                          const r = await setUserRoleAction(u.id, next);
+                          if (r?.error) toast.error(r.error);
+                          else toast.success(next === "admin" ? `${fullName(u)} agora é admin.` : `${fullName(u)} agora é músico.`);
+                        });
+                      }}
+                    >
+                      {isAdmin ? (<><Shield className="size-4" /> Tornar músico</>) : (<><ShieldCheck className="size-4" /> Tornar admin</>)}
+                    </Button>
+                  )}
+                  {/* Excluir conta — superadmin (não a si nem outro superadmin). */}
+                  {viewerSuperuser && !isSelf && !u.superuser && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      title="Excluir conta (o músico/posição é preservado)"
+                      onClick={() => {
+                        if (!confirm(`Excluir a conta de ${fullName(u)} (@${u.username})? O acesso é removido; a posição na banda continua.`)) return;
+                        startTransition(async () => {
+                          const r = await deleteUserAction(u.id);
+                          if (r?.error) toast.error(r.error);
+                          else toast.success(`Conta de ${fullName(u)} excluída.`);
+                        });
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
                 </li>
               );
             })}

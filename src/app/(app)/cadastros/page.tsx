@@ -1,9 +1,9 @@
-import { desc, eq } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { users, inviteTokens } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { CadastrosManager } from "@/components/cadastros/cadastros-manager";
-import { getAvailablePositions, requireAdmin, getBrand } from "@/lib/auth";
+import { getAvailablePositions, requireAdmin, isSuperuser, getBrand } from "@/lib/auth";
 import { inviteStatus } from "@/lib/invites";
 
 export default async function CadastrosPage() {
@@ -19,10 +19,11 @@ export default async function CadastrosPage() {
         sobrenome: users.sobrenome,
         username: users.username,
         role: users.role,
+        superuser: users.superuser,
         posicao: users.posicao,
       })
       .from(users)
-      .where(eq(users.status, "aprovado")),
+      .orderBy(users.username),
     getAvailablePositions(),
     getBrand(),
   ]);
@@ -49,6 +50,7 @@ export default async function CadastrosPage() {
           approved={approved}
           availablePositions={positions}
           currentUserId={me.id}
+          viewerSuperuser={isSuperuser(me)}
           bandName={brand.bandName?.trim() || "a banda"}
         />
       </div>

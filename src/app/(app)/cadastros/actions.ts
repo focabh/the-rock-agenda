@@ -73,6 +73,23 @@ export async function resetUserPasswordAction(userId: string, novaSenha: string)
   return { ok: true };
 }
 
+/** Exclui uma conta. Superusuário exclui qualquer um (menos a si e outro
+ *  superusuário). Manager (admin não-superuser) só exclui não-admins.
+ *  O músico vinculado é preservado (member.userId vira null). */
+export async function deleteUserAction(userId: string) {
+  const me = await requireAdmin();
+  if (me.id === userId) return { error: "Você não pode excluir a si mesmo." };
+  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!target) return { error: "Usuário não encontrado." };
+  if (target.superuser) return { error: "Não dá pra excluir um superusuário." };
+  if (target.role === "admin" && !me.superuser) {
+    return { error: "Só o superusuário pode excluir admins." };
+  }
+  await db.delete(users).where(eq(users.id, userId));
+  revalidatePath("/cadastros");
+  return { ok: true };
+}
+
 /** Papéis (admin/membro) só o superusuário gerencia. */
 export async function setUserRoleAction(userId: string, role: "admin" | "membro") {
   const me = await requireSuperuser();
