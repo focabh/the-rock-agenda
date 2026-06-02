@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
-import { parseLrc, parseCues, buildTimeline, activeLineIndex } from "@/lib/lrc";
+import { parseLrc, parseCues, buildTimeline, activeLineIndex, decideEntryWarning, type AlertMode } from "@/lib/lrc";
 
 type Song = {
   n: number;
@@ -45,6 +45,7 @@ const FONTS = [
 const SPEED_KEY = "teleprompter-speeds-v1"; // overrides do usuário, por música
 const RATE_KEY = "teleprompter-rates-v1"; // ritmo do sync por música (1 = igual à gravação)
 const AUTO_KEY = "teleprompter-auto-v1";
+const ALERT_KEY = "teleprompter-alert-mode-v1"; // ensaio | show | limpo
 const RATE_MIN = 0.5;
 const RATE_MAX = 1.8;
 const RATE_STEP = 0.05;
@@ -71,6 +72,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [showControls, setShowControls] = useState(true);
   const [showList, setShowList] = useState(false);
   const [auto, setAuto] = useState(true); // Inteliprompter: calibra por música
+  const [alertMode, setAlertMode] = useState<AlertMode>("show"); // avisos: padrão discreto (Show)
   const [activeIdx, setActiveIdx] = useState(-1); // linha ativa (modo sincronizado)
   const [rateView, setRateView] = useState(1); // ritmo do sync (1 = igual à gravação)
   const [songSec, setSongSec] = useState(0); // cronômetro do tempo-música (modo sync)
@@ -121,7 +123,22 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     } catch {
       /* ignora */
     }
+    try {
+      const m = localStorage.getItem(ALERT_KEY);
+      if (m === "ensaio" || m === "show" || m === "limpo") setAlertMode(m);
+    } catch {
+      /* ignora */
+    }
   }, []);
+
+  function changeAlertMode(m: AlertMode) {
+    setAlertMode(m);
+    try {
+      localStorage.setItem(ALERT_KEY, m);
+    } catch {
+      /* ignora */
+    }
+  }
 
   // Velocidade ideal pra uma música: override do usuário vence; senão, calibra
   // pela duração (altura da letra ÷ duração), com teto pra nunca ficar absurda.
@@ -428,19 +445,13 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const ctrlBtn =
     "inline-flex items-center justify-center rounded-full text-white/85 hover:bg-white/10 disabled:opacity-40";
 
-  // Contagem do instrumental (intro/solo): segundos até o próximo VERSO entrar.
-  const tl = syncedCurrent ? timelines[current] : [];
-  const activeEntry = activeIdx >= 0 ? tl[activeIdx] : null;
-  let nextVocalT: number | undefined;
-  for (const e of tl) {
-    if (!e.cue && e.t > songSec) {
-      nextVocalT = e.t;
-      break;
-    }
-  }
-  const instrRemaining = nextVocalT != null ? Math.max(0, Math.ceil(nextVocalT - songSec)) : null;
-  const showInstr = playing && syncedCurrent && instrRemaining != null && instrRemaining >= 6;
-  const instrLabel = activeIdx < 0 ? "introdução" : activeEntry?.cue ? activeEntry.text : "instrumental";
+  // Aviso de entrada vocal — decidido de forma centralizada (lib/lrc).
+  // Modo "show" (discreto, padrão): só avisa nos últimos segundos e só depois
+  // de um trecho instrumental relevante. "ensaio" mostra mais; "limpo" nada.
+  const warning =
+    playing && syncedCurrent
+      ? decideEntryWarning(timelines[current] ?? [], songSec, alertMode)
+      : { shouldShowWarning: false, warningText: "", warningType: null };
 
   return (
     <>
@@ -482,11 +493,11 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             </button>
           </div>
 
-          {/* Aviso de instrumental/solo: quando o vocal volta (intro e solos) */}
-          {showInstr && (
+          {/* Aviso discreto de entrada vocal (só quando dá pra perder a entrada) */}
+          {warning.shouldShowWarning && (
             <div className="pointer-events-none absolute inset-x-0 top-14 z-10 flex justify-center">
-              <span className="rounded-full bg-amber-500/90 px-4 py-1.5 text-sm font-bold text-black shadow-lg">
-                🎸 {instrLabel} · vocal em {instrRemaining}s
+              <span className="rounded-full bg-amber-500/85 px-3 py-1 text-xs font-bold text-black shadow-md">
+                {warning.warningText}
               </span>
             </div>
           )}
@@ -637,6 +648,34 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                   <button onClick={() => nudge(1)} className={`h-8 rounded-full px-3 text-xs ${ctrlBtn}`} title="Adiantar 1s">
                     +1s
                   </button>
+                </div>
+                {/* Modo de alertas: Show (discreto) é o padrão pro palco. */}
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-[10px] uppercase tracking-wider text-white/40">Alertas</span>
+                  <div className="inline-flex h-7 overflow-hidden rounded-full ring-1 ring-white/20">
+                    {([
+                      ["ensaio", "Ensaio"],
+                      ["show", "Show"],
+                      ["limpo", "Limpo"],
+                    ] as const).map(([m, lbl]) => (
+                      <button
+                        key={m}
+                        onClick={() => changeAlertMode(m)}
+                        className={`px-3 text-xs font-semibold transition-colors ${
+                          alertMode === m ? "bg-amber-400 text-black" : "text-white/70 hover:text-white"
+                        }`}
+                        title={
+                          m === "ensaio"
+                            ? "Mostra mais contadores (bom pra ensaiar)"
+                            : m === "show"
+                              ? "Discreto: só avisa antes de entradas após intro/solo/ponte"
+                              : "Só letra, sem nenhum aviso"
+                        }
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (

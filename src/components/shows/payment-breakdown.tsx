@@ -460,6 +460,7 @@ function MemberPaymentRow({
           <div className="inline-flex h-8 overflow-hidden rounded-md ring-1 ring-border">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setModo("fixo")}
               className={cn("px-2 text-xs font-semibold", modo === "fixo" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
             >
@@ -467,6 +468,7 @@ function MemberPaymentRow({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setModo("pct")}
               className={cn("px-2 text-xs font-semibold", modo === "pct" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
             >
