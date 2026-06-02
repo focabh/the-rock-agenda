@@ -9,6 +9,7 @@ import {
   getAvailablePositions,
   getSession,
   hashPassword,
+  requireAdmin,
   requireSuperuser,
   requireCurrentUser,
   verifyPassword,
@@ -16,6 +17,24 @@ import {
 import { parseForm } from "@/lib/form";
 import { pixValido, telefoneValido } from "@/lib/validators";
 import { sendPushToAll } from "@/lib/push";
+
+/** Dispara uma notificação (recado livre) pros aparelhos da banda. Admin/manager. */
+export async function enviarNotificacaoAction(
+  titulo: string,
+  corpo: string
+): Promise<{ ok: boolean; enviados?: number; error?: string }> {
+  await requireAdmin();
+  const t = titulo.trim().slice(0, 80);
+  const b = corpo.trim().slice(0, 300);
+  if (!b) return { ok: false, error: "Escreva o recado." };
+  const r = await sendPushToAll({
+    title: t || "The Rock 🤘",
+    body: b,
+    url: "/",
+    tag: "recado",
+  });
+  return { ok: true, enviados: r.sent };
+}
 
 /** Superusuário avisa todos os dispositivos que saiu uma atualização (reiniciar). */
 export async function notificarAtualizacaoAction(): Promise<{ ok: boolean; enviados: number }> {

@@ -9,6 +9,7 @@ import { BrandSettings } from "@/components/conta/brand-settings";
 import { BackgroundCard } from "@/components/conta/background-card";
 import { SurfaceCard } from "@/components/conta/surface-card";
 import { UpdateAppButton } from "@/components/conta/update-app-button";
+import { NotifyCard } from "@/components/conta/notify-card";
 import { SpotifyListsCard } from "@/components/conta/spotify-lists-card";
 import {
   adminMaterialPorPosicao,
@@ -16,12 +17,14 @@ import {
   getBrand,
   getCurrentUser,
   getLogoUrl,
+  isAdmin,
   isSuperuser,
 } from "@/lib/auth";
 
 export default async function ContaPage() {
   const user = await getCurrentUser();
   const superuser = isSuperuser(user);
+  const admin = isAdmin(user);
   const [logo, positions, matPorPosicao, brand] = await Promise.all([
     getLogoUrl(),
     getAvailablePositions(),
@@ -57,6 +60,7 @@ export default async function ContaPage() {
           sobrenome={user?.sobrenome ?? null}
         />
         <PushManager />
+        {admin && <NotifyCard />}
         <UpdateAppButton canBroadcast={superuser} />
         <ChangePasswordForm />
         <MusicoProfile member={member} availablePositions={positions} />
