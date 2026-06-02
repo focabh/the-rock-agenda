@@ -28,6 +28,11 @@ import { cn } from "@/lib/utils";
 
 const BANDA = "Os Aventureiros";
 
+// Número de WhatsApp pra contato de venda (só dígitos, com DDI/DDD).
+// Ex.: "5531999998888". Vazio = mostra o botão "Começar agora" (login).
+const CONTATO_WHATSAPP = "";
+const WA_MSG = encodeURIComponent("Oi! Vi a demonstração do StageBoss e quero pra minha banda 🎸");
+
 type DemoSong = {
   n: number;
   titulo: string;
@@ -290,9 +295,17 @@ export function DemoTour() {
             Tudo o que você viu aqui funcionando, com os dados da <strong className="text-foreground">sua</strong> banda — e só a sua banda vê.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Button size="lg" render={<Link href="/login" />}>
-              Começar agora <ArrowRight className="size-4" />
-            </Button>
+            {CONTATO_WHATSAPP ? (
+              <a href={`https://wa.me/${CONTATO_WHATSAPP}?text=${WA_MSG}`} target="_blank" rel="noreferrer">
+                <Button size="lg">
+                  Falar no WhatsApp <ArrowRight className="size-4" />
+                </Button>
+              </a>
+            ) : (
+              <Button size="lg" render={<Link href="/login" />}>
+                Começar agora <ArrowRight className="size-4" />
+              </Button>
+            )}
             <a href="#repertorio">
               <Button size="lg" variant="outline">Ver o tour de novo</Button>
             </a>

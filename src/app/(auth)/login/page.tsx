@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/login-form";
 import { getBrand } from "@/lib/auth";
@@ -48,6 +49,14 @@ export default async function LoginPage() {
         </CardHeader>
         <CardContent>
           <LoginForm />
+          <div className="mt-5 border-t border-zinc-800 pt-4 text-center">
+            <Link
+              href="/demo"
+              className="text-xs text-zinc-400 underline decoration-zinc-600 underline-offset-4 transition-colors hover:text-amber-400"
+            >
+              Não é da banda? Ver demonstração →
+            </Link>
+          </div>
         </CardContent>
       </Card>
 
