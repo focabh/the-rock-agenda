@@ -182,6 +182,10 @@ export const venues = sqliteTable("venues", {
   naoContatar: integer("nao_contatar", { mode: "boolean" })
     .notNull()
     .default(false),
+  // Funil de prospecção (kanban). null = deriva do CRM (material enviado/já tocou).
+  pipelineStage: text("pipeline_stage", {
+    enum: ["novo", "material", "aguardando", "negociando", "fechado", "descartado"],
+  }),
   // --- CRM: campos automáticos (preenchidos por ações no app) ---
   materialEnviadoEm: integer("material_enviado_em", { mode: "timestamp_ms" }),
   ultimoContatoEm: integer("ultimo_contato_em", { mode: "timestamp_ms" }),

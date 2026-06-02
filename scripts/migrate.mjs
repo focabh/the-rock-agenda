@@ -52,6 +52,8 @@ await addCol("rehearsal_member_presence", "via_push", "INTEGER NOT NULL DEFAULT 
 await addCol("show_member_payment", "pct", "REAL");
 // default de pagamento por músico (valor fixo); o % usa percentual_divisao
 await addCol("members", "pagamento_fixo_centavos", "INTEGER");
+// funil de prospecção (kanban) das casas
+await addCol("venues", "pipeline_stage", "TEXT");
 
 // --- tabelas ---
 await c.execute(`CREATE TABLE IF NOT EXISTS show_song_feedback (

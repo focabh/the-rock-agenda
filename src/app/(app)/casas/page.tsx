@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { asc, lte } from "drizzle-orm";
-import { Plus, Building2, Radar } from "lucide-react";
+import { Plus, Building2, Radar, Filter } from "lucide-react";
 import { db } from "@/db";
 import { venues, shows } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
@@ -49,6 +49,9 @@ export default async function CasasPage() {
           admin && (
             <div className="flex flex-wrap gap-2">
               <CapturarLogosButton />
+              <Button render={<Link href="/casas/funil" />} variant="outline">
+                <Filter className="size-4" /> Funil
+              </Button>
               <Button render={<Link href="/casas/descobrir" />} variant="outline">
                 <Radar className="size-4" /> Descobrir
               </Button>

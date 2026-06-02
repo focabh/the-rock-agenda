@@ -35,6 +35,22 @@ const casaSchema = z.object({
   observacoes: z.string().max(2000).optional(),
 });
 
+const PIPELINE_STAGES = ["novo", "material", "aguardando", "negociando", "fechado", "descartado"] as const;
+
+/** Move uma casa no funil de prospecção (kanban). */
+export async function setVenuePipelineStageAction(
+  venueId: string,
+  stage: (typeof PIPELINE_STAGES)[number]
+) {
+  await requireAdmin();
+  if (!PIPELINE_STAGES.includes(stage)) return { error: "Estágio inválido." };
+  await db.update(venues).set({ pipelineStage: stage }).where(eq(venues.id, venueId));
+  revalidatePath("/casas/funil");
+  revalidatePath("/casas");
+  revalidatePath(`/casas/${venueId}`);
+  return { ok: true };
+}
+
 function igHandle(instagram: string): string {
   return (instagram || "")
     .trim()
