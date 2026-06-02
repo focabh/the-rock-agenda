@@ -140,14 +140,35 @@ select optgroup {
 }
 
 /* Efeito "vidro": quando o usuário escolhe transparência (data-glass no shell),
-   os cards/blocos ficam semitransparentes + desfoque, deixando o fundo vazar.
-   Só os cards do app — diálogos/popovers continuam sólidos pra leitura. */
-[data-glass] .bg-card {
+   TODOS os painéis (cards, sidebar, cabeçalho) ficam semitransparentes +
+   desfoque, deixando o fundo vazar. Diálogos/menus são portados pro body (fora
+   do data-glass), então continuam sólidos pra leitura. */
+[data-glass] .bg-card,
+[data-glass] [data-slot="card"] {
   background-color: color-mix(
     in oklab,
     var(--card) var(--surface-opacity, 100%),
     transparent
   );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+[data-glass] .bg-sidebar {
+  background-color: color-mix(
+    in oklab,
+    var(--sidebar) var(--surface-opacity, 100%),
+    transparent
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+/* Blocos internos sutis (muted) acompanham, um pouco mais opacos pra leitura. */
+[data-glass] .bg-muted\/30,
+[data-glass] .bg-muted\/20,
+[data-glass] .bg-muted\/10 {
+  background-color: color-mix(
+    in oklab,
+    var(--muted) calc(var(--surface-opacity, 100%) + 12%),
+    transparent
+  );
 }

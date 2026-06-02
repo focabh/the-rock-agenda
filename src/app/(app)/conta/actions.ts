@@ -213,7 +213,7 @@ export async function setSpotifyListsAction(
 /** Opacidade dos blocos/cards (60–100). <100 = efeito vidro. */
 export async function setSurfaceOpacityAction(value: number): Promise<{ ok: boolean }> {
   await requireAdmin();
-  const v = Math.max(60, Math.min(100, Math.round(value)));
+  const v = Math.max(45, Math.min(100, Math.round(value)));
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) await db.update(appSettings).set({ surfaceOpacity: v }).where(eq(appSettings.id, row.id));
   else await db.insert(appSettings).values({ surfaceOpacity: v });

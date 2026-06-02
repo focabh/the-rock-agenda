@@ -9,9 +9,10 @@ import { toast } from "sonner";
 
 const PRESETS = [
   { label: "Sólido", value: 100 },
-  { label: "Leve", value: 92 },
-  { label: "Médio", value: 82 },
-  { label: "Vidro", value: 70 },
+  { label: "Leve", value: 90 },
+  { label: "Médio", value: 78 },
+  { label: "Vidro", value: 66 },
+  { label: "Translúcido", value: 52 },
 ];
 
 /** Transparência dos blocos/cards (efeito vidro), pra o fundo do app vazar. */
