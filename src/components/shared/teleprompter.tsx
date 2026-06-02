@@ -48,8 +48,9 @@ const AUTO_KEY = "teleprompter-auto-v1";
 const RATE_MIN = 0.5;
 const RATE_MAX = 1.8;
 const RATE_STEP = 0.05;
-const DEFAULT_SPEED = 18; // px/s — bem lento por padrão
-const MIN_SPEED = 2;
+const DEFAULT_SPEED = 28; // px/s — já começa numa rolagem visível ao dar play
+const MIN_SPEED = 2; // mínimo do slider (ajuste fino do usuário)
+const AUTO_MIN_VISIBLE = 16; // piso da calibração automática — nunca "parado"
 const MAX_SPEED = 90;
 const STEP = 3; // passo dos botões -/+
 const AUTO_MAX = 55; // teto da calibração automática (nunca absurdo)
@@ -133,7 +134,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     const sec = s.durationSeg && s.durationSeg > 0 ? s.durationSeg : AUTO_FALLBACK_SEG;
     const el = sectionRefs.current[idx];
     if (el && el.offsetHeight > 0) {
-      return Math.min(AUTO_MAX, Math.max(MIN_SPEED, Math.round(el.offsetHeight / sec)));
+      return Math.min(AUTO_MAX, Math.max(AUTO_MIN_VISIBLE, Math.round(el.offsetHeight / sec)));
     }
     return null;
   }
@@ -175,10 +176,14 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   useEffect(() => {
     if (playing) {
       if (clock.current.startedAt == null) clock.current.startedAt = performance.now();
+      // Modo Rolar: ao dar play, recalibra a velocidade da música atual agora
+      // (as seções já estão medidas) pra começar numa rolagem visível na hora.
+      if (!syncedCurrent) applyForIndex(current);
     } else if (clock.current.startedAt != null) {
       clock.current.base += ((performance.now() - clock.current.startedAt) / 1000) * rateRef.current;
       clock.current.startedAt = null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
 
   // Ao trocar de música (ou abrir), zera o relógio e aplica o ritmo salvo dela.
