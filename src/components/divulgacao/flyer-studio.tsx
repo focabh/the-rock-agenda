@@ -31,6 +31,7 @@ import { addImagemDivulgacaoAction, deleteImagemDivulgacaoAction } from "@/app/(
 type Show = {
   banda: string;
   casaNome: string;
+  cidade?: string | null;
   dataLabel: string;
   inicio: string | null;
   termino: string | null;
@@ -258,7 +259,10 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 
   const [headline, setHeadline] = useState("AO VIVO");
   const [banda, setBanda] = useState(show.banda);
-  const [casa, setCasa] = useState(show.casaNome);
+  // Evento particular: rótulo discreto já preenchido (sem expor a casa).
+  const [casa, setCasa] = useState(
+    show.privado ? `Festa particular${show.cidade?.trim() ? ` · ${show.cidade.trim()}` : ""}` : show.casaNome
+  );
   const [data, setData] = useState(show.dataLabel);
   const [ingresso, setIngresso] = useState(show.valorIngresso ?? "");
   const [link, setLink] = useState(show.linkVendas ?? "");

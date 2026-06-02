@@ -186,16 +186,21 @@ export default async function ShowDetailPage({
                 <ImageIcon className="size-4" />
                 {admin ? "Gerar flyer do show" : "Flyer do show"}
               </Button>
-              <VenueShowCard
-                casaId={show.casaId}
-                tags={parseTags(show.casa.caracteristicas)}
-                perfil={show.casa.perfilPublico}
-                jaTocou={jaTocouCasa}
-                ultimaApresentacaoStr={
-                  ultimaAprCasa ? formatDataBR(ultimaAprCasa) : null
-                }
-              />
-              {admin && <CompatCheck showId={show.id} />}
+              {/* Perfil/CRM da casa não se aplica a evento particular. */}
+              {!show.privado && (
+                <>
+                  <VenueShowCard
+                    casaId={show.casaId}
+                    tags={parseTags(show.casa.caracteristicas)}
+                    perfil={show.casa.perfilPublico}
+                    jaTocou={jaTocouCasa}
+                    ultimaApresentacaoStr={
+                      ultimaAprCasa ? formatDataBR(ultimaAprCasa) : null
+                    }
+                  />
+                  {admin && <CompatCheck showId={show.id} />}
+                </>
+              )}
               <PresenceCard
                 eventId={show.id}
                 action={setPresenceAction}

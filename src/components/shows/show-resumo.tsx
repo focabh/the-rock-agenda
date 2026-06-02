@@ -71,7 +71,14 @@ export function ShowResumo({
         <CardContent className="py-5 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold">{casa.nome}</h2>
+              <h2 className="flex flex-wrap items-center gap-2 text-xl font-bold">
+                {casa.nome}
+                {show.privado && (
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-300 ring-1 ring-inset ring-amber-500/30">
+                    Particular
+                  </span>
+                )}
+              </h2>
               {(casa.bairro || casa.cidade) && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                   <MapPin className="size-3.5" />
