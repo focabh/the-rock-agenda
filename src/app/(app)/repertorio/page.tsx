@@ -8,7 +8,7 @@ import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { members, songMemberReadiness, songs } from "@/db/schema";
-import { adminMaterialPorPosicao, getBrand, getCurrentUser, isAdmin } from "@/lib/auth";
+import { adminMaterialPorPosicao, getBrand, getCurrentUser, isSuperuser } from "@/lib/auth";
 import { BAND } from "@/lib/band";
 import { isSpotifyConnected } from "@/lib/spotify";
 import { asc, desc, eq } from "drizzle-orm";
@@ -17,7 +17,8 @@ import Link from "next/link";
 
 export default async function RepertorioPage() {
   const user = await getCurrentUser();
-  const admin = isAdmin(user);
+  // Repertório é gerenciado só pelo superusuário (Foca). Demais veem leitura.
+  const admin = isSuperuser(user);
   const spotify = admin
     ? await isSpotifyConnected()
     : { connected: false, ownerName: null };

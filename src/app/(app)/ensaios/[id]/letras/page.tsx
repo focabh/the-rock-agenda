@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { rehearsals } from "@/db/schema";
 import { formatDataBR } from "@/lib/formatters";
 import { computeStageCues } from "@/lib/stage-cues";
-import { getCurrentUser, isAdmin, getBrand } from "@/lib/auth";
+import { getCurrentUser, isSuperuser, getBrand } from "@/lib/auth";
 import { LyricsBooklet } from "@/app/(app)/shows/[id]/letras/lyrics-booklet";
 
 export default async function EnsaioLetrasPage({
@@ -48,7 +48,7 @@ export default async function EnsaioLetrasPage({
       songs={songs}
       cues={cues}
       setlistId={setlist?.id}
-      canRefine={isAdmin(user)}
+      canRefine={isSuperuser(user)}
     />
   );
 }

@@ -32,6 +32,9 @@ export const users = sqliteTable("users", {
   role: text("role", { enum: ["admin", "membro"] })
     .notNull()
     .default("membro"),
+  // Superusuário (Foca): único que configura o app e gerencia repertório/ensaios.
+  // O manager é admin mas NÃO superuser.
+  superuser: integer("superuser", { mode: "boolean" }).notNull().default(false),
   nome: text("nome"),
   sobrenome: text("sobrenome"),
   apelido: text("apelido"), // "como gostaria de ser chamado" — usado no app inteiro

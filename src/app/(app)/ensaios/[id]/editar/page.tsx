@@ -5,14 +5,14 @@ import { rehearsals, shows } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { RehearsalPageForm } from "@/components/agenda/rehearsal-page-form";
 import { formatDataBR } from "@/lib/formatters";
-import { requireAdmin } from "@/lib/auth";
+import { requireSuperuser } from "@/lib/auth";
 
 export default async function EditarEnsaioPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  await requireSuperuser();
   const { id } = await params;
   const [r] = await db.select().from(rehearsals).where(eq(rehearsals.id, id)).limit(1);
   if (!r) notFound();

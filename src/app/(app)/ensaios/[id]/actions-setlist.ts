@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq, sql, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { setlists, setlistItems, songs } from "@/db/schema";
-import { requireAdmin } from "@/lib/auth";
+import { requireSuperuser } from "@/lib/auth";
 import { arrangeSetlist } from "@/lib/setlist-arrange";
 import { generateEnsaioSetlist } from "@/lib/setlist-generator";
 
@@ -14,7 +14,7 @@ import { generateEnsaioSetlist } from "@/lib/setlist-generator";
 const rev = (rehearsalId: string) => revalidatePath(`/ensaios/${rehearsalId}`);
 
 export async function createEnsaioSetlistAction(rehearsalId: string, nome: string) {
-  await requireAdmin();
+  await requireSuperuser();
   const [created] = await db
     .insert(setlists)
     .values({ rehearsalId, nome: nome.trim() || "Setlist" })
@@ -24,19 +24,19 @@ export async function createEnsaioSetlistAction(rehearsalId: string, nome: strin
 }
 
 export async function renameEnsaioSetlistAction(rehearsalId: string, setlistId: string, nome: string) {
-  await requireAdmin();
+  await requireSuperuser();
   await db.update(setlists).set({ nome: nome.trim() || "Setlist" }).where(eq(setlists.id, setlistId));
   rev(rehearsalId);
 }
 
 export async function deleteEnsaioSetlistAction(rehearsalId: string, setlistId: string) {
-  await requireAdmin();
+  await requireSuperuser();
   await db.delete(setlists).where(eq(setlists.id, setlistId));
   rev(rehearsalId);
 }
 
 export async function addSongToEnsaioSetlistAction(rehearsalId: string, setlistId: string, songId: string) {
-  await requireAdmin();
+  await requireSuperuser();
   const last = await db
     .select({ max: sql<number>`coalesce(max(${setlistItems.ordem}), -1)` })
     .from(setlistItems)
@@ -47,7 +47,7 @@ export async function addSongToEnsaioSetlistAction(rehearsalId: string, setlistI
 }
 
 export async function removeEnsaioSetlistItemAction(rehearsalId: string, itemId: string) {
-  await requireAdmin();
+  await requireSuperuser();
   await db.delete(setlistItems).where(eq(setlistItems.id, itemId));
   rev(rehearsalId);
 }
@@ -57,13 +57,13 @@ export async function updateEnsaioSetlistItemAction(
   itemId: string,
   patch: { tom?: string | null; nota?: string | null; prioridade?: boolean; emenda?: boolean }
 ) {
-  await requireAdmin();
+  await requireSuperuser();
   await db.update(setlistItems).set(patch).where(eq(setlistItems.id, itemId));
   rev(rehearsalId);
 }
 
 export async function reorderEnsaioSetlistItemsAction(rehearsalId: string, orderedIds: string[]) {
-  await requireAdmin();
+  await requireSuperuser();
   await db.transaction(async (tx) => {
     for (let i = 0; i < orderedIds.length; i++) {
       await tx.update(setlistItems).set({ ordem: i }).where(eq(setlistItems.id, orderedIds[i]));
@@ -77,7 +77,7 @@ export async function importarSetlistDeShowAction(
   rehearsalId: string,
   showId: string
 ): Promise<{ ok: boolean; setlists: number; musicas: number }> {
-  await requireAdmin();
+  await requireSuperuser();
   const showSetlists = await db.query.setlists.findMany({
     where: eq(setlists.showId, showId),
     with: { items: true },
@@ -112,7 +112,7 @@ export async function gerarEnsaioSetlistAction(
   setlistId: string,
   opts: { targetMin: number; priNovas: boolean; priPesadas: boolean; levesNoComeco: boolean }
 ): Promise<{ ok: boolean; count: number }> {
-  await requireAdmin();
+  await requireSuperuser();
   const all = await db.select().from(songs);
   const gen = generateEnsaioSetlist(
     all.map((s) => ({
@@ -153,7 +153,7 @@ export async function simularShowNoEnsaioAction(
   setlistId: string,
   showId: string
 ): Promise<{ ok: boolean; count: number }> {
-  await requireAdmin();
+  await requireSuperuser();
   const showSetlists = await db.query.setlists.findMany({
     where: eq(setlists.showId, showId),
     with: { items: true },
@@ -181,7 +181,7 @@ export async function reorganizeEnsaioSetlistAction(
   rehearsalId: string,
   setlistId: string
 ): Promise<{ ok: boolean; count: number }> {
-  await requireAdmin();
+  await requireSuperuser();
   const items = await db
     .select({ id: setlistItems.id, songId: setlistItems.songId })
     .from(setlistItems)

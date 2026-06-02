@@ -16,12 +16,12 @@ import {
   getBrand,
   getCurrentUser,
   getLogoUrl,
-  isAdmin,
+  isSuperuser,
 } from "@/lib/auth";
 
 export default async function ContaPage() {
   const user = await getCurrentUser();
-  const admin = isAdmin(user);
+  const superuser = isSuperuser(user);
   const [logo, positions, matPorPosicao, brand] = await Promise.all([
     getLogoUrl(),
     getAvailablePositions(),
@@ -57,26 +57,26 @@ export default async function ContaPage() {
           sobrenome={user?.sobrenome ?? null}
         />
         <PushManager />
-        <UpdateAppButton />
+        <UpdateAppButton canBroadcast={superuser} />
         <ChangePasswordForm />
         <MusicoProfile member={member} availablePositions={positions} />
-        {admin && <MaterialPrefToggle initial={matPorPosicao} />}
-        {admin && (
+        {superuser && <MaterialPrefToggle initial={matPorPosicao} />}
+        {superuser && (
           <BrandSettings
             initialName={brand.bandName ?? ""}
             initialGrupo={brand.whatsappGrupo ?? ""}
             initialGrupoMusicos={brand.whatsappGrupoMusicos ?? ""}
           />
         )}
-        {admin && (
+        {superuser && (
           <SpotifyListsCard
             repertorio={brand.spotifyListRepertorio ?? ""}
             setlist={brand.spotifyListSetlist ?? ""}
             ensaio={brand.spotifyListEnsaio ?? ""}
           />
         )}
-        {admin && <LogoUploader currentLogo={logo} />}
-        {admin && (
+        {superuser && <LogoUploader currentLogo={logo} />}
+        {superuser && (
           <BackgroundCard
             kind="login"
             initial={brand.backgroundUrl}
@@ -84,7 +84,7 @@ export default async function ContaPage() {
             hint="Aparece atrás do formulário de acesso. Sem imagem, fundo escuro neutro."
           />
         )}
-        {admin && (
+        {superuser && (
           <BackgroundCard
             kind="app"
             initial={brand.appBackgroundUrl}
@@ -92,7 +92,7 @@ export default async function ContaPage() {
             hint="Aparece em todas as telas internas, atrás do conteúdo. O layout continua igual."
           />
         )}
-        {admin && <SurfaceCard initial={brand.surfaceOpacity} />}
+        {superuser && <SurfaceCard initial={brand.surfaceOpacity} />}
       </div>
     </div>
   );

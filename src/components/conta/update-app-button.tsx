@@ -1,14 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { useState, useTransition } from "react";
+import { RefreshCw, Megaphone } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { notificarAtualizacaoAction } from "@/app/(app)/conta/actions";
 
 /** Força o app a pegar a versão mais nova: limpa caches, atualiza o service
- *  worker e recarrega. Útil se algo ficou "preso" numa versão antiga. */
-export function UpdateAppButton() {
+ *  worker e recarrega. Útil se algo ficou "preso" numa versão antiga.
+ *  Superusuário também pode avisar todos os dispositivos sobre atualização. */
+export function UpdateAppButton({ canBroadcast = false }: { canBroadcast?: boolean }) {
   const [busy, setBusy] = useState(false);
+  const [avisando, startAviso] = useTransition();
+
+  function avisarTodos() {
+    startAviso(async () => {
+      const r = await notificarAtualizacaoAction();
+      if (r.ok) toast.success(`Aviso enviado a ${r.enviados} dispositivo(s).`);
+      else toast.error("Não foi possível avisar.");
+    });
+  }
 
   async function atualizar() {
     setBusy(true);
@@ -38,10 +50,18 @@ export function UpdateAppButton() {
             estiver estranho ou desatualizado.
           </p>
         </div>
-        <Button onClick={atualizar} disabled={busy} variant="outline">
-          <RefreshCw className={busy ? "size-4 animate-spin" : "size-4"} />
-          {busy ? "Atualizando…" : "Atualizar / Reiniciar"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {canBroadcast && (
+            <Button onClick={avisarTodos} disabled={avisando} variant="outline" title="Notifica todos os dispositivos que saiu uma atualização">
+              <Megaphone className="size-4" />
+              {avisando ? "Avisando…" : "Avisar todos"}
+            </Button>
+          )}
+          <Button onClick={atualizar} disabled={busy} variant="outline">
+            <RefreshCw className={busy ? "size-4 animate-spin" : "size-4"} />
+            {busy ? "Atualizando…" : "Atualizar / Reiniciar"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

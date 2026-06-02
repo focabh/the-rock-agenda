@@ -13,7 +13,7 @@ import { SetlistTab } from "@/components/shows/setlist-tab";
 import { NotifyBandButton } from "@/components/shared/notify-band-button";
 import { setRehearsalPresenceAction } from "@/app/(app)/agenda/actions";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
-import { getCurrentUser, isAdmin, getBrand } from "@/lib/auth";
+import { getCurrentUser, isSuperuser, getBrand } from "@/lib/auth";
 
 function mapsUrl(r: {
   latitude: number | null;
@@ -55,7 +55,8 @@ export default async function EnsaioDetailPage({
     }),
     db.select().from(songs).orderBy(asc(songs.titulo)),
   ]);
-  const admin = isAdmin(user);
+  // Ensaios são gerenciados só pelo superusuário (Foca). Músicos só confirmam presença.
+  const admin = isSuperuser(user);
   const brand = await getBrand();
   // Ensaio/repertório → grupo dos músicos (se existir); senão, o grupo geral.
   const grupoEnsaio = brand.whatsappGrupoMusicos || brand.whatsappGrupo;

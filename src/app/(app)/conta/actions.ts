@@ -9,12 +9,25 @@ import {
   getAvailablePositions,
   getSession,
   hashPassword,
-  requireAdmin,
+  requireSuperuser,
   requireCurrentUser,
   verifyPassword,
 } from "@/lib/auth";
 import { parseForm } from "@/lib/form";
 import { pixValido, telefoneValido } from "@/lib/validators";
+import { sendPushToAll } from "@/lib/push";
+
+/** Superusuário avisa todos os dispositivos que saiu uma atualização (reiniciar). */
+export async function notificarAtualizacaoAction(): Promise<{ ok: boolean; enviados: number }> {
+  await requireSuperuser();
+  const r = await sendPushToAll({
+    title: "Atualização do StageBoss 🤘",
+    body: "Tem novidade! Toque pra abrir — o app já atualiza sozinho. Se precisar, use 'Atualizar' em Conta.",
+    url: "/conta",
+    tag: "app-update",
+  });
+  return { ok: true, enviados: r.sent };
+}
 
 const profileSchema = z.object({
   // Mesmas regras do cadastro. Aceita maiúsculas digitadas e guarda em minúsculas
@@ -132,7 +145,7 @@ export async function saveLogoAction(
   _prev: AccountState,
   formData: FormData
 ): Promise<AccountState> {
-  await requireAdmin();
+  await requireSuperuser();
   const logo = String(formData.get("logo") ?? "");
   if (!ALLOWED_LOGO.test(logo)) {
     return { error: "Imagem inválida. Use PNG, JPG, WEBP ou SVG." };
@@ -154,7 +167,7 @@ export async function saveLogoAction(
 }
 
 export async function removeLogoAction() {
-  await requireAdmin();
+  await requireSuperuser();
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) {
     await db
@@ -172,7 +185,7 @@ export async function setBrandAction(
   whatsappGrupo = "",
   whatsappGrupoMusicos = ""
 ): Promise<{ ok: boolean }> {
-  await requireAdmin();
+  await requireSuperuser();
   const name = bandName.trim().slice(0, 80) || null;
   const grupo = whatsappGrupo.trim().slice(0, 300) || null;
   const grupoMusicos = whatsappGrupoMusicos.trim().slice(0, 300) || null;
@@ -192,7 +205,7 @@ export async function setSpotifyListsAction(
   setlist: string,
   ensaio: string
 ): Promise<{ ok: boolean }> {
-  await requireAdmin();
+  await requireSuperuser();
   const norm = (s: string) => {
     const t = s.trim().slice(0, 300);
     return t || null;
@@ -212,7 +225,7 @@ export async function setSpotifyListsAction(
 
 /** Opacidade dos blocos/cards (60–100). <100 = efeito vidro. */
 export async function setSurfaceOpacityAction(value: number): Promise<{ ok: boolean }> {
-  await requireAdmin();
+  await requireSuperuser();
   const v = Math.max(28, Math.min(100, Math.round(value)));
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) await db.update(appSettings).set({ surfaceOpacity: v }).where(eq(appSettings.id, row.id));
@@ -228,7 +241,7 @@ export async function setBackgroundAction(
   kind: "login" | "app",
   dataUrl: string
 ): Promise<{ ok: boolean; error?: string }> {
-  await requireAdmin();
+  await requireSuperuser();
   const u = dataUrl.trim();
   if (!ALLOWED_BG.test(u)) return { ok: false, error: "Use JPG, PNG ou WebP." };
   if (u.length > 4_000_000) return { ok: false, error: "Imagem muito grande." };
@@ -242,7 +255,7 @@ export async function setBackgroundAction(
 
 /** Remove o fundo do login ou do app. */
 export async function removeBackgroundAction(kind: "login" | "app"): Promise<{ ok: boolean }> {
-  await requireAdmin();
+  await requireSuperuser();
   const patch = kind === "app" ? { appBackgroundUrl: null } : { backgroundUrl: null };
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) await db.update(appSettings).set(patch).where(eq(appSettings.id, row.id));
@@ -252,7 +265,7 @@ export async function removeBackgroundAction(kind: "login" | "app"): Promise<{ o
 
 /** Liga/desliga: admin também vê só o material da sua posição (esconde letras). */
 export async function setAdminMaterialPorPosicaoAction(value: boolean) {
-  await requireAdmin();
+  await requireSuperuser();
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) {
     await db

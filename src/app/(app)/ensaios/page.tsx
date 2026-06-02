@@ -11,7 +11,7 @@ import { DeleteButton } from "@/components/shared/delete-button";
 import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
 import { deleteRehearsalAction } from "@/app/(app)/agenda/actions";
 import { formatDataBR, dataPartesBR } from "@/lib/formatters";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getCurrentUser, isSuperuser } from "@/lib/auth";
 import type { Rehearsal } from "@/db/schema";
 
 function Row({ r, admin }: { r: Rehearsal; admin: boolean }) {
@@ -72,7 +72,7 @@ function Row({ r, admin }: { r: Rehearsal; admin: boolean }) {
 
 export default async function EnsaiosPage() {
   const user = await getCurrentUser();
-  const admin = isAdmin(user);
+  const admin = isSuperuser(user);
   const lista = await db
     .select()
     .from(rehearsals)

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users, inviteTokens } from "@/db/schema";
-import { getAvailablePositions, hashPassword, requireAdmin } from "@/lib/auth";
+import { getAvailablePositions, hashPassword, requireAdmin, requireSuperuser } from "@/lib/auth";
 import { generateInviteToken, INVITE_TTL_MS } from "@/lib/invites";
 import { telefoneValido, maskPhone } from "@/lib/validators";
 
@@ -58,19 +58,26 @@ export async function revokeInviteAction(inviteId: string) {
 }
 
 export async function resetUserPasswordAction(userId: string, novaSenha: string) {
-  await requireAdmin();
+  const me = await requireAdmin();
   if (!novaSenha || novaSenha.length < 6) {
     return { error: "A senha precisa ter ao menos 6 caracteres." };
+  }
+  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!target) return { error: "Usuário não encontrado." };
+  // O manager (admin não-superuser) não mexe em admins/superusers.
+  if ((target.role === "admin" || target.superuser) && !me.superuser) {
+    return { error: "Só o superusuário pode alterar admins." };
   }
   const hash = await hashPassword(novaSenha);
   await db.update(users).set({ passwordHash: hash }).where(eq(users.id, userId));
   return { ok: true };
 }
 
+/** Papéis (admin/membro) só o superusuário gerencia. */
 export async function setUserRoleAction(userId: string, role: "admin" | "membro") {
-  const me = await requireAdmin();
+  const me = await requireSuperuser();
   if (me.id === userId && role !== "admin") {
-    return { error: "Você não pode remover o seu próprio acesso de admin." };
+    return { error: "Você não pode remover o seu próprio acesso." };
   }
   await db.update(users).set({ role }).where(eq(users.id, userId));
   revalidatePath("/cadastros");

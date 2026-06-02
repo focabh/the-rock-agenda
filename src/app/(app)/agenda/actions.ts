@@ -10,7 +10,7 @@ import {
   rehearsalMemberPresence,
 } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
-import { requireAdmin, requireCurrentUser } from "@/lib/auth";
+import { requireSuperuser, requireCurrentUser } from "@/lib/auth";
 import { formatDataBR } from "@/lib/formatters";
 import { sendPushToAll } from "@/lib/push";
 
@@ -98,7 +98,7 @@ export async function createRehearsalAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  await requireSuperuser();
   const parsed = parseForm(rehearsalSchema, formData);
   if (!parsed.ok) return parsed.state;
 
@@ -144,7 +144,7 @@ export async function updateRehearsalAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  await requireSuperuser();
   const parsed = parseForm(rehearsalSchema, formData);
   if (!parsed.ok) return parsed.state;
 
@@ -171,7 +171,7 @@ export async function updateRehearsalAction(
 }
 
 export async function deleteRehearsalAction(id: string) {
-  await requireAdmin();
+  await requireSuperuser();
   await db.delete(rehearsals).where(eq(rehearsals.id, id));
   revalidateRehearsalPaths();
 }

@@ -88,6 +88,20 @@ export function isAdmin(user: CurrentUser | null): boolean {
   return user?.role === "admin";
 }
 
+/** Superusuário (Foca): controla configurações do app, repertório e ensaios.
+ *  O manager (admin não-superuser) NÃO tem acesso a essas áreas. */
+export function isSuperuser(user: CurrentUser | null): boolean {
+  return Boolean(user?.superuser);
+}
+
+export async function requireSuperuser(): Promise<CurrentUser> {
+  const user = await requireCurrentUser();
+  if (!user.superuser) {
+    redirect("/?erro=permissao");
+  }
+  return user;
+}
+
 /**
  * Nome a ser exibido no app inteiro para um usuário: apelido > nome (+ sobrenome) > username.
  * Quem se cadastra define nome/sobrenome; o apelido (em Conta) sobrescreve.
