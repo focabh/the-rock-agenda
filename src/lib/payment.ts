@@ -4,7 +4,8 @@ export type BreakdownInput = {
   cacheCentavos: number;
   applyCommission: boolean;
   commissionPct: number; // 0..100
-  confirmedMusicos: Member[];
+  // Participantes da divisão (músicos confirmados + subs). Só usamos `.id`.
+  confirmedMusicos: { id: string }[];
   managerMember: Member | null;
   overrides: Map<string, number>; // memberId -> valor em centavos
 };

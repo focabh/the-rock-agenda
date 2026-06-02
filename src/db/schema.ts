@@ -429,6 +429,26 @@ export const showMemberPaid = sqliteTable(
   }),
 );
 
+// Substituto (sub) convidado pra um show específico, no lugar de um músico que
+// não pode tocar. É um convidado externo avulso (não vira membro da banda).
+// Entra na divisão do cachê daquele show como participante.
+export const showSubstitute = sqliteTable("show_substitute", {
+  id: id(),
+  showId: text("show_id")
+    .notNull()
+    .references(() => shows.id, { onDelete: "cascade" }),
+  // Quem ele substitui (opcional — pode ser um reforço avulso).
+  forMemberId: text("for_member_id").references(() => members.id, {
+    onDelete: "set null",
+  }),
+  nome: text("nome").notNull(),
+  contato: text("contato"), // WhatsApp/telefone do convidado
+  funcao: text("funcao"), // ex.: Guitarra, Baixo…
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // ---------------- GALERIA DE MÍDIA (divulgação) ----------------
 
 // Fotos de alta qualidade da banda, usadas como fundo dos cartazes/flyers.
@@ -1044,6 +1064,7 @@ export type SpotifyAuth = typeof spotifyAuth.$inferSelect;
 export type SongMemberReadiness = typeof songMemberReadiness.$inferSelect;
 export type ShowMemberPayment = typeof showMemberPayment.$inferSelect;
 export type ShowMemberPaid = typeof showMemberPaid.$inferSelect;
+export type ShowSubstitute = typeof showSubstitute.$inferSelect;
 export type Gasto = typeof gastos.$inferSelect;
 export type Reembolso = typeof reembolsos.$inferSelect;
 export type Equipamento = typeof equipamentos.$inferSelect;

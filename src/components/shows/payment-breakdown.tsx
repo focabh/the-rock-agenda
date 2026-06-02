@@ -19,7 +19,7 @@ import {
   type PaidStatus,
 } from "@/components/shows/payment-paid-controls";
 import { toast } from "sonner";
-import type { Member, ShowMemberPayment } from "@/db/schema";
+import type { Member, ShowMemberPayment, ShowSubstitute } from "@/db/schema";
 
 type PaidInfo = {
   memberId: string;
@@ -38,6 +38,7 @@ export function PaymentBreakdown({
   admin,
   paidInfo,
   currentMemberId,
+  subs = [],
 }: {
   showId: string;
   cacheCentavos: number;
@@ -49,6 +50,7 @@ export function PaymentBreakdown({
   admin: boolean;
   paidInfo: PaidInfo[];
   currentMemberId: string | null;
+  subs?: ShowSubstitute[];
 }) {
   const [, startTransition] = useTransition();
   const paidMap = useMemo(
@@ -79,30 +81,28 @@ export function PaymentBreakdown({
     return m;
   }, [overrides]);
 
+  // Participantes da divisão = músicos confirmados + subs convidados.
+  const participantes = useMemo(
+    () => [...confirmedMusicos.map((m) => ({ id: m.id })), ...subs.map((s) => ({ id: s.id }))],
+    [confirmedMusicos, subs]
+  );
+
   const breakdown = useMemo(
     () =>
       computePaymentBreakdown({
         cacheCentavos,
         applyCommission,
         commissionPct,
-        confirmedMusicos,
+        confirmedMusicos: participantes,
         managerMember,
         overrides: overrideMap,
       }),
-    [
-      cacheCentavos,
-      applyCommission,
-      commissionPct,
-      confirmedMusicos,
-      managerMember,
-      overrideMap,
-    ]
+    [cacheCentavos, applyCommission, commissionPct, participantes, managerMember, overrideMap]
   );
 
-  const musicoTotal = confirmedMusicos.reduce(
-    (s, m) => s + (breakdown.perMember.get(m.id)?.valorCentavos ?? 0),
-    0
-  );
+  const musicoTotal =
+    confirmedMusicos.reduce((s, m) => s + (breakdown.perMember.get(m.id)?.valorCentavos ?? 0), 0) +
+    subs.reduce((s, sub) => s + (breakdown.perMember.get(sub.id)?.valorCentavos ?? 0), 0);
   const paidTotal = confirmedMusicos.reduce(
     (s, m) =>
       paidMap.has(m.id)
@@ -257,7 +257,7 @@ export function PaymentBreakdown({
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Músicos confirmados ({confirmedMusicos.length})
+              Músicos confirmados ({confirmedMusicos.length}){subs.length > 0 ? ` + ${subs.length} sub` : ""}
             </p>
             {admin && overrides.length > 0 && (
               <button
@@ -270,7 +270,7 @@ export function PaymentBreakdown({
             )}
           </div>
 
-          {noMusicos ? (
+          {noMusicos && subs.length === 0 ? (
             <p className="text-sm text-muted-foreground py-3">
               Nenhum músico confirmado ainda. Marque presenças acima.
             </p>
@@ -295,6 +295,22 @@ export function PaymentBreakdown({
                     onSetPct={(p) => setOverridePct(m.id, p)}
                     onReset={() => clearOverride(m.id)}
                   />
+                );
+              })}
+              {/* Subs convidados — entram na divisão, sem controle de pago aqui */}
+              {subs.map((sub) => {
+                const info = breakdown.perMember.get(sub.id);
+                return (
+                  <li key={sub.id} className="flex items-center gap-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {sub.nome}{" "}
+                        <span className="rounded bg-sky-500/15 px-1 py-0.5 text-[10px] font-bold uppercase text-sky-300">sub</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">{sub.funcao || "Convidado"}</p>
+                    </div>
+                    <span className="font-mono text-sm tabular-nums">{formatBRL(info?.valorCentavos ?? 0)}</span>
+                  </li>
                 );
               })}
             </ul>

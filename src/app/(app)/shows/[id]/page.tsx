@@ -11,6 +11,7 @@ import {
   showMemberPresence,
   showMemberPayment,
   showMemberPaid,
+  showSubstitute,
   gastos,
 } from "@/db/schema";
 import { membersUnavailableOn } from "@/lib/conflicts";
@@ -25,6 +26,7 @@ import { VenueShowCard } from "@/components/casas/venue-show-card";
 import { CompatCheck } from "@/components/shows/compat-check";
 import { parseTags } from "@/lib/venue-tags";
 import { SetlistTab } from "@/components/shows/setlist-tab";
+import { ShowSubstitutes } from "@/components/shows/show-substitutes";
 import { AvaliacaoTab } from "@/components/shows/avaliacao-tab";
 import { SongFeedbackList } from "@/components/shows/song-feedback-list";
 import { VenueInsights } from "@/components/shows/venue-insights";
@@ -75,7 +77,7 @@ export default async function ShowDetailPage({
   const feedbackMap = await getShowFeedbackMap(show.id);
   const venueInsights = await getVenueSongInsights(show.casaId);
 
-  const [allSongs, allMembers, dayBlocks, presences, payments, paidRows] = await Promise.all([
+  const [allSongs, allMembers, dayBlocks, presences, payments, paidRows, subs] = await Promise.all([
     db.select().from(songs).orderBy(asc(songs.titulo)),
     db.select().from(members).where(eq(members.ativo, true)).orderBy(asc(members.nome)),
     // Janela ampla (±2 dias) — depois filtramos com precisão via brDateKey
@@ -106,6 +108,10 @@ export default async function ShowDetailPage({
       .select()
       .from(showMemberPaid)
       .where(eq(showMemberPaid.showId, id)),
+    db
+      .select()
+      .from(showSubstitute)
+      .where(eq(showSubstitute.showId, id)),
   ]);
 
   // Não-managers
@@ -116,6 +122,13 @@ export default async function ShowDetailPage({
   );
   const confirmedMusicos = playableMembers.filter((m) => confirmedIds.has(m.id));
   const managerMember = allMembers.find((m) => m.isManager) ?? null;
+  // Quem recusou (não vai) → candidatos a receber um sub.
+  const declinedIds = new Set(
+    presences.filter((p) => p.status === "recusado").map((p) => p.memberId)
+  );
+  const decliners = playableMembers
+    .filter((m) => declinedIds.has(m.id))
+    .map((m) => ({ id: m.id, nome: m.nome, funcao: m.funcao }));
 
   const conflitos = membersUnavailableOn(show.data, dayBlocks, allMembers);
   const now = new Date();
@@ -223,6 +236,17 @@ export default async function ShowDetailPage({
                 groupLink={brand.whatsappGrupo}
                 pushHint={pushHint}
               />
+              <ShowSubstitutes
+                showId={show.id}
+                admin={admin}
+                subs={subs}
+                decliners={decliners}
+                brandName={brand.bandName || "a banda"}
+                showInfo={{
+                  casa: show.casa.nome,
+                  quando: `dia ${formatDataBR(show.data, true)}`,
+                }}
+              />
               <PaymentBreakdown
                 showId={show.id}
                 cacheCentavos={show.cacheCentavos ?? 0}
@@ -241,6 +265,7 @@ export default async function ShowDetailPage({
                 }))}
                 currentMemberId={user?.member?.id ?? null}
                 admin={admin}
+                subs={subs}
               />
             </div>
           }

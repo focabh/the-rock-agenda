@@ -64,6 +64,17 @@ await c.execute(`CREATE TABLE IF NOT EXISTS show_song_feedback (
 await c.execute(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_show_song_feedback ON show_song_feedback (show_id, song_id)`);
 console.log("= show_song_feedback (ok)");
 
+await c.execute(`CREATE TABLE IF NOT EXISTS show_substitute (
+  id TEXT PRIMARY KEY,
+  show_id TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
+  for_member_id TEXT REFERENCES members(id) ON DELETE SET NULL,
+  nome TEXT NOT NULL,
+  contato TEXT,
+  funcao TEXT,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+)`);
+console.log("= show_substitute (ok)");
+
 // --- invariantes ---
 await c.execute("UPDATE users SET superuser = 0 WHERE username != 'focabh'"); // só focabh é superadmin
 console.log("\nMigração concluída.");
