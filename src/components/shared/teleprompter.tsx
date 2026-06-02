@@ -405,6 +405,16 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const ctrlBtn =
     "inline-flex items-center justify-center rounded-full text-white/85 hover:bg-white/10 disabled:opacity-40";
 
+  // Contagem do instrumental (intro/solo): segundos até o próximo verso entrar.
+  const curLines = syncedCurrent ? syncedLines[current] : [];
+  const nextVocalT = syncedCurrent
+    ? activeIdx < 0
+      ? curLines[0]?.t
+      : curLines[activeIdx + 1]?.t
+    : undefined;
+  const instrRemaining = nextVocalT != null ? Math.round(nextVocalT - songSec) : null;
+  const showInstr = playing && syncedCurrent && instrRemaining != null && instrRemaining >= 6;
+
   return (
     <>
       <Button
@@ -444,6 +454,15 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
               <X className="size-4" /> Sair
             </button>
           </div>
+
+          {/* Aviso de instrumental/solo: quando o vocal volta (intro e solos) */}
+          {showInstr && (
+            <div className="pointer-events-none absolute inset-x-0 top-14 z-10 flex justify-center">
+              <span className="rounded-full bg-amber-500/90 px-4 py-1.5 text-sm font-bold text-black shadow-lg">
+                🎸 {activeIdx < 0 ? "introdução" : "instrumental"} · vocal em {instrRemaining}s
+              </span>
+            </div>
+          )}
 
           {/* Letras rolando — toque mostra/esconde controles */}
           <div
