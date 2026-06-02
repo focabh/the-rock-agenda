@@ -71,6 +71,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [auto, setAuto] = useState(true); // Inteliprompter: calibra por música
   const [activeIdx, setActiveIdx] = useState(-1); // linha ativa (modo sincronizado)
   const [rateView, setRateView] = useState(1); // ritmo do sync (1 = igual à gravação)
+  const [songSec, setSongSec] = useState(0); // cronômetro do tempo-música (modo sync)
   const rateRef = useRef(1); // fonte de verdade do ritmo pro relógio
   const ratesMem = useRef<Record<string, number>>({});
 
@@ -184,6 +185,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     clock.current.base = 0;
     clock.current.startedAt = playingRef.current ? performance.now() : null;
     setActiveIdx(-1);
+    setSongSec(0);
     const k = songs[current] ? songKey(songs[current]) : null;
     const r = (k && ratesMem.current[k]) || 1;
     rateRef.current = r;
@@ -193,14 +195,23 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
 
   // Motor SINCRONIZADO: rola a letra no tempo real da música (LRC). A linha
   // atual fica centralizada; na introdução/instrumental a letra espera parada.
+  // Usa um rAF PRÓPRIO (id local) pra não conflitar com a rolagem constante.
   useEffect(() => {
     if (!open || !playing || !syncedCurrent) return;
     const lines = syncedLines[current];
+    let id = 0;
     let active = true;
     let lastIdx = -2;
+    let lastSec = -1;
     const tick = () => {
       if (!active) return;
-      const idx = activeLineIndex(lines, elapsed());
+      const e = elapsed();
+      const sec = Math.floor(e);
+      if (sec !== lastSec) {
+        lastSec = sec;
+        setSongSec(sec); // cronômetro ao vivo (prova que o Play está correndo)
+      }
+      const idx = activeLineIndex(lines, e);
       if (idx !== lastIdx) {
         lastIdx = idx;
         setActiveIdx(idx);
@@ -209,12 +220,12 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
         const target = scrollRef.current?.querySelector(`[data-tl="${current}-${q}"]`) as HTMLElement | null;
         target?.scrollIntoView({ block: "center", behavior: "smooth" });
       }
-      raf.current = requestAnimationFrame(tick);
+      id = requestAnimationFrame(tick);
     };
-    raf.current = requestAnimationFrame(tick);
+    id = requestAnimationFrame(tick);
     return () => {
       active = false;
-      if (raf.current) cancelAnimationFrame(raf.current);
+      cancelAnimationFrame(id);
     };
   }, [open, playing, syncedCurrent, current, syncedLines]);
 
@@ -540,6 +551,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                       ritmo {Math.round(rateView * 100)}%
                     </div>
                     <div className="font-mono text-[11px] text-white/55">
+                      {Math.floor(songSec / 60)}:{String(songSec % 60).padStart(2, "0")} ·{" "}
                       {activeIdx >= 0 ? `linha ${activeIdx + 1}/${syncedLines[current].length}` : "introdução (letra espera)"}
                     </div>
                   </div>
