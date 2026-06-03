@@ -18,6 +18,7 @@ import {
   MemberPaidControls,
   type PaidStatus,
 } from "@/components/shows/payment-paid-controls";
+import { PixButton } from "@/components/shows/pix-button";
 import { toast } from "sonner";
 import type { Member, ShowMemberPayment, ShowSubstitute } from "@/db/schema";
 
@@ -540,6 +541,9 @@ function MemberPaymentRow({
         >
           <RotateCcw className="size-3.5" />
         </button>
+      )}
+      {admin && member.chavePix && (
+        <PixButton nome={member.nome} chave={member.chavePix} tipo={member.pixTipo} valorCentavos={valorCentavos} />
       )}
       <MemberPaidControls
         showId={showId}
