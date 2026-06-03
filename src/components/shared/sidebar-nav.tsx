@@ -44,6 +44,7 @@ const GROUPS: Group[] = [
       { href: "/ferramentas", label: "Afinador & metrônomo" },
       { href: "/equipamentos", label: "Equipamentos" },
       { href: "/banda", label: "Membros" },
+      { href: "/estatisticas", label: "Estatísticas" },
       { href: "/posicoes", label: "Posições", adminOnly: true },
       { href: "/sobre", label: "Sobre a banda" },
     ],
