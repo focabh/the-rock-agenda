@@ -13,6 +13,7 @@ import {
   Receipt,
   Megaphone,
   Coins,
+  Guitar,
 } from "lucide-react";
 import { db } from "@/db";
 import {
@@ -442,13 +443,12 @@ export default async function DashboardPage() {
           </h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <QuickLink href="/repertorio" icon={Music2} title="Repertório" />
-            <QuickLink href="/casas" icon={Building2} title="Casas" />
+            <QuickLink href="/ferramentas" icon={Guitar} title="Afinador & metrônomo" />
             <QuickLink href="/banda" icon={Users} title="Banda" />
             <QuickLink href="/pagamentos" icon={Wallet} title="Cachês" />
-            {admin && (
-              <QuickLink href="/gastos" icon={Receipt} title="Gastos" />
-            )}
-            <QuickLink href="/divulgacao" icon={Megaphone} title="Material" />
+            {admin && <QuickLink href="/casas" icon={Building2} title="Casas" />}
+            {admin && <QuickLink href="/gastos" icon={Receipt} title="Gastos" />}
+            {admin && <QuickLink href="/divulgacao" icon={Megaphone} title="Material" />}
           </div>
         </section>
       </div>
