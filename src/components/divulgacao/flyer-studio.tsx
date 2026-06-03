@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { FlyerInspiracao } from "@/components/divulgacao/flyer-inspiracao";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { fileToDownscaledDataUrl } from "@/lib/image-resize";
@@ -397,6 +398,9 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
       <div className="space-y-4">
         <Bloco titulo="Estilo">
           <Chips value={estilo} onChange={(v) => setEstilo(v as Estilo)} options={[["festival", "Festival"], ["minimal", "Minimalista"], ["tarja", "Tarja"]]} />
+        </Bloco>
+        <Bloco titulo="Inspiração da web">
+          <FlyerInspiracao />
         </Bloco>
         <Bloco titulo="Modelos de texto">
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
