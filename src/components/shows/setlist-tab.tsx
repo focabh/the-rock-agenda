@@ -20,10 +20,11 @@ import {
   Star,
   Wand2,
   Send,
-  Link2,
   TriangleAlert,
   Play,
   ExternalLink,
+  ChevronDown,
+  CornerRightDown,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
@@ -668,6 +669,7 @@ function SortableSetlistItem({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: !canEdit });
   const [, startTransition] = useTransition();
   const [playing, setPlaying] = useState(false);
+  const [expanded, setExpanded] = useState(false); // card aberto no mobile
   const style = { transform: CSS.Transform.toString(transform), transition };
   const dur = item.duracaoSeg ?? item.song.duracaoSeg ?? 0;
   const trackId = item.song.spotifyTrackId;
@@ -682,148 +684,180 @@ function SortableSetlistItem({
         isDragging && "z-10 shadow-lg ring-1 ring-primary/40"
       )}
     >
-      <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2 sm:px-3">
-      {canEdit && (
-        <button
-          {...attributes}
-          {...listeners}
-          className="shrink-0 cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
-          title="Arrastar para reordenar"
-          aria-label="Arrastar"
-        >
-          <GripVertical className="size-4" />
-        </button>
-      )}
-      <span className="w-5 shrink-0 text-right font-mono text-sm text-muted-foreground">{index + 1}</span>
-
-      {isEnsaio && (
-        <button
-          onClick={() => canEdit && startTransition(() => onPrioridade(!item.prioridade))}
-          disabled={!canEdit}
-          className={cn("shrink-0 transition-colors", item.prioridade ? "text-amber-400" : "text-muted-foreground hover:text-amber-400")}
-          title={item.prioridade ? "Prioritária — tocar pra desmarcar" : "Marcar como prioritária pro ensaio"}
-        >
-          <Star className={cn("size-4", item.prioridade && "fill-amber-400")} />
-        </button>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{item.song.titulo}</p>
-        <p className="truncate text-xs text-muted-foreground">{item.song.artista}</p>
-      </div>
-
-      <span className="hidden shrink-0 md:inline">
-        <SongStatusBadge status={item.song.status} />
-      </span>
-
-      {(canEdit || dropada) && (
-        <button
-          type="button"
-          onClick={() => canEdit && startTransition(() => onDrop(!dropada))}
-          disabled={!canEdit}
-          title={dropada ? "Afinação dropada — toque pra desmarcar (vale em todo lugar)" : "Marcar afinação dropada (Drop D/C…)"}
-          className={cn(
-            "inline-flex shrink-0 items-center rounded px-1 py-0.5 text-[9px] font-bold ring-1 ring-inset transition-colors sm:px-1.5 sm:text-[10px]",
-            dropada
-              ? "bg-amber-500/15 text-amber-300 ring-amber-500/30"
-              : "text-muted-foreground ring-border hover:text-amber-300"
+      <div className="flex flex-col px-2 py-1.5 sm:flex-row sm:items-center sm:gap-2 sm:px-3 sm:py-2">
+        {/* PRIMÁRIO — sempre visível: nº, prioridade, nome, emenda, letra */}
+        <div className="flex items-center gap-1.5 sm:contents">
+          {canEdit && (
+            <button
+              {...attributes}
+              {...listeners}
+              className="shrink-0 cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
+              title="Arrastar para reordenar"
+              aria-label="Arrastar"
+            >
+              <GripVertical className="size-4" />
+            </button>
           )}
-        >
-          DROP
-        </button>
-      )}
+          <span className="w-5 shrink-0 text-right font-mono text-sm text-muted-foreground">{index + 1}</span>
 
-      {/* Alerta de emenda (tom/afinação mudam no meio) */}
-      {warn && (
-        <span className="inline-flex shrink-0 items-center text-amber-400" title={warn} aria-label={warn}>
-          <TriangleAlert className="size-4" />
-        </span>
-      )}
-      {/* Emenda na próxima música */}
-      {hasNext && (canEdit || emenda) && (
-        <button
-          type="button"
-          onClick={() => canEdit && startTransition(() => onEmenda(!emenda))}
-          disabled={!canEdit}
-          title={emenda ? "Emenda na próxima — toque pra desmarcar" : "Emendar na próxima música (sem pausa)"}
-          className={cn(
-            "inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors",
-            emenda ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-primary"
+          {isEnsaio && (
+            <button
+              onClick={() => canEdit && startTransition(() => onPrioridade(!item.prioridade))}
+              disabled={!canEdit}
+              className={cn("shrink-0 transition-colors", item.prioridade ? "text-amber-400" : "text-muted-foreground hover:text-amber-400")}
+              title={item.prioridade ? "Prioritária — tocar pra desmarcar" : "Marcar como prioritária pro ensaio"}
+            >
+              <Star className={cn("size-4", item.prioridade && "fill-amber-400")} />
+            </button>
           )}
-        >
-          <Link2 className="size-4" />
-        </button>
-      )}
 
-      {dur > 0 && (
-        <span className="hidden shrink-0 font-mono text-xs tabular-nums text-muted-foreground sm:inline">{fmtMMSS(dur)}</span>
-      )}
-      {play && (
-        (() => {
-          const Icon = MATERIAL_ICON[play.kind];
-          return (
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{item.song.titulo}</p>
+            <p className="truncate text-xs text-muted-foreground">{item.song.artista}</p>
+          </div>
+
+          {/* Emenda (lê de imediato): esta música cola na próxima, sem pausa. */}
+          {emenda && (
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary sm:hidden"
+              title="Emenda: cola na próxima música, sem pausa"
+            >
+              <CornerRightDown className="size-3" /> emenda
+            </span>
+          )}
+
+          {/* Letra (sempre acessível) */}
+          <LyricsDialog
+            songId={item.song.id}
+            titulo={item.song.titulo}
+            artista={item.song.artista}
+            spotifyTrackId={item.song.spotifyTrackId}
+            admin={false}
+          />
+
+          {/* Abrir/fechar detalhes — só no mobile */}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted sm:hidden"
+            title={expanded ? "Menos opções" : "Mais opções"}
+            aria-label="Mais opções"
+          >
+            <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
+          </button>
+        </div>
+
+        {/* SECUNDÁRIO — mobile: abre no toque; desktop: inline (sm:contents) */}
+        <div className={cn("mt-1.5 flex-wrap items-center gap-1.5 pl-7 sm:mt-0 sm:pl-0 sm:contents", expanded ? "flex" : "hidden")}>
+          <span className="hidden shrink-0 md:inline">
+            <SongStatusBadge status={item.song.status} />
+          </span>
+
+          {(canEdit || dropada) && (
+            <button
+              type="button"
+              onClick={() => canEdit && startTransition(() => onDrop(!dropada))}
+              disabled={!canEdit}
+              title={dropada ? "Afinação dropada — toque pra desmarcar (vale em todo lugar)" : "Marcar afinação dropada (Drop D/C…)"}
+              className={cn(
+                "inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold ring-1 ring-inset transition-colors",
+                dropada
+                  ? "bg-amber-500/15 text-amber-300 ring-amber-500/30"
+                  : "text-muted-foreground ring-border hover:text-amber-300"
+              )}
+            >
+              DROP
+            </button>
+          )}
+
+          {warn && (
+            <span className="inline-flex shrink-0 items-center text-amber-400" title={warn} aria-label={warn}>
+              <TriangleAlert className="size-4" />
+            </span>
+          )}
+
+          {/* Emenda na próxima música — alternar */}
+          {hasNext && (canEdit || emenda) && (
+            <button
+              type="button"
+              onClick={() => canEdit && startTransition(() => onEmenda(!emenda))}
+              disabled={!canEdit}
+              title={emenda ? "Emenda na próxima — toque pra desmarcar" : "Emendar na próxima música (sem pausa)"}
+              className={cn(
+                "inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold transition-colors",
+                emenda ? "bg-primary/15 text-primary" : "text-muted-foreground ring-1 ring-inset ring-border hover:text-primary"
+              )}
+            >
+              <CornerRightDown className="size-3.5" /> emenda
+            </button>
+          )}
+
+          {dur > 0 && (
+            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{fmtMMSS(dur)}</span>
+          )}
+
+          {play && (
+            (() => {
+              const Icon = MATERIAL_ICON[play.kind];
+              return (
+                <a
+                  href={play.href(item.song.artista, item.song.titulo)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
+                  title={play.label}
+                >
+                  <Icon className="size-3.5" />
+                </a>
+              );
+            })()
+          )}
+
+          {/* Tocar no Spotify (player embed inline, igual ao repertório) */}
+          {trackId && (
+            <button
+              type="button"
+              onClick={() => setPlaying((p) => !p)}
+              className={cn(
+                "inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors",
+                playing ? "bg-primary text-primary-foreground" : "text-primary hover:bg-primary/15"
+              )}
+              title={playing ? "Fechar player" : "Tocar no Spotify"}
+            >
+              {playing ? <X className="size-3.5" /> : <Play className="size-3.5 fill-current" />}
+            </button>
+          )}
+          {trackId && (
             <a
-              href={play.href(item.song.artista, item.song.titulo)}
+              href={`https://open.spotify.com/track/${trackId}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-orange-400 transition-colors hover:bg-orange-500/15"
-              title={play.label}
+              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-emerald-400 transition-colors hover:bg-emerald-500/15"
+              title="Abrir no Spotify (toca inteira no app)"
             >
-              <Icon className="size-3.5" />
+              <ExternalLink className="size-3.5" />
             </a>
-          );
-        })()
-      )}
-      {/* Tocar no Spotify (player embed inline, igual ao repertório) */}
-      {trackId && (
-        <button
-          type="button"
-          onClick={() => setPlaying((p) => !p)}
-          className={cn(
-            "inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors",
-            playing ? "bg-primary text-primary-foreground" : "text-primary hover:bg-primary/15"
           )}
-          title={playing ? "Fechar player" : "Tocar no Spotify"}
-        >
-          {playing ? <X className="size-3.5" /> : <Play className="size-3.5 fill-current" />}
-        </button>
-      )}
-      {trackId && (
-        <a
-          href={`https://open.spotify.com/track/${trackId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="hidden size-7 shrink-0 items-center justify-center rounded-full text-emerald-400 transition-colors hover:bg-emerald-500/15 sm:inline-flex"
-          title="Abrir no Spotify (toca inteira no app)"
-        >
-          <ExternalLink className="size-3.5" />
-        </a>
-      )}
-      {/* Letra por música — só leitura aqui; editar a letra é no Repertório. */}
-      <LyricsDialog
-        songId={item.song.id}
-        titulo={item.song.titulo}
-        artista={item.song.artista}
-        spotifyTrackId={item.song.spotifyTrackId}
-        admin={false}
-      />
-      {/* Marcações (entrada do vocal / solo) — só o superusuário edita */}
-      {superuser && (
-        <CuesDialog songId={item.song.id} titulo={item.song.titulo} initial={parseCues(item.song.cues)} />
-      )}
-      <Input
-        defaultValue={item.tom ?? item.song.tom ?? ""}
-        placeholder="Tom"
-        title="Tom (tonalidade)"
-        disabled={!canEdit}
-        className="h-7 w-12 shrink-0 px-1 text-center text-xs font-mono sm:w-14"
-        onBlur={(e) => canEdit && startTransition(() => onTom(e.target.value || null))}
-      />
-      {canEdit && (
-        <Button variant="ghost" size="icon" title="Remover" className="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => startTransition(() => onRemove())}>
-          <X className="size-3.5" />
-        </Button>
-      )}
+
+          {/* Marcações (entrada do vocal / solo) — só o superusuário edita */}
+          {superuser && (
+            <CuesDialog songId={item.song.id} titulo={item.song.titulo} initial={parseCues(item.song.cues)} />
+          )}
+
+          <Input
+            defaultValue={item.tom ?? item.song.tom ?? ""}
+            placeholder="Tom"
+            title="Tom (tonalidade)"
+            disabled={!canEdit}
+            className="h-7 w-14 shrink-0 px-1 text-center text-xs font-mono"
+            onBlur={(e) => canEdit && startTransition(() => onTom(e.target.value || null))}
+          />
+          {canEdit && (
+            <Button variant="ghost" size="icon" title="Remover" className="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => startTransition(() => onRemove())}>
+              <X className="size-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {playing && trackId && (
