@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Download, Upload, Shuffle, Loader2, Building2, Plus, X, GripVertical } from "lucide-react";
+import { Download, Upload, Shuffle, Loader2, Building2, Plus, X, GripVertical, Wand2 } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -329,6 +329,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 
   const [qr, setQr] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [variacoes, setVariacoes] = useState<Combo[] | null>(null);
   const [pending, start] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -375,6 +376,41 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
         if (first) { setBg(url); first = false; }
       }
     });
+  }
+
+  // Gera 6 modelos prontos combinando foto + estilo + modelo de texto + posição.
+  function gerarVariacoes() {
+    const fotos = imgs.length ? imgs.map((i) => i.url) : [null];
+    const estilos: Estilo[] = ["festival", "minimal", "tarja", "festival", "minimal", "tarja"];
+    const poses: Pos[] = ["bottom", "center", "bottom", "top", "bottom", "center"];
+    const combos: Combo[] = Array.from({ length: 6 }, (_, k) => {
+      const m = MODELOS_TEXTO[k % MODELOS_TEXTO.length];
+      return {
+        bg: fotos[k % fotos.length],
+        grad: GRADIENTES[k % GRADIENTES.length],
+        estilo: estilos[k],
+        fonte: m.fonte,
+        efeito: m.efeito,
+        accent: m.accent,
+        pos: poses[k],
+      };
+    });
+    setVariacoes(combos);
+  }
+
+  function aplicarVariacao(c: Combo) {
+    if (c.bg) setBg(c.bg);
+    else {
+      setBg(null);
+      setGrad(c.grad);
+    }
+    setEstilo(c.estilo);
+    setFonte(c.fonte);
+    setEfeito(c.efeito);
+    setAccent(c.accent);
+    setPos(c.pos);
+    setVariacoes(null);
+    toast.success("Modelo aplicado — ajuste o que quiser e baixe. 🎨");
   }
 
   async function excluirImg(id: string, url: string) {
@@ -445,6 +481,39 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
       </div>
 
       <div className="space-y-4">
+        <Bloco titulo="Gerar automático">
+          <p className="-mt-1 text-xs text-zinc-400">Monta 6 modelos com suas fotos e os dados do show. Toque no que curtir pra usar e ajustar.</p>
+          <Button onClick={gerarVariacoes} className="w-full">
+            <Wand2 className="size-4" /> Gerar 6 opções
+          </Button>
+          {variacoes && (
+            <div className="mt-1 flex flex-wrap justify-center gap-2">
+              {variacoes.map((c, i) => (
+                <MiniFlyer
+                  key={i}
+                  combo={c}
+                  aspect={aspect}
+                  onClick={() => aplicarVariacao(c)}
+                  content={{
+                    headline,
+                    banda,
+                    casa,
+                    data,
+                    inicio: show.inicio,
+                    ingresso,
+                    instagram,
+                    qr,
+                    festival,
+                    lineup,
+                    tam,
+                    ordem,
+                    escala,
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </Bloco>
         <Bloco titulo="Estilo">
           <Chips value={estilo} onChange={(v) => setEstilo(v as Estilo)} options={[["festival", "Festival"], ["minimal", "Minimalista"], ["tarja", "Tarja"]]} />
         </Bloco>
