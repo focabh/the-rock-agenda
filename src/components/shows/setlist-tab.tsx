@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
+import { SetlistShare } from "@/components/shows/setlist-share";
 import { SetlistCritiqueDialog } from "@/components/shows/setlist-critique-dialog";
 import { EnsaioGenerateDialog } from "@/components/ensaios/ensaio-generate-dialog";
 import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
@@ -472,6 +473,19 @@ export function SetlistTab({
                     <Printer className="size-4" /> Imprimir
                   </Button>
                 </>
+              )}
+              {selected && localItems.length > 0 && (
+                <SetlistShare
+                  titulo={selected.nome || "Setlist"}
+                  subtitulo={isEnsaio ? (ensaioInfo?.dataLabel ?? "Ensaio") : `${localItems.length} músicas · ${formatDuracao(totalSeg)}`}
+                  linhas={localItems.map((it, idx) => ({
+                    n: idx + 1,
+                    titulo: it.song.titulo,
+                    artista: it.song.artista,
+                    tom: it.tom ?? it.song.tom ?? "",
+                    dur: fmtMMSS(it.duracaoSeg ?? it.song.duracaoSeg ?? 0),
+                  }))}
+                />
               )}
             </div>
           </div>
