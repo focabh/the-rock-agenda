@@ -11,6 +11,7 @@ import { SurfaceCard } from "@/components/conta/surface-card";
 import { UpdateAppButton } from "@/components/conta/update-app-button";
 import { NotifyCard } from "@/components/conta/notify-card";
 import { SpotifyListsCard } from "@/components/conta/spotify-lists-card";
+import { BackupCard } from "@/components/conta/backup-card";
 import {
   adminMaterialPorPosicao,
   getAvailablePositions,
@@ -97,6 +98,7 @@ export default async function ContaPage() {
           />
         )}
         {superuser && <SurfaceCard initial={brand.surfaceOpacity} />}
+        {superuser && <BackupCard />}
       </div>
     </div>
   );
