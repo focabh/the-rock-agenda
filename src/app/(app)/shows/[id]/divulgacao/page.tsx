@@ -48,7 +48,7 @@ export default async function DivulgacaoShowPage({
             banda: brand.bandName?.trim() || "The Rock",
             casaNome: show.casa.nome,
             cidade: show.cidade,
-            dataLabel: formatDataBR(show.data, true),
+            dataLabel: formatDataBR(show.data),
             inicio: show.inicio || formatHoraBR(show.data),
             termino: show.termino,
             valorIngresso: show.valorIngresso,
