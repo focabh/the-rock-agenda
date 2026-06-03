@@ -145,34 +145,7 @@ function scrimFor(pos: Pos, scrimPct: number): string {
       : `linear-gradient(to top, rgba(9,9,11,${aA + 0.3}), rgba(9,9,11,${aA * 0.45}) 45%, transparent 74%)`;
 }
 
-/** Efeitos como CAMADAS de texto (cópias posicionadas atrás), não text-shadow:
- *  o text-shadow some na exportação (o Webkit/iOS não pinta sombra/filtro no
- *  modo SVG/foreignObject que o screenshot usa). Cópias de texto são glifos
- *  reais → aparecem em qualquer aparelho. */
-function fxLayers(efeito: Efeito, accent: string): { dx: number; dy: number; color: string }[] {
-  const dirs = (d: number, color: string) =>
-    ([[-d, -d], [d, -d], [-d, d], [d, d], [0, -d], [0, d], [-d, 0], [d, 0]] as const).map(([dx, dy]) => ({ dx, dy, color }));
-  switch (efeito) {
-    case "sombra":
-      return [{ dx: 0, dy: 1, color: "rgba(0,0,0,.55)" }, { dx: 0, dy: 2, color: "rgba(0,0,0,.45)" }, { dx: 1, dy: 3, color: "rgba(0,0,0,.3)" }];
-    case "contorno":
-      return dirs(1, "#000");
-    case "3d":
-      return [{ dx: 1, dy: 1, color: accent }, { dx: 2, dy: 2, color: accent }, { dx: 3, dy: 3, color: "rgba(0,0,0,.7)" }, { dx: 4, dy: 4, color: "rgba(0,0,0,.5)" }, { dx: 5, dy: 5, color: "rgba(0,0,0,.3)" }];
-    case "longa":
-      return Array.from({ length: 8 }, (_, k) => ({ dx: k + 1, dy: k + 1, color: `rgba(0,0,0,${(0.5 * (1 - k / 8)).toFixed(2)})` }));
-    case "neon":
-      return [...dirs(3, accent + "4d"), ...dirs(2, accent + "80"), ...dirs(1, accent + "e6")];
-    case "brilho":
-      return [...dirs(3, accent + "4d"), ...dirs(2, accent + "99"), ...dirs(1, "#ffffffe6")];
-    case "duplo":
-      return [...dirs(2, accent), ...dirs(1, "#000")];
-    default:
-      return [];
-  }
-}
-
-/** Texto com efeito por camadas (exporta em qualquer aparelho). */
+/** Texto com efeito (sombra/contorno via text-shadow) ou caixa (Realce/Caixa). */
 function TextoFx({
   efeito, accent, children, className, style,
 }: {
@@ -202,16 +175,12 @@ function TextoFx({
       </span>
     );
   }
-  const layers = fxLayers(efeito, accent);
-  if (layers.length === 0) return <span className={className} style={style}>{children}</span>;
+  // Demais efeitos: sombra/contorno/etc via text-shadow CSS (o exportador
+  // renderiza via foreignObject, então a sombra sai certinho — e sem as
+  // "cópias" em absoluto que escapavam e empilhavam os blocos na exportação).
   return (
-    <span className={cn("relative inline-block", className)} style={style}>
-      {layers.map((l, i) => (
-        <span key={i} aria-hidden className="pointer-events-none absolute left-0 top-0 w-full" style={{ color: l.color, transform: `translate(${l.dx}px, ${l.dy}px)` }}>
-          {children}
-        </span>
-      ))}
-      <span className="relative">{children}</span>
+    <span className={className} style={{ ...style, ...fx(efeito, accent) }}>
+      {children}
     </span>
   );
 }
