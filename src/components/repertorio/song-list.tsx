@@ -17,6 +17,7 @@ import {
   Drum,
   Piano,
   Target,
+  AudioLines,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -669,6 +670,11 @@ export function SongList({
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">
                         {s.titulo}
+                        {s.syncedLyrics?.trim() && (
+                          <span className="ml-1.5 align-middle inline-flex" title="Letra sincronizada — Sync/Inteliprompter funciona nesta música">
+                            <AudioLines className="inline size-3.5 text-teal-400" />
+                          </span>
+                        )}
                         {admin && s.energia == null && (
                           <span
                             className="ml-1.5 align-middle inline-flex size-1.5 rounded-full bg-muted-foreground/60"
