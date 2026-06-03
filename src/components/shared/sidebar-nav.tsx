@@ -53,10 +53,11 @@ const GROUPS: Group[] = [
     id: "divulgacao",
     label: "Divulgação & Eventos",
     icon: Megaphone,
+    // Trabalho de manager — escondido do músico pra deixar o menu enxuto.
     items: [
-      { href: "/casas", label: "Casas / Locais" },
-      { href: "/divulgacao", label: "Material da banda" },
-      { href: "/contratantes", label: "Divulgação" },
+      { href: "/casas", label: "Casas / Locais", adminOnly: true },
+      { href: "/divulgacao", label: "Material da banda", adminOnly: true },
+      { href: "/contratantes", label: "Divulgação", adminOnly: true },
     ],
   },
   {
