@@ -2,7 +2,7 @@
 
 import { requireAdmin } from "@/lib/auth";
 
-export type RefImg = { id: string; thumb: string; source: string; title: string; creator: string | null };
+export type RefImg = { id: string; thumb: string; url: string; source: string; title: string; creator: string | null };
 
 // Busca referências visuais de cartazes/flyers na web pra inspiração.
 // Usa a API do Openverse (imagens Creative Commons) — SEM chave e SEM IA,
@@ -29,6 +29,7 @@ export async function buscarReferenciasFlyerAction(
       .map((x) => ({
         id: x.id,
         thumb: (x.thumbnail || x.url)!,
+        url: (x.url || x.thumbnail)!,
         source: x.foreign_landing_url || x.url || "",
         title: x.title ?? "",
         creator: x.creator ?? null,
@@ -37,5 +38,26 @@ export async function buscarReferenciasFlyerAction(
     return { items };
   } catch {
     return { error: "Falha ao buscar inspiração. Verifique a conexão e tente de novo." };
+  }
+}
+
+// Baixa a imagem escolhida (no servidor, contornando CORS) e devolve como data
+// URL, pra usar de fundo do flyer e poder exportar sem erro. Cap de ~8MB.
+export async function importarReferenciaAction(
+  imageUrl: string
+): Promise<{ dataUrl?: string; error?: string }> {
+  await requireAdmin();
+  if (!/^https?:\/\//i.test(imageUrl)) return { error: "Imagem inválida." };
+  try {
+    const r = await fetch(imageUrl, { headers: { "User-Agent": "StageBoss/1.0 (+band app)" } });
+    if (!r.ok) return { error: "Não consegui baixar essa imagem. Tente outra." };
+    const type = r.headers.get("content-type") || "image/jpeg";
+    if (!type.startsWith("image/")) return { error: "O link não é uma imagem." };
+    const buf = await r.arrayBuffer();
+    if (buf.byteLength > 8_000_000) return { error: "Imagem muito grande. Escolha outra." };
+    const base64 = Buffer.from(buf).toString("base64");
+    return { dataUrl: `data:${type};base64,${base64}` };
+  } catch {
+    return { error: "Falha ao importar a imagem." };
   }
 }

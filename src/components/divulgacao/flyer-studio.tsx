@@ -131,6 +131,17 @@ function fx(efeito: Efeito, accent: string): React.CSSProperties {
 }
 const pillText = (accent: string) => (accent === "#ef4444" ? "#fff" : "#09090b");
 
+// Véu (scrim) atrás do texto, conforme a posição — reusado no preview e nas
+// miniaturas do gerador automático.
+function scrimFor(pos: Pos, scrimPct: number): string {
+  const aA = scrimPct / 100;
+  return pos === "top"
+    ? `linear-gradient(to bottom, rgba(9,9,11,${aA + 0.25}), rgba(9,9,11,${aA * 0.4}) 45%, transparent 72%)`
+    : pos === "center"
+      ? `radial-gradient(130% 75% at 50% 50%, rgba(9,9,11,${aA + 0.2}), rgba(9,9,11,${aA * 0.5}) 65%, transparent)`
+      : `linear-gradient(to top, rgba(9,9,11,${aA + 0.3}), rgba(9,9,11,${aA * 0.45}) 45%, transparent 74%)`;
+}
+
 /** Efeitos como CAMADAS de texto (cópias posicionadas atrás), não text-shadow:
  *  o text-shadow some na exportação (o Webkit/iOS não pinta sombra/filtro no
  *  modo SVG/foreignObject que o screenshot usa). Cópias de texto são glifos
@@ -216,6 +227,54 @@ async function garantirFonte(familyCss: string) {
   } catch {
     /* ignora — segue com fallback */
   }
+}
+
+type Combo = { bg: string | null; grad: string; estilo: Estilo; fonte: string; efeito: Efeito; accent: string; pos: Pos };
+type MiniContent = {
+  headline: string; banda: string; casa: string; data: string; inicio: string | null;
+  ingresso: string; instagram: string; qr: string | null; festival: boolean; lineup: Banda[];
+  tam: Record<string, number>; ordem: string[]; escala: number;
+};
+
+/** Miniatura de flyer pro gerador automático: renderiza o flyer em tamanho
+ *  cheio (300px) e reduz por transform — fica fiel ao resultado final. */
+function MiniFlyer({ combo, aspect, content, onClick }: { combo: Combo; aspect: "9:16" | "1:1"; content: MiniContent; onClick: () => void }) {
+  const W = 300;
+  const H = aspect === "9:16" ? Math.round((W * 16) / 9) : W;
+  const thumbW = 104;
+  const scale = thumbW / W;
+  const fam = FONTES[combo.fonte].family;
+  const y = combo.pos === "top" ? 18 : combo.pos === "center" ? Math.round(H / 2 - 70) : H - 175;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative overflow-hidden rounded-lg ring-1 ring-zinc-800 transition hover:ring-2 hover:ring-primary"
+      style={{ width: thumbW, height: H * scale }}
+      title="Usar este modelo (depois ajuste e baixe)"
+    >
+      <div className="absolute left-0 top-0 origin-top-left" style={{ width: W, height: H, transform: `scale(${scale})`, background: combo.bg ? "#000" : combo.grad }}>
+        {combo.bg && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={combo.bg} alt="" aria-hidden className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-lg" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={combo.bg} alt="" className="absolute inset-0 size-full object-contain" />
+          </>
+        )}
+        <div className="absolute inset-0" style={{ background: scrimFor(combo.pos, 62) }} />
+        <div className="absolute" style={{ left: 20, top: y, width: W - 40 }}>
+          <Conteudo
+            estilo={combo.estilo} fam={fam} efeito={combo.efeito} accent={combo.accent}
+            escala={content.escala} tam={content.tam} tarjaOp={78} ordem={content.ordem}
+            headline={content.headline} banda={content.banda} casa={content.casa} data={content.data}
+            inicio={content.inicio} ingresso={content.ingresso} instagram={content.instagram} qr={content.qr}
+            festival={content.festival} evento="" lineup={content.festival ? content.lineup : []}
+          />
+        </div>
+      </div>
+    </button>
+  );
 }
 
 export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: string; url: string; removable?: boolean }[] }) {
@@ -347,13 +406,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
 
   const W = 300;
   const H = aspect === "9:16" ? Math.round((W * 16) / 9) : W;
-  const aA = scrim / 100;
-  const scrimBg =
-    pos === "top"
-      ? `linear-gradient(to bottom, rgba(9,9,11,${aA + 0.25}), rgba(9,9,11,${aA * 0.4}) 45%, transparent 72%)`
-      : pos === "center"
-        ? `radial-gradient(130% 75% at 50% 50%, rgba(9,9,11,${aA + 0.2}), rgba(9,9,11,${aA * 0.5}) 65%, transparent)`
-        : `linear-gradient(to top, rgba(9,9,11,${aA + 0.3}), rgba(9,9,11,${aA * 0.45}) 45%, transparent 74%)`;
+  const scrimBg = scrimFor(pos, scrim);
 
   const fam = FONTES[fonte].family;
   const lineupValido = festival ? lineup.filter((b) => b.nome.trim()) : [];
@@ -400,7 +453,17 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           <Chips value={estilo} onChange={(v) => setEstilo(v as Estilo)} options={[["festival", "Festival"], ["minimal", "Minimalista"], ["tarja", "Tarja"]]} />
         </Bloco>
         <Bloco titulo="Inspiração da web">
-          <FlyerInspiracao />
+          <FlyerInspiracao
+            onUsar={(url) => {
+              start(async () => {
+                const res = await addImagemDivulgacaoAction(url);
+                const id = res.id ?? `ex-${Date.now()}`;
+                setImgs((p) => [{ id, url }, ...p]);
+                setBg(url);
+                setGrad(GRADIENTES[0]);
+              });
+            }}
+          />
         </Bloco>
         <Bloco titulo="Modelos de texto">
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
