@@ -506,7 +506,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
           <div
             ref={scrollRef}
             onScroll={onScroll}
-            onPointerDown={() => (showControls ? setShowControls(false) : bumpControls())}
+            onPointerDown={() => bumpControls()}
             className="flex-1 overflow-y-auto px-6 text-center"
           >
             <div className="h-[42vh]" aria-hidden />
@@ -538,10 +538,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                             <p
                               key={j}
                               data-tl={`${i}-${j}`}
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={() => seekToLine(i, j, ln.t)}
+                              onClick={() => showControls && seekToLine(i, j, ln.t)}
                               className="cursor-pointer"
-                              title="Tocar pra pular pra aqui"
+                              title="Com os controles à vista, toque pra pular pra aqui"
                             >
                               <span
                                 className={`inline-block rounded-full px-4 py-1 text-[0.5em] font-bold uppercase tracking-wide ${
@@ -557,9 +556,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                           <p
                             key={j}
                             data-tl={`${i}-${j}`}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => seekToLine(i, j, ln.t)}
-                            title="Tocar pra pular pra aqui"
+                            onClick={() => showControls && seekToLine(i, j, ln.t)}
+                            title="Com os controles à vista, toque pra pular pra aqui"
                             className={
                               "cursor-pointer rounded-lg transition-all hover:bg-white/5 " +
                               (active ? "text-white" : upcoming ? "text-white/80" : "text-white/45")
@@ -574,7 +572,6 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     <LyricsText
                       text={s.lyrics}
                       tone="dark"
-                      clickable
                       className={`font-semibold leading-[1.4] ${FONTS[fontIdx]}`}
                     />
                   ) : (
