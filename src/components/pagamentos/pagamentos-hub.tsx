@@ -25,6 +25,7 @@ import {
   MarkPaidDialog,
   CacheComprovanteViewer,
 } from "@/components/shows/payment-paid-controls";
+import { PixButton } from "@/components/shows/pix-button";
 import {
   confirmMemberPaymentAction,
   reportNotReceivedAction,
@@ -54,6 +55,8 @@ export type CacheItem = {
   status: "a_pagar" | "aguardando" | "confirmado";
   hasComprovante: boolean;
   pagoEmISO: string | null;
+  chavePix: string | null;
+  pixTipo: string | null;
 };
 
 export type ReembolsoItem = {
@@ -542,7 +545,11 @@ function CacheRow({
           <Eye className="size-4" />
         </Button>
       )}
-      {/* Pagar (admin, a_pagar) */}
+      {/* Pix (admin, a_pagar, com chave) — gera QR/copia-e-cola na hora */}
+      {admin && item.status === "a_pagar" && item.chavePix && (
+        <PixButton nome={item.memberNome} chave={item.chavePix} tipo={item.pixTipo} valorCentavos={item.valorCentavos} />
+      )}
+      {/* Pagar (admin, a_pagar) → anexa comprovante */}
       {admin && item.status === "a_pagar" && (
         <Button size="sm" onClick={() => setMarkOpen(true)}>
           <Paperclip className="size-3.5" />

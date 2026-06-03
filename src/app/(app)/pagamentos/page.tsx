@@ -8,6 +8,7 @@ import {
   showMemberPresence,
   showMemberPayment,
   showMemberPaid,
+  showSubstitute,
   reembolsos,
 } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
@@ -17,7 +18,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Wallet } from "lucide-react";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { formatDataBR } from "@/lib/formatters";
-import { computePaymentBreakdown } from "@/lib/payment";
+import { computePaymentBreakdown, memberDefaultCentavos } from "@/lib/payment";
 import { FinanceReport, type FinanceReportData } from "@/components/pagamentos/finance-report";
 import {
   PagamentosHub,
@@ -45,7 +46,7 @@ export default async function PagamentosPage() {
   });
   const showIds = payableShows.map((s) => s.id);
 
-  const [presences, overrides, paidRows] = await Promise.all([
+  const [presences, overrides, paidRows, subRows] = await Promise.all([
     showIds.length
       ? db
           .select()
@@ -64,6 +65,12 @@ export default async function PagamentosPage() {
           .from(showMemberPaid)
           .where(inArray(showMemberPaid.showId, showIds))
       : Promise.resolve([] as (typeof showMemberPaid.$inferSelect)[]),
+    showIds.length
+      ? db
+          .select()
+          .from(showSubstitute)
+          .where(inArray(showSubstitute.showId, showIds))
+      : Promise.resolve([] as (typeof showSubstitute.$inferSelect)[]),
   ]);
 
   const confirmedByShow = new Map<string, Set<string>>();
@@ -73,11 +80,38 @@ export default async function PagamentosPage() {
     confirmedByShow.get(p.showId)!.add(p.memberId);
   }
 
-  const overridesByShow = new Map<string, Map<string, number>>();
+  const overrideRowsByShow = new Map<string, typeof overrides>();
   for (const o of overrides) {
-    if (!overridesByShow.has(o.showId))
-      overridesByShow.set(o.showId, new Map());
-    overridesByShow.get(o.showId)!.set(o.memberId, o.valorCentavos);
+    if (!overrideRowsByShow.has(o.showId)) overrideRowsByShow.set(o.showId, []);
+    overrideRowsByShow.get(o.showId)!.push(o);
+  }
+  const subsByShow = new Map<string, typeof subRows>();
+  for (const su of subRows) {
+    if (!subsByShow.has(su.showId)) subsByShow.set(su.showId, []);
+    subsByShow.get(su.showId)!.push(su);
+  }
+
+  // Resolve override (valor fixo OU % do cachê OU padrão do perfil) + a lista de
+  // participantes da divisão (músicos confirmados + subs convidados), por show.
+  function resolveShow(s: { id: string; cacheCentavos: number | null }) {
+    const c = s.cacheCentavos ?? 0;
+    const confirmados = playable.filter((m) =>
+      (confirmedByShow.get(s.id) ?? new Set<string>()).has(m.id)
+    );
+    const ovMap = new Map<string, number>();
+    for (const o of overrideRowsByShow.get(s.id) ?? [])
+      ovMap.set(o.memberId, o.pct != null ? Math.round((c * o.pct) / 100) : o.valorCentavos);
+    for (const m of confirmados) {
+      if (ovMap.has(m.id)) continue;
+      const d = memberDefaultCentavos(m, c);
+      if (d != null) ovMap.set(m.id, d);
+    }
+    const subsShow = subsByShow.get(s.id) ?? [];
+    const participantes = [
+      ...confirmados.map((m) => ({ id: m.id })),
+      ...subsShow.map((su) => ({ id: su.id })),
+    ];
+    return { confirmados, ovMap, participantes };
   }
 
   const paidByKey = new Map<
@@ -95,20 +129,19 @@ export default async function PagamentosPage() {
   // Constrói itens de cachê (uma linha por show × músico confirmado).
   const cacheItems: CacheItem[] = [];
   for (const s of payableShows) {
-    const confirmedIds = confirmedByShow.get(s.id) ?? new Set<string>();
-    const confirmedMusicos = playable.filter((m) => confirmedIds.has(m.id));
-    if (confirmedMusicos.length === 0) continue;
+    const { confirmados, ovMap, participantes } = resolveShow(s);
+    if (confirmados.length === 0) continue;
 
     const breakdown = computePaymentBreakdown({
       cacheCentavos: s.cacheCentavos ?? 0,
       applyCommission: s.applyCommission,
       commissionPct: s.commissionPct,
-      confirmedMusicos,
+      confirmedMusicos: participantes,
       managerMember,
-      overrides: overridesByShow.get(s.id) ?? new Map(),
+      overrides: ovMap,
     });
 
-    for (const m of confirmedMusicos) {
+    for (const m of confirmados) {
       if (!admin && m.id !== meMemberId) continue;
       const info = breakdown.perMember.get(m.id);
       if (!info) continue;
@@ -118,16 +151,19 @@ export default async function PagamentosPage() {
         : paid.status === "aguardando"
           ? "aguardando"
           : "confirmado";
+      const mem = memberById.get(m.id);
       cacheItems.push({
         showId: s.id,
         showLabel: `${s.casa.nome} — ${formatDataBR(s.data)}`,
         showData: s.data.toISOString(),
         memberId: m.id,
-        memberNome: memberById.get(m.id)?.nome ?? "—",
+        memberNome: mem?.nome ?? "—",
         valorCentavos: info.valorCentavos,
         status,
         hasComprovante: paid?.hasComprovante ?? false,
         pagoEmISO: paid?.pagoEm.toISOString() ?? null,
+        chavePix: mem?.chavePix ?? null,
+        pixTipo: mem?.pixTipo ?? null,
       });
     }
   }
@@ -182,21 +218,21 @@ export default async function PagamentosPage() {
       venueAgg.set(s.casa.nome, va);
       if (s.data.getFullYear() !== year) continue;
       grossYTD += s.cacheCentavos ?? 0;
-      const confirmedMusicos = playable.filter((m) =>
-        (confirmedByShow.get(s.id) ?? new Set<string>()).has(m.id)
-      );
-      if (confirmedMusicos.length === 0) continue;
+      const { confirmados, ovMap, participantes } = resolveShow(s);
+      if (confirmados.length === 0) continue;
       const bd = computePaymentBreakdown({
         cacheCentavos: s.cacheCentavos ?? 0,
         applyCommission: s.applyCommission,
         commissionPct: s.commissionPct,
-        confirmedMusicos,
+        confirmedMusicos: participantes,
         managerMember,
-        overrides: overridesByShow.get(s.id) ?? new Map(),
+        overrides: ovMap,
       });
       managerYTD += bd.managerCentavos;
-      for (const [mid, info] of bd.perMember)
+      for (const [mid, info] of bd.perMember) {
+        if (!memberById.has(mid)) continue; // ignora subs (não são membros)
         perMemberYTD.set(mid, (perMemberYTD.get(mid) ?? 0) + info.valorCentavos);
+      }
     }
     report = {
       year,
