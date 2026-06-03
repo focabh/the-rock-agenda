@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { asc } from "drizzle-orm";
-import { Plus, Users, Phone, ChevronRight } from "lucide-react";
+import { Plus, Users, Phone, ChevronRight, BellRing, BellOff, Send } from "lucide-react";
 import { db } from "@/db";
-import { members } from "@/db/schema";
+import { members, pushSubscriptions } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,14 @@ export default async function BandaPage() {
   const user = await getCurrentUser();
   const admin = isAdmin(user);
   const lista = await db.select().from(members).orderBy(asc(members.nome));
+  // Quem tem notificações ativas (>=1 dispositivo inscrito) — pra cobrar quem falta.
+  const subs = await db.select({ userId: pushSubscriptions.userId }).from(pushSubscriptions);
+  const comPush = new Set(subs.map((s) => s.userId).filter(Boolean) as string[]);
+  const pushOn = (m: (typeof lista)[number]) => !!m.userId && comPush.has(m.userId);
+  const waNudge = (tel: string) =>
+    `https://wa.me/55${tel.replace(/\D/g, "")}?text=${encodeURIComponent(
+      'Opa! Ativa as notificações do StageBoss pra não perder show/ensaio: abre o app → Conta → "Ativar notificações". 🤘'
+    )}`;
   const totalMusicos = lista
     .filter((m) => !m.isManager)
     .reduce((sum, m) => sum + (m.percentualDivisao ?? 0), 0);
@@ -108,6 +116,15 @@ export default async function BandaPage() {
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
+                      {pushOn(m) ? (
+                        <span title="Notificações ativas" className="text-emerald-400">
+                          <BellRing className="size-3.5" />
+                        </span>
+                      ) : (
+                        <span title="Sem notificação ativa neste músico" className="text-muted-foreground/40">
+                          <BellOff className="size-3.5" />
+                        </span>
+                      )}
                       {m.percentualDivisao !== null &&
                         m.percentualDivisao > 0 && (
                           <span
@@ -122,7 +139,20 @@ export default async function BandaPage() {
                   </CardContent>
                 </Link>
                 {admin && (
-                  <div className="flex items-center justify-end border-t border-border px-3 py-1.5">
+                  <div className="flex items-center justify-between border-t border-border px-3 py-1.5">
+                    {!pushOn(m) && m.telefone && !m.isManager ? (
+                      <a
+                        href={waNudge(m.telefone)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        title="Cobrar a ativação das notificações no WhatsApp"
+                      >
+                        <Send className="size-3.5" /> Cobrar notificação
+                      </a>
+                    ) : (
+                      <span />
+                    )}
                     <DeleteButton
                       itemName={m.nome}
                       action={deleteMemberAction.bind(null, m.id)}
