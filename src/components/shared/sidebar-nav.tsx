@@ -41,6 +41,7 @@ const GROUPS: Group[] = [
     icon: Users,
     items: [
       { href: "/repertorio", label: "Repertório" },
+      { href: "/ferramentas", label: "Afinador & metrônomo" },
       { href: "/equipamentos", label: "Equipamentos" },
       { href: "/banda", label: "Membros" },
       { href: "/posicoes", label: "Posições", adminOnly: true },
