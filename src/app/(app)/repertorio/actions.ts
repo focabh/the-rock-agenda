@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { songs, songMemberReadiness } from "@/db/schema";
+import { songs, songMemberReadiness, members } from "@/db/schema";
 import { and } from "drizzle-orm";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin, requireSuperuser, requireCurrentUser } from "@/lib/auth";
+import { sendPushToAll } from "@/lib/push";
 import {
   SpotifyConfigError,
   extractPlaylistId,
@@ -463,6 +464,7 @@ export async function setMemberReadinessAction(
       eq(songMemberReadiness.memberId, memberId)
     ),
   });
+  const prev = existing?.status ?? null;
   if (existing) {
     await db
       .update(songMemberReadiness)
@@ -473,6 +475,31 @@ export async function setMemberReadinessAction(
   }
   revalidatePath("/repertorio");
   revalidatePath(`/repertorio/${songId}`);
+
+  // Avisa a banda quando há PROGRESSO real (mudança de nível). Ignora a 1ª
+  // marca "aprendendo" (sem progresso) pra não poluir.
+  const houveMudanca = status !== prev && !(prev === null && status === "aprendendo");
+  if (houveMudanca) {
+    try {
+      const [mem] = await db.select({ nome: members.nome }).from(members).where(eq(members.id, memberId)).limit(1);
+      const [song] = await db.select({ titulo: songs.titulo }).from(songs).where(eq(songs.id, songId)).limit(1);
+      const LABEL: Record<string, string> = {
+        pronta: "pronta ✅",
+        precisa_ensaiar: "precisa ensaiar",
+        aprendendo: "aprendendo",
+      };
+      if (mem && song) {
+        await sendPushToAll({
+          title: "Progresso no repertório 🎸",
+          body: `${mem.nome}: "${song.titulo}" agora está ${LABEL[status] ?? status}.`,
+          url: `/repertorio/${songId}`,
+          tag: `readiness-${songId}-${memberId}`,
+        });
+      }
+    } catch (e) {
+      console.error("push (progresso de música) falhou:", e);
+    }
+  }
 }
 
 export async function toggleFavoritaAction(id: string, favorita: boolean) {
