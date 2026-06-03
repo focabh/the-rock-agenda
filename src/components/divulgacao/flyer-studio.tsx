@@ -57,7 +57,7 @@ function arrobaCasa(raw?: string | null): string {
 
 type Estilo = "festival" | "minimal" | "tarja";
 type Pos = "top" | "center" | "bottom";
-type Efeito = "nenhum" | "sombra" | "contorno" | "neon" | "3d" | "longa" | "brilho" | "duplo";
+type Efeito = "nenhum" | "sombra" | "realce" | "caixa" | "contorno" | "neon" | "3d" | "longa" | "brilho" | "duplo";
 type Banda = { nome: string; hora: string };
 
 const FONTES: Record<string, { label: string; family: string }> = {
@@ -87,26 +87,29 @@ const GRADIENTES = [
 const EFEITOS: [Efeito, string][] = [
   ["nenhum", "Nenhum"],
   ["sombra", "Sombra"],
+  ["realce", "Realce"],
+  ["caixa", "Caixa"],
   ["contorno", "Contorno"],
   ["neon", "Neon"],
-  ["3d", "3D Retrô"],
-  ["longa", "Sombra longa"],
   ["brilho", "Brilho"],
-  ["duplo", "Halo duplo"],
+  ["3d", "3D"],
+  ["longa", "Sombra longa"],
+  ["duplo", "Halo"],
 ];
 
-// 10 estilos de texto prontos (fonte + efeito + cor de destaque).
+// Modelos de texto prontos (fonte + efeito + cor) — modernos, estilo Stories.
+// Os primeiros são os mais "limpos"; 3D/halo continuam no seletor de efeito.
 const MODELOS_TEXTO: { nome: string; fonte: string; efeito: Efeito; accent: string }[] = [
-  { nome: "Neon", fonte: "anton", efeito: "neon", accent: "#f59e0b" },
-  { nome: "Festival", fonte: "archivo", efeito: "3d", accent: "#ef4444" },
+  { nome: "Realce", fonte: "montserrat", efeito: "realce", accent: "#f59e0b" },
+  { nome: "Caixa", fonte: "montserrat", efeito: "caixa", accent: "#fafafa" },
   { nome: "Clean", fonte: "montserrat", efeito: "sombra", accent: "#fafafa" },
+  { nome: "Bold", fonte: "anton", efeito: "sombra", accent: "#fafafa" },
+  { nome: "Neon", fonte: "poppins", efeito: "neon", accent: "#22d3ee" },
+  { nome: "Glow", fonte: "poppins", efeito: "brilho", accent: "#f472b6" },
+  { nome: "Alta", fonte: "bebas", efeito: "contorno", accent: "#fafafa" },
   { nome: "Elegante", fonte: "serif", efeito: "sombra", accent: "#fafafa" },
-  { nome: "Glamour", fonte: "abril", efeito: "contorno", accent: "#f472b6" },
-  { nome: "Marcador", fonte: "marker", efeito: "contorno", accent: "#a3e635" },
+  { nome: "Marcador", fonte: "marker", efeito: "realce", accent: "#a3e635" },
   { nome: "Praia", fonte: "pacifico", efeito: "sombra", accent: "#22d3ee" },
-  { nome: "Estádio", fonte: "oswald", efeito: "longa", accent: "#f59e0b" },
-  { nome: "Retrô", fonte: "righteous", efeito: "3d", accent: "#22d3ee" },
-  { nome: "Alta tensão", fonte: "bebas", efeito: "duplo", accent: "#ef4444" },
 ];
 
 function fx(efeito: Efeito, accent: string): React.CSSProperties {
@@ -175,6 +178,30 @@ function TextoFx({
 }: {
   efeito: Efeito; accent: string; children: React.ReactNode; className?: string; style?: React.CSSProperties;
 }) {
+  // Realce / Caixa: retângulo arredondado atrás do texto (estilo Stories).
+  // box-decoration-break: clone => cada linha ganha sua própria caixa.
+  if (efeito === "realce" || efeito === "caixa") {
+    const boxBg = efeito === "realce" ? accent : "rgba(9,9,11,0.82)";
+    const boxColor = efeito === "realce" ? pillText(accent) : "#fafafa";
+    return (
+      <span
+        className={className}
+        style={{
+          ...style,
+          color: boxColor,
+          background: boxBg,
+          padding: "0.08em 0.3em",
+          borderRadius: "0.18em",
+          lineHeight: 1.32,
+          display: "inline",
+          WebkitBoxDecorationBreak: "clone",
+          boxDecorationBreak: "clone",
+        }}
+      >
+        {children}
+      </span>
+    );
+  }
   const layers = fxLayers(efeito, accent);
   if (layers.length === 0) return <span className={className} style={style}>{children}</span>;
   return (
