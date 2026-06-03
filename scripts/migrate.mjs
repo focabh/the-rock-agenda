@@ -54,6 +54,8 @@ await addCol("show_member_payment", "pct", "REAL");
 await addCol("members", "pagamento_fixo_centavos", "INTEGER");
 // funil de prospecção (kanban) das casas
 await addCol("venues", "pipeline_stage", "TEXT");
+// andamento (BPM) por música — metrônomo
+await addCol("songs", "bpm", "INTEGER");
 
 // --- tabelas ---
 await c.execute(`CREATE TABLE IF NOT EXISTS show_song_feedback (

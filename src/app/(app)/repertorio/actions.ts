@@ -508,6 +508,16 @@ export async function toggleFavoritaAction(id: string, favorita: boolean) {
   revalidatePath("/repertorio");
 }
 
+/** Salva o BPM (andamento) de uma música — usado pelo metrônomo. Qualquer
+ *  músico pode salvar (innocuo e colaborativo). null/0 limpa. */
+export async function setSongBpmAction(id: string, bpm: number | null) {
+  await requireCurrentUser();
+  const v = bpm != null && Number.isFinite(bpm) && bpm > 0 ? Math.max(30, Math.min(300, Math.round(bpm))) : null;
+  await db.update(songs).set({ bpm: v }).where(eq(songs.id, id));
+  revalidatePath("/repertorio");
+  return { ok: true, bpm: v };
+}
+
 /** Marca/desmarca afinação dropada de uma música (reflete nos setlists). */
 /** Salva as marcações (intro/solo) de uma música. */
 export async function setSongCuesAction(

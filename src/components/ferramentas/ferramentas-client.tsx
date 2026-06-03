@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Mic, Play, Pause, Minus, Plus, Guitar, Music4 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Mic, Play, Pause, Minus, Plus, Guitar, Music4, Search, Save, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { setSongBpmAction } from "@/app/(app)/repertorio/actions";
+
+export type SongTempo = { id: string; titulo: string; artista: string; tom: string | null; bpm: number | null; obs: string | null };
 
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -144,27 +149,50 @@ function Afinador() {
 }
 
 /* ---------------- METRÔNOMO ---------------- */
-function Metronomo() {
+type Sig = { id: string; label: string; beats: number; accents: number[] };
+const SIGS: Sig[] = [
+  { id: "4/4", label: "4/4", beats: 4, accents: [0] },
+  { id: "3/4", label: "3/4", beats: 3, accents: [0] },
+  { id: "6/8", label: "6/8", beats: 6, accents: [0, 3] },
+];
+
+function Metronomo({ songs }: { songs: SongTempo[] }) {
   const [bpm, setBpm] = useState(100);
   const [tocando, setTocando] = useState(false);
-  const [compasso, setCompasso] = useState(4);
+  const [sigId, setSigId] = useState("4/4");
   const [beat, setBeat] = useState(0);
+  const [vol, setVol] = useState(0.8);
+  const [busca, setBusca] = useState("");
+  const [selId, setSelId] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [lista, setLista] = useState(songs);
   const ctxRef = useRef<AudioContext | null>(null);
   const nextNoteRef = useRef(0);
   const beatRef = useRef(0);
   const timerRef = useRef<number | undefined>(undefined);
   const bpmRef = useRef(bpm);
-  const compRef = useRef(compasso);
+  const sigRef = useRef<Sig>(SIGS[0]);
+  const volRef = useRef(vol);
   const tapsRef = useRef<number[]>([]);
   bpmRef.current = bpm;
-  compRef.current = compasso;
+  const sig = SIGS.find((s) => s.id === sigId) ?? SIGS[0];
+  sigRef.current = sig;
+  volRef.current = vol;
+  const sel = lista.find((s) => s.id === selId) ?? null;
+  const filtradas = useMemo(() => {
+    const t = busca.trim().toLowerCase();
+    return lista
+      .filter((s) => !t || s.titulo.toLowerCase().includes(t) || s.artista.toLowerCase().includes(t))
+      .slice(0, 30);
+  }, [lista, busca]);
 
   function click(time: number, acento: boolean) {
     const ctx = ctxRef.current!;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.frequency.value = acento ? 1500 : 900;
-    g.gain.setValueAtTime(acento ? 0.5 : 0.32, time);
+    const peak = Math.max(0.0001, (acento ? 0.5 : 0.32) * volRef.current);
+    g.gain.setValueAtTime(peak, time);
     g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
     osc.connect(g);
     g.connect(ctx.destination);
@@ -175,12 +203,12 @@ function Metronomo() {
   function scheduler() {
     const ctx = ctxRef.current!;
     while (nextNoteRef.current < ctx.currentTime + 0.1) {
-      const acento = beatRef.current % compRef.current === 0;
-      click(nextNoteRef.current, acento);
-      const b = beatRef.current % compRef.current;
-      setBeat(b);
+      const beats = sigRef.current.beats;
+      const pos = beatRef.current % beats;
+      click(nextNoteRef.current, sigRef.current.accents.includes(pos));
+      setBeat(pos);
       nextNoteRef.current += 60 / bpmRef.current;
-      beatRef.current = (beatRef.current + 1) % compRef.current;
+      beatRef.current = (beatRef.current + 1) % beats;
     }
     timerRef.current = window.setTimeout(scheduler, 25);
   }
@@ -219,22 +247,38 @@ function Metronomo() {
     }
   }
 
+  function escolher(s: SongTempo) {
+    setSelId(s.id);
+    if (s.bpm) setBpm(s.bpm);
+  }
+  function salvarBpm() {
+    if (!sel) return;
+    setSalvando(true);
+    setSongBpmAction(sel.id, bpm)
+      .then((r) => {
+        setLista((p) => p.map((x) => (x.id === sel.id ? { ...x, bpm: r.bpm } : x)));
+        toast.success(`BPM ${bpm} salvo em "${sel.titulo}".`);
+      })
+      .catch(() => toast.error("Não consegui salvar o BPM."))
+      .finally(() => setSalvando(false));
+  }
+
   useEffect(() => () => stop(), []);
 
   return (
     <div className="space-y-5 text-center">
       <Card className="py-8">
         <div className="font-mono text-6xl font-black">{bpm}</div>
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">BPM</p>
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">BPM{sel ? ` · ${sel.titulo}` : ""}</p>
 
         {/* pulsos do compasso */}
         <div className="mt-5 flex justify-center gap-2">
-          {Array.from({ length: compasso }, (_, i) => (
+          {Array.from({ length: sig.beats }, (_, i) => (
             <span
               key={i}
               className={cn(
                 "size-3 rounded-full transition-colors",
-                tocando && beat === i ? (i === 0 ? "bg-primary" : "bg-amber-400") : "bg-muted"
+                tocando && beat === i ? (sig.accents.includes(i) ? "bg-primary" : "bg-amber-400") : sig.accents.includes(i) ? "bg-muted-foreground/40" : "bg-muted"
               )}
             />
           ))}
@@ -254,20 +298,70 @@ function Metronomo() {
         </Button>
         <Button variant="outline" onClick={tap}>Tap tempo</Button>
         <div className="inline-flex overflow-hidden rounded-full ring-1 ring-border">
-          {[3, 4, 6].map((c) => (
-            <button key={c} onClick={() => setCompasso(c)} className={cn("px-3 py-1.5 text-sm font-semibold", compasso === c ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
-              {c}/4
+          {SIGS.map((s) => (
+            <button key={s.id} onClick={() => setSigId(s.id)} className={cn("px-3 py-1.5 text-sm font-semibold", sigId === s.id ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
+              {s.label}
             </button>
           ))}
         </div>
       </div>
-      <p className="text-[11px] text-muted-foreground">Toque "Tap tempo" no ritmo da música pra achar o BPM.</p>
+
+      {/* Volume */}
+      <div className="flex items-center justify-center gap-3">
+        <Volume2 className="size-4 text-muted-foreground" />
+        <input type="range" min={0} max={100} value={Math.round(vol * 100)} onChange={(e) => setVol(Number(e.target.value) / 100)} className="h-2 flex-1 max-w-xs cursor-pointer accent-primary" aria-label="Volume" />
+        <span className="w-8 text-right font-mono text-xs text-muted-foreground">{Math.round(vol * 100)}</span>
+      </div>
+
+      {/* Integração com o repertório: carregar/salvar BPM por música */}
+      <div className="space-y-2 rounded-xl border border-border p-3 text-left">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Música do repertório (carrega o BPM salvo)…" className="pl-8" />
+        </div>
+        {sel && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+            <div className="min-w-0">
+              <p className="truncate font-medium">{sel.titulo}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {sel.tom ? `tom ${sel.tom}` : "sem tom"}
+                {sel.bpm ? ` · BPM salvo ${sel.bpm}` : " · sem BPM"}
+                {sel.obs ? ` · ${sel.obs}` : ""}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={salvarBpm} disabled={salvando}>
+              <Save className="size-4" /> Salvar BPM {bpm}
+            </Button>
+          </div>
+        )}
+        {busca.trim() && (
+          <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-lg bg-card">
+            {filtradas.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-muted-foreground">Nada encontrado.</li>
+            ) : (
+              filtradas.map((s) => (
+                <li key={s.id}>
+                  <button onClick={() => escolher(s)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted/40">
+                    <span className="min-w-0 truncate">
+                      {s.titulo}
+                      <span className="text-muted-foreground"> · {s.artista}</span>
+                    </span>
+                    {s.bpm ? <span className="shrink-0 font-mono text-xs text-amber-300">{s.bpm} BPM</span> : null}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+      </div>
+
+      <p className="text-[11px] text-muted-foreground">Toque "Tap tempo" no ritmo da música; busque uma música pra carregar/salvar o BPM dela.</p>
     </div>
   );
 }
 
 /* ---------------- WRAPPER ---------------- */
-export function FerramentasClient() {
+export function FerramentasClient({ songs = [] }: { songs?: SongTempo[] }) {
   const [aba, setAba] = useState<"afinador" | "metronomo">("afinador");
   return (
     <div className="mx-auto max-w-md p-4 sm:p-6">
@@ -279,7 +373,7 @@ export function FerramentasClient() {
           <Music4 className="size-4" /> Metrônomo
         </button>
       </div>
-      {aba === "afinador" ? <Afinador /> : <Metronomo />}
+      {aba === "afinador" ? <Afinador /> : <Metronomo songs={songs} />}
     </div>
   );
 }

@@ -262,6 +262,7 @@ export const songs = sqliteTable("songs", {
   cues: text("cues"),
   // --- Metadados pra geração de setlist (Fase 6) ---
   duracaoSeg: integer("duracao_seg"), // duração aproximada (preenchida no import)
+  bpm: integer("bpm"), // andamento da música (pro metrônomo) — opcional
   energia: integer("energia"), // 1=leve, 2=média, 3=pesada
   conhecida: integer("conhecida", { mode: "boolean" }).notNull().default(false),
   exigeVocal: integer("exige_vocal", { mode: "boolean" })
