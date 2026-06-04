@@ -39,6 +39,7 @@ type BookletSong = {
   durationSeg?: number | null;
   syncedLyrics?: string | null;
   cues?: string | null;
+  bpm?: number | null;
 };
 
 const SIZES = ["text-base", "text-lg", "text-xl", "text-2xl", "text-3xl"];

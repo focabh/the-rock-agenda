@@ -17,6 +17,7 @@ import {
   Type,
   Sparkles,
   RotateCcw,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
@@ -31,6 +32,7 @@ type Song = {
   durationSeg?: number | null;
   syncedLyrics?: string | null;
   cues?: string | null;
+  bpm?: number | null;
 };
 
 // Tamanhos responsivos: já começam grandes no celular.
@@ -73,6 +75,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [showList, setShowList] = useState(false);
   const [auto, setAuto] = useState(true); // Inteliprompter: calibra por música
   const [alertMode, setAlertMode] = useState<AlertMode>("show"); // avisos: padrão discreto (Show)
+  const [metroOn, setMetroOn] = useState(true); // metrônomo automático (BPM da música)
+  const [metroBeat, setMetroBeat] = useState(-1);
   const [activeIdx, setActiveIdx] = useState(-1); // linha ativa (modo sincronizado)
   const [rateView, setRateView] = useState(1); // ritmo do sync (1 = igual à gravação)
   const [songSec, setSongSec] = useState(0); // cronômetro do tempo-música (modo sync)
@@ -251,6 +255,48 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       cancelAnimationFrame(id);
     };
   }, [open, playing, syncedCurrent, current, timelines]);
+
+  // Metrônomo automático: clica no BPM da música atual enquanto toca. Reinicia
+  // sozinho a cada troca de faixa. Discreto (volume baixo) e desligável.
+  useEffect(() => {
+    const bpm = songs[current]?.bpm ?? null;
+    if (!open || !playing || !metroOn || !bpm || bpm <= 0) {
+      setMetroBeat(-1);
+      return;
+    }
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctx();
+    let beat = 0;
+    let next = ctx.currentTime + 0.06;
+    let timer = 0;
+    const tickSound = (t: number, acento: boolean) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.frequency.value = acento ? 1400 : 880;
+      g.gain.setValueAtTime(acento ? 0.16 : 0.1, t); // discreto
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.05);
+    };
+    const loop = () => {
+      while (next < ctx.currentTime + 0.12) {
+        const pos = beat % 4;
+        tickSound(next, pos === 0);
+        setMetroBeat(pos);
+        next += 60 / bpm;
+        beat = (beat + 1) % 4;
+      }
+      timer = window.setTimeout(loop, 25);
+    };
+    loop();
+    return () => {
+      clearTimeout(timer);
+      ctx.close().catch(() => {});
+      setMetroBeat(-1);
+    };
+  }, [open, playing, metroOn, current, songs]);
 
   // Mantém a tela acesa.
   useEffect(() => {
@@ -493,6 +539,20 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             </button>
           </div>
 
+          {/* Metrônomo: bolinhas discretas no topo (sempre visíveis durante o play) */}
+          {metroOn && metroBeat >= 0 && (
+            <div className="pointer-events-none absolute inset-x-0 top-1.5 z-10 flex items-center justify-center gap-1.5">
+              {[0, 1, 2, 3].map((i) => (
+                <span
+                  key={i}
+                  className={`size-2 rounded-full transition-colors ${
+                    metroBeat === i ? (i === 0 ? "bg-primary" : "bg-amber-400") : "bg-white/20"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+
           {/* Aviso discreto de entrada vocal (só quando dá pra perder a entrada) */}
           {warning.shouldShowWarning && (
             <div className="pointer-events-none absolute inset-x-0 top-14 z-10 flex justify-center">
@@ -727,6 +787,17 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                   <Sparkles className="size-4" /> Sync
                 </button>
               </div>
+              <button
+                onClick={() => setMetroOn((v) => !v)}
+                className={`size-11 ${ctrlBtn} ${metroOn ? "text-amber-400" : ""}`}
+                title={
+                  songs[current]?.bpm
+                    ? `Metrônomo ${metroOn ? "ligado" : "desligado"} · ${songs[current]?.bpm} BPM`
+                    : "Metrônomo (música sem BPM cadastrado)"
+                }
+              >
+                <Activity className="size-5" />
+              </button>
               <button onClick={() => setShowList(true)} className={`size-11 ${ctrlBtn}`} title="Lista de músicas">
                 <ListMusic className="size-5" />
               </button>

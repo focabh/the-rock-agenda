@@ -85,6 +85,7 @@ export default async function ModoShowPage({
     durationSeg: it.song.duracaoSeg,
     syncedLyrics: it.song.syncedLyrics,
     cues: it.song.cues,
+    bpm: it.song.bpm,
   }));
 
   // Outros shows pra alternar (da lista enxuta).
