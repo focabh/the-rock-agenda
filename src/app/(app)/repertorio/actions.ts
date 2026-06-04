@@ -18,6 +18,7 @@ import {
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { fetchLyricsFull } from "@/lib/lyrics";
+import { fetchBpm } from "@/lib/bpm";
 import { enrichSongsWithAI } from "@/lib/song-ai";
 import { NoApiKeyError } from "@/lib/venue-ai";
 import { isNull } from "drizzle-orm";
@@ -247,6 +248,8 @@ export async function importPastedToRepertorioAction(
         if (hit.plain) patch.lyrics = hit.plain;
         if (hit.synced) patch.syncedLyrics = hit.synced;
         if (hit.durationSec) patch.duracaoSeg = hit.durationSec;
+        const bpm = await fetchBpm(s.titulo, s.artista);
+        if (bpm) patch.bpm = bpm;
         if (Object.keys(patch).length) await db.update(songs).set(patch).where(eq(songs.id, s.id));
       } catch {
         /* best-effort */
