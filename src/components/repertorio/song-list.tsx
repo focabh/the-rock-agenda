@@ -39,6 +39,7 @@ import {
 import { DeleteButton } from "@/components/shared/delete-button";
 import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
 import { CuesDialog } from "@/components/repertorio/cues-dialog";
+import { MetronomeButton } from "@/components/shared/metronome-button";
 import { parseCues } from "@/lib/lrc";
 import { EmptyState } from "@/components/shared/empty-state";
 import { materialForPosicao, type MaterialKind } from "@/lib/instrument-material";
@@ -332,6 +333,8 @@ export function SongList({
         {admin && (
           <CuesDialog songId={s.id} titulo={s.titulo} initial={parseCues(s.cues)} />
         )}
+
+        <MetronomeButton bpm={s.bpm} titulo={s.titulo} songId={s.id} />
 
         {material.play &&
           (() => {

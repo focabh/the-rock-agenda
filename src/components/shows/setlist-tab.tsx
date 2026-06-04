@@ -33,6 +33,7 @@ import { SetlistCritiqueDialog } from "@/components/shows/setlist-critique-dialo
 import { EnsaioGenerateDialog } from "@/components/ensaios/ensaio-generate-dialog";
 import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
 import { CuesDialog } from "@/components/repertorio/cues-dialog";
+import { MetronomeButton } from "@/components/shared/metronome-button";
 import { SongStatusBadge } from "@/components/shared/status-badge";
 import { parseCues } from "@/lib/lrc";
 import { setSongDropAction } from "@/app/(app)/repertorio/actions";
@@ -857,6 +858,7 @@ function SortableSetlistItem({
           {superuser && (
             <CuesDialog songId={item.song.id} titulo={item.song.titulo} initial={parseCues(item.song.cues)} />
           )}
+          <MetronomeButton bpm={item.song.bpm} titulo={item.song.titulo} songId={item.song.id} />
 
           <Input
             defaultValue={item.tom ?? item.song.tom ?? ""}
