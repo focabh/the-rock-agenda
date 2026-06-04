@@ -653,6 +653,13 @@ export function DemoTour() {
           </div>
         </Card>
         <p className="mt-6 text-center text-xs text-muted-foreground">StageBoss · feito por músicos, pra músicos · demonstração com dados fictícios.</p>
+        <p className="mt-1 text-center text-[11px] text-muted-foreground/70">
+          Dados de BPM por{" "}
+          <a href="https://getsongbpm.com" target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+            GetSongBPM
+          </a>
+          .
+        </p>
       </section>
     </div>
   );

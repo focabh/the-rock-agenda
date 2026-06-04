@@ -25,6 +25,13 @@ export default async function FerramentasPage() {
         description="Ferramentas de ensaio — afine pelo microfone e marque o tempo. Funciona offline, no seu aparelho."
       />
       <FerramentasClient songs={lista} />
+      <p className="px-6 pb-6 text-center text-[11px] text-muted-foreground/70">
+        Dados de BPM por{" "}
+        <a href="https://getsongbpm.com" target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+          GetSongBPM
+        </a>
+        .
+      </p>
     </div>
   );
 }
