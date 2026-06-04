@@ -117,14 +117,15 @@ export async function previewSpotifyTrackAction(
 async function refreshLyricsAndBpm(
   songId: string,
   titulo: string,
-  artista: string
+  artista: string,
+  spotifyTrackId?: string | null
 ) {
   try {
     const hit = await fetchLyricsFull(titulo, artista);
     const patch: Record<string, string | number> = {};
     if (hit.plain) patch.lyrics = hit.plain;
     if (hit.synced) patch.syncedLyrics = hit.synced;
-    const bpm = await fetchBpm(titulo, artista);
+    const bpm = await fetchBpm(titulo, artista, spotifyTrackId);
     if (bpm) patch.bpm = bpm;
     if (Object.keys(patch).length)
       await db.update(songs).set(patch).where(eq(songs.id, songId));
@@ -145,8 +146,9 @@ export async function createSongAction(
     .values({ ...parsed.data, ...extractSongMeta(formData) })
     .returning({ id: songs.id });
   // Puxou do Spotify ao criar → já traz letra + BPM junto.
-  if (String(formData.get("spotifyTrackId") ?? "").trim()) {
-    await refreshLyricsAndBpm(created.id, parsed.data.titulo, parsed.data.artista);
+  const spIdNova = String(formData.get("spotifyTrackId") ?? "").trim();
+  if (spIdNova) {
+    await refreshLyricsAndBpm(created.id, parsed.data.titulo, parsed.data.artista, spIdNova);
   }
   revalidatePath("/repertorio");
   redirect("/repertorio");
@@ -165,8 +167,9 @@ export async function updateSongAction(
     .set({ ...parsed.data, ...extractSongMeta(formData) })
     .where(eq(songs.id, id));
   // Puxou do Spotify (trocou a versão) → atualiza letra + BPM também.
-  if (String(formData.get("spotifyTrackId") ?? "").trim()) {
-    await refreshLyricsAndBpm(id, parsed.data.titulo, parsed.data.artista);
+  const spIdEdit = String(formData.get("spotifyTrackId") ?? "").trim();
+  if (spIdEdit) {
+    await refreshLyricsAndBpm(id, parsed.data.titulo, parsed.data.artista, spIdEdit);
   }
   revalidatePath("/repertorio");
   revalidatePath(`/repertorio/${id}`);
@@ -341,7 +344,7 @@ export async function addSongFromSpotifyAction(
     if (hit.plain) patch.lyrics = hit.plain;
     if (hit.synced) patch.syncedLyrics = hit.synced;
     if (!created.duracaoSeg && hit.durationSec) patch.duracaoSeg = hit.durationSec;
-    const bpm = await fetchBpm(track.titulo, track.artista);
+    const bpm = await fetchBpm(track.titulo, track.artista, track.spotifyId);
     if (bpm) patch.bpm = bpm;
     if (Object.keys(patch).length)
       await db.update(songs).set(patch).where(eq(songs.id, created.id));
@@ -680,7 +683,7 @@ type BpmMiss = { id: string; titulo: string; artista: string };
  *  que NÃO achou (provável cover) pra oferecer "puxar da original". */
 export async function fetchBpmAllAction(): Promise<{ atualizadas: number; faltando: BpmMiss[] }> {
   await requireAdmin();
-  const rows = await db.select({ id: songs.id, titulo: songs.titulo, artista: songs.artista, bpm: songs.bpm }).from(songs);
+  const rows = await db.select({ id: songs.id, titulo: songs.titulo, artista: songs.artista, bpm: songs.bpm, spotifyTrackId: songs.spotifyTrackId }).from(songs);
   const pend = rows.filter((r) => r.bpm == null);
   const faltando: BpmMiss[] = [];
   let atualizadas = 0;
@@ -688,7 +691,7 @@ export async function fetchBpmAllAction(): Promise<{ atualizadas: number; faltan
   async function worker() {
     while (i < pend.length) {
       const s = pend[i++];
-      const bpm = await fetchBpm(s.titulo, s.artista);
+      const bpm = await fetchBpm(s.titulo, s.artista, s.spotifyTrackId);
       if (bpm) {
         await db.update(songs).set({ bpm }).where(eq(songs.id, s.id));
         atualizadas++;
@@ -706,14 +709,15 @@ export async function fetchBpmAllAction(): Promise<{ atualizadas: number; faltan
 export async function fetchBpmOriginalAction(ids: string[]): Promise<{ atualizadas: number; faltando: BpmMiss[] }> {
   await requireAdmin();
   if (!ids?.length) return { atualizadas: 0, faltando: [] };
-  const rows = await db.select({ id: songs.id, titulo: songs.titulo, artista: songs.artista }).from(songs).where(inArray(songs.id, ids));
+  const rows = await db.select({ id: songs.id, titulo: songs.titulo, artista: songs.artista, spotifyTrackId: songs.spotifyTrackId }).from(songs).where(inArray(songs.id, ids));
   const faltando: BpmMiss[] = [];
   let atualizadas = 0;
   let i = 0;
   async function worker() {
     while (i < rows.length) {
       const s = rows[i++];
-      const bpm = await fetchBpm(s.titulo); // só pelo título → versão original
+      // Só pelo título → versão original; ainda assim casa a versão pelo track id.
+      const bpm = await fetchBpm(s.titulo, null, s.spotifyTrackId);
       if (bpm) {
         await db.update(songs).set({ bpm }).where(eq(songs.id, s.id));
         atualizadas++;

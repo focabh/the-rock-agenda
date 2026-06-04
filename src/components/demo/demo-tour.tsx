@@ -657,6 +657,10 @@ export function DemoTour() {
           Dados de BPM por{" "}
           <a href="https://getsongbpm.com" target="_blank" rel="noreferrer" className="underline hover:text-foreground">
             GetSongBPM
+          </a>{" "}
+          e{" "}
+          <a href="https://songbpm.com" target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+            songbpm.com
           </a>
           .
         </p>
