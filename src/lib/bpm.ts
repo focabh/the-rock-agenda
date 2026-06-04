@@ -10,11 +10,13 @@ function limparTitulo(s: string): string {
     .trim();
 }
 
-export async function fetchBpm(titulo: string, artista: string): Promise<number | null> {
+export async function fetchBpm(titulo: string, artista?: string | null): Promise<number | null> {
   const key = process.env.GETSONGBPM_API_KEY;
   if (!key || !titulo) return null;
   const tit = limparTitulo(titulo) || titulo;
-  const lookup = `song:${tit} artist:${artista}`;
+  // Com artista: casa título + artista. Sem artista (ex.: cover): só pelo título
+  // — pega a versão "original"/mais conhecida.
+  const lookup = artista ? `song:${tit} artist:${artista}` : `song:${tit}`;
   try {
     const r = await fetch(
       `https://api.getsong.co/search/?api_key=${key}&type=both&lookup=${encodeURIComponent(lookup)}`,

@@ -2,6 +2,7 @@ import { SongList } from "@/components/repertorio/song-list";
 import { SyncLyricsButton } from "@/components/repertorio/sync-lyrics-button";
 import { EnrichSongsButton } from "@/components/repertorio/enrich-songs-button";
 import { SpotifyPopularityButton } from "@/components/repertorio/spotify-popularity-button";
+import { BpmFetchButton } from "@/components/repertorio/bpm-fetch-button";
 import { SpotifyConnect } from "@/components/repertorio/spotify-connect";
 import { PageHeader } from "@/components/shared/page-header";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
@@ -90,6 +91,7 @@ export default async function RepertorioPage() {
                 />
                 <EnrichSongsButton />
                 <SpotifyPopularityButton />
+                <BpmFetchButton />
                 <Button render={<Link href="/repertorio/novo" />}>
                   <Plus className="size-4" /> Nova música
                 </Button>

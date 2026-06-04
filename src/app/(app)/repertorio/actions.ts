@@ -521,6 +521,59 @@ export async function setSongBpmAction(id: string, bpm: number | null) {
   return { ok: true, bpm: v };
 }
 
+type BpmMiss = { id: string; titulo: string; artista: string };
+
+/** Busca o BPM (GetSongBPM) de todas as músicas que ainda não têm. Devolve as
+ *  que NÃO achou (provável cover) pra oferecer "puxar da original". */
+export async function fetchBpmAllAction(): Promise<{ atualizadas: number; faltando: BpmMiss[] }> {
+  await requireAdmin();
+  const rows = await db.select({ id: songs.id, titulo: songs.titulo, artista: songs.artista, bpm: songs.bpm }).from(songs);
+  const pend = rows.filter((r) => r.bpm == null);
+  const faltando: BpmMiss[] = [];
+  let atualizadas = 0;
+  let i = 0;
+  async function worker() {
+    while (i < pend.length) {
+      const s = pend[i++];
+      const bpm = await fetchBpm(s.titulo, s.artista);
+      if (bpm) {
+        await db.update(songs).set({ bpm }).where(eq(songs.id, s.id));
+        atualizadas++;
+      } else {
+        faltando.push({ id: s.id, titulo: s.titulo, artista: s.artista });
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(5, pend.length) }, worker));
+  revalidatePath("/repertorio");
+  return { atualizadas, faltando };
+}
+
+/** "Puxar da original": tenta o BPM só pelo título (ignora o artista do cover). */
+export async function fetchBpmOriginalAction(ids: string[]): Promise<{ atualizadas: number; faltando: BpmMiss[] }> {
+  await requireAdmin();
+  if (!ids?.length) return { atualizadas: 0, faltando: [] };
+  const rows = await db.select({ id: songs.id, titulo: songs.titulo, artista: songs.artista }).from(songs).where(inArray(songs.id, ids));
+  const faltando: BpmMiss[] = [];
+  let atualizadas = 0;
+  let i = 0;
+  async function worker() {
+    while (i < rows.length) {
+      const s = rows[i++];
+      const bpm = await fetchBpm(s.titulo); // só pelo título → versão original
+      if (bpm) {
+        await db.update(songs).set({ bpm }).where(eq(songs.id, s.id));
+        atualizadas++;
+      } else {
+        faltando.push({ id: s.id, titulo: s.titulo, artista: s.artista });
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(5, rows.length) }, worker));
+  revalidatePath("/repertorio");
+  return { atualizadas, faltando };
+}
+
 /** Marca/desmarca afinação dropada de uma música (reflete nos setlists). */
 /** Salva as marcações (intro/solo) de uma música. */
 export async function setSongCuesAction(
