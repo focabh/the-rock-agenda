@@ -36,18 +36,32 @@ import {
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-type Props =
-  | { mode: "repertorio"; trigger: React.ReactNode; defaultUrl?: string | null }
-  | {
-      mode: "setlist";
-      showId?: string; // ignorado pelo server (revalida pelo dono do setlist); ensaio passa vazio
-      setlistId: string;
-      trigger: React.ReactNode;
-      defaultUrl?: string | null;
-    };
+type ControlProps = {
+  // Sem trigger: controle externo (open/onOpenChange). Com trigger: dialog se vira sozinho.
+  trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
+
+type Props = ControlProps &
+  (
+    | { mode: "repertorio"; defaultUrl?: string | null }
+    | {
+        mode: "setlist";
+        showId?: string; // ignorado pelo server (revalida pelo dono do setlist); ensaio passa vazio
+        setlistId: string;
+        defaultUrl?: string | null;
+      }
+  );
 
 export function SpotifyImportDialog(props: Props) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const isControlled = props.open !== undefined;
+  const open = isControlled ? props.open! : openState;
+  const setOpen = (o: boolean) => {
+    props.onOpenChange?.(o);
+    if (!isControlled) setOpenState(o);
+  };
   const [url, setUrl] = useState<string>(props.defaultUrl?.trim() || (BAND.spotifyPlaylistUrl as string));
   const [text, setText] = useState("");
   const [replace, setReplace] = useState(false);
@@ -115,7 +129,9 @@ export function SpotifyImportDialog(props: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={props.trigger as React.ReactElement} />
+      {props.trigger ? (
+        <DialogTrigger render={props.trigger as React.ReactElement} />
+      ) : null}
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Importar músicas</DialogTitle>

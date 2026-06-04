@@ -3,9 +3,9 @@ import { SyncLyricsButton } from "@/components/repertorio/sync-lyrics-button";
 import { EnrichSongsButton } from "@/components/repertorio/enrich-songs-button";
 import { SpotifyPopularityButton } from "@/components/repertorio/spotify-popularity-button";
 import { BpmFetchButton } from "@/components/repertorio/bpm-fetch-button";
+import { AddSongMenu } from "@/components/repertorio/add-song-menu";
 import { SpotifyConnect } from "@/components/repertorio/spotify-connect";
 import { PageHeader } from "@/components/shared/page-header";
-import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { members, songMemberReadiness, songs } from "@/db/schema";
@@ -13,8 +13,7 @@ import { adminMaterialPorPosicao, getBrand, getCurrentUser, isSuperuser } from "
 import { BAND } from "@/lib/band";
 import { isSpotifyConnected } from "@/lib/spotify";
 import { asc, desc, eq } from "drizzle-orm";
-import { Download, ExternalLink, Plus } from "lucide-react";
-import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 
 export default async function RepertorioPage() {
   const user = await getCurrentUser();
@@ -79,22 +78,10 @@ export default async function RepertorioPage() {
                   connected={spotify.connected}
                   ownerName={spotify.ownerName ?? null}
                 />
-                <SpotifyImportDialog
-                  mode="repertorio"
-                  defaultUrl={brand?.spotifyListRepertorio}
-                  trigger={
-                    <Button variant="outline">
-                      <Download className="size-4" />
-                      Importar
-                    </Button>
-                  }
-                />
                 <EnrichSongsButton />
                 <SpotifyPopularityButton />
                 <BpmFetchButton />
-                <Button render={<Link href="/repertorio/novo" />}>
-                  <Plus className="size-4" /> Nova música
-                </Button>
+                <AddSongMenu defaultUrl={brand?.spotifyListRepertorio} />
               </>
             )}
           </div>
