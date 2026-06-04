@@ -114,10 +114,10 @@ export function PresenceCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <div>
+      <CardHeader className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="size-4" />
+            <Users className="size-4 shrink-0" />
             Presença dos músicos
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
@@ -125,7 +125,7 @@ export function PresenceCard({
           </p>
         </div>
         {admin && members.length > 0 && (
-          <Button variant="outline" size="sm" onClick={avisarBanda}>
+          <Button variant="outline" size="sm" className="shrink-0 self-start sm:self-auto" onClick={avisarBanda}>
             <Send className="size-4" />
             Avisar a banda
           </Button>
@@ -147,13 +147,13 @@ export function PresenceCard({
               return (
                 <li
                   key={m.id}
-                  className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+                  className="flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-3"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate flex items-center gap-2">
-                      {m.nome}
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <span className="min-w-0 truncate">{m.nome}</span>
                       {isOwn && (
-                        <span className="text-[10px] uppercase tracking-wider text-primary">
+                        <span className="shrink-0 text-[10px] uppercase tracking-wider text-primary">
                           você
                         </span>
                       )}
@@ -162,7 +162,7 @@ export function PresenceCard({
                       {m.funcao}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 self-end sm:self-auto">
                     {admin && m.telefone && (
                       <a
                         href={waLinkPara(m)}
