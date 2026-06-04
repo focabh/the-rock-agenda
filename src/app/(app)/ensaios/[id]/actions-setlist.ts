@@ -138,12 +138,36 @@ export async function gerarEnsaioSetlistAction(
       seed: (Date.now() % 2147483647) || 1,
     }
   );
+  // Prioritárias do REPERTÓRIO (songs.prioridade) SEMPRE no topo, no matter what:
+  // força a inclusão delas, arranja entre si (drops agrupados) e fixa no início.
+  // Elas já entram marcadas com estrela no item, pra Organizar/Avaliar baterem.
+  const priSongs = all.filter((s) => s.prioridade && s.status !== "aposentada");
+  const priSet = new Set(priSongs.map((s) => s.id));
+  const toArrange = (s: (typeof all)[number]) => ({
+    id: s.id,
+    dropada: s.dropada,
+    artista: s.artista,
+    energia: s.energia,
+    momento: s.momento,
+    conhecida: s.conhecida,
+    finalBoss: s.finalBoss,
+    popularidade: s.popularidade,
+  });
+  const priIds = arrangeSetlist(priSongs.map(toArrange));
+  const restIds = gen.orderedIds.filter((id) => !priSet.has(id));
+  const finalIds = [...priIds, ...restIds];
+
   await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
-  for (let i = 0; i < gen.orderedIds.length; i++) {
-    await db.insert(setlistItems).values({ setlistId, songId: gen.orderedIds[i], ordem: i });
+  for (let i = 0; i < finalIds.length; i++) {
+    await db.insert(setlistItems).values({
+      setlistId,
+      songId: finalIds[i],
+      ordem: i,
+      prioridade: priSet.has(finalIds[i]),
+    });
   }
   rev(rehearsalId);
-  return { ok: true, count: gen.orderedIds.length };
+  return { ok: true, count: finalIds.length };
 }
 
 /** "Simular show": copia o setlist de um show específico pro setlist de ensaio
@@ -183,29 +207,35 @@ export async function reorganizeEnsaioSetlistAction(
 ): Promise<{ ok: boolean; count: number }> {
   await requireSuperuser();
   const items = await db
-    .select({ id: setlistItems.id, songId: setlistItems.songId })
+    .select({ id: setlistItems.id, songId: setlistItems.songId, prioridade: setlistItems.prioridade })
     .from(setlistItems)
     .where(eq(setlistItems.setlistId, setlistId));
   if (items.length === 0) return { ok: true, count: 0 };
 
   const rows = await db.select().from(songs).where(inArray(songs.id, items.map((i) => i.songId)));
   const songById = new Map(rows.map((s) => [s.id, s]));
+  const toArrange = (songId: string) => {
+    const s = songById.get(songId);
+    return {
+      id: songId,
+      dropada: s?.dropada ?? false,
+      artista: s?.artista ?? "",
+      energia: s?.energia ?? null,
+      momento: s?.momento ?? "qualquer",
+      conhecida: s?.conhecida ?? false,
+      finalBoss: s?.finalBoss ?? false,
+      popularidade: s?.popularidade ?? null,
+    };
+  };
 
-  const orderedIds = arrangeSetlist(
-    items.map((i) => {
-      const s = songById.get(i.songId);
-      return {
-        id: i.songId,
-        dropada: s?.dropada ?? false,
-        artista: s?.artista ?? "",
-        energia: s?.energia ?? null,
-        momento: s?.momento ?? "qualquer",
-        conhecida: s?.conhecida ?? false,
-        finalBoss: s?.finalBoss ?? false,
-        popularidade: s?.popularidade ?? null,
-      };
-    })
-  );
+  // Prioritárias (estrela) SEMPRE no topo — arranjadas entre si (drops agrupados,
+  // curva de energia). O resto vem depois, também arranjado.
+  const pri = items.filter((i) => i.prioridade);
+  const resto = items.filter((i) => !i.prioridade);
+  const orderedIds = [
+    ...arrangeSetlist(pri.map((i) => toArrange(i.songId))),
+    ...arrangeSetlist(resto.map((i) => toArrange(i.songId))),
+  ];
 
   const itemBySong = new Map(items.map((i) => [i.songId, i.id]));
   let ordem = 0;

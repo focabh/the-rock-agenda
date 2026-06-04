@@ -169,8 +169,10 @@ export default async function ModoShowPage({
                   {items.map((it, i) => (
                     <li key={it.id} className="flex items-center gap-2 text-sm">
                       <span className="w-6 shrink-0 text-right font-mono text-muted-foreground">{i + 1}.</span>
-                      <span className="min-w-0 flex-1 truncate font-medium">{it.song.titulo}</span>
-                      <span className="truncate text-muted-foreground">{it.song.artista}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 wrap-break-word font-medium leading-snug">{it.song.titulo}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{it.song.artista}</span>
+                      </span>
                       {it.song.dropada && (
                         <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">DROP</span>
                       )}

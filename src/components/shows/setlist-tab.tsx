@@ -560,7 +560,7 @@ export function SetlistTab({
                   {available.map((s) => (
                     <li key={s.id} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/30">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{s.titulo}</p>
+                        <p className="line-clamp-2 wrap-break-word text-sm font-medium leading-snug">{s.titulo}</p>
                         <p className="truncate text-xs text-muted-foreground">{s.artista}</p>
                       </div>
                       <Button variant="ghost" size="icon" title="Adicionar" className="shrink-0" onClick={() => startTransition(() => aAddSong(selected.id, s.id))}>
@@ -727,7 +727,7 @@ function SortableSetlistItem({
           )}
 
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{item.song.titulo}</p>
+            <p className="line-clamp-2 wrap-break-word text-sm font-medium leading-snug">{item.song.titulo}</p>
             <p className="truncate text-xs text-muted-foreground">{item.song.artista}</p>
           </div>
 

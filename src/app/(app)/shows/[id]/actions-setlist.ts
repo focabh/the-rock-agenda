@@ -28,6 +28,7 @@ import { fitToTarget, SONG_DEFAULT_SEG } from "@/lib/setlist-fit";
 import {
   generateSetlistAI,
   critiqueSetlist,
+  critiqueEnsaioSetlist,
   type SetlistCritique,
 } from "@/lib/setlist-ai";
 import { formatHoraBR } from "@/lib/formatters";
@@ -91,9 +92,12 @@ export type CritiqueResult = {
   needsKey?: boolean;
 };
 
-/** A IA critica a ORDEM atual do setlist (validação humana). Haiku, sem web. */
+/** A IA critica a ORDEM atual do setlist (validação humana). Haiku, sem web.
+ *  No ENSAIO (opts.ensaio), o foco muda: avalia como as PRIORITÁRIAS (estrela)
+ *  se encaixam com o restante (colocação, agrupamento, categoria). */
 export async function critiqueSetlistAction(
-  setlistId: string
+  setlistId: string,
+  opts?: { ensaio?: boolean }
 ): Promise<CritiqueResult> {
   await requireCurrentUser();
   const [sl] = await db
@@ -113,12 +117,40 @@ export async function critiqueSetlistAction(
       momento: songs.momento,
       finalBoss: songs.finalBoss,
       duracaoSeg: songs.duracaoSeg,
+      dropada: songs.dropada,
+      prioridade: setlistItems.prioridade,
     })
     .from(setlistItems)
     .innerJoin(songs, eq(songs.id, setlistItems.songId))
     .where(eq(setlistItems.setlistId, setlistId))
     .orderBy(asc(setlistItems.ordem));
   if (items.length === 0) return { ok: false, error: "Setlist vazio." };
+
+  // Ensaio: crítica focada em como as prioritárias se encaixam com o resto.
+  if (opts?.ensaio) {
+    const totalSegE = items.reduce((t, r) => t + (r.duracaoSeg ?? 210), 0);
+    try {
+      const crit = await critiqueEnsaioSetlist({
+        songs: items.map((r) => ({
+          titulo: r.titulo,
+          artista: r.artista,
+          energia: r.energia,
+          conhecida: r.conhecida,
+          exigeVocal: r.exigeVocal,
+          momento: r.momento,
+          finalBoss: r.finalBoss,
+          dropada: r.dropada,
+          prioridade: r.prioridade,
+        })),
+        targetMin: Math.round(totalSegE / 60),
+      });
+      return { ok: true, veredito: crit.veredito, alertas: crit.alertas };
+    } catch (e) {
+      if (e instanceof NoApiKeyError)
+        return { ok: false, needsKey: true, error: e.message };
+      return { ok: false, error: e instanceof Error ? e.message : "Falha." };
+    }
+  }
 
   let diaSemana = "";
   let casaTags: string[] = [];

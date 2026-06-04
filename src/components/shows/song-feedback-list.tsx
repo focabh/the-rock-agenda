@@ -69,7 +69,7 @@ export function SongFeedbackList({
             return (
               <li key={s.songId} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{s.titulo}</p>
+                  <p className="line-clamp-2 wrap-break-word text-sm font-medium leading-snug">{s.titulo}</p>
                   <p className="truncate text-xs text-muted-foreground">{s.artista}</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">

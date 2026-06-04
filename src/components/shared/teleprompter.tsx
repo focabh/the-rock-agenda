@@ -660,8 +660,10 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                       className={`flex w-full items-center gap-3 px-1 py-3 text-left ${i === current ? "text-amber-400" : "text-white/85"}`}
                     >
                       <span className="w-6 text-right font-mono text-white/40">{s.n}</span>
-                      <span className="min-w-0 flex-1 truncate font-medium">{s.titulo}</span>
-                      <span className="truncate text-sm text-white/40">{s.artista}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 wrap-break-word font-medium leading-snug">{s.titulo}</span>
+                        <span className="block truncate text-sm text-white/40">{s.artista}</span>
+                      </span>
                     </button>
                   </li>
                 ))}

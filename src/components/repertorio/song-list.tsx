@@ -671,7 +671,7 @@ export function SongList({
                     )}
 
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">
+                      <p className="font-medium line-clamp-2 wrap-break-word leading-snug">
                         {s.titulo}
                         {s.syncedLyrics?.trim() && (
                           <span className="ml-1.5 align-middle inline-flex" title="Letra sincronizada — Sync/Inteliprompter funciona nesta música">

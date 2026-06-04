@@ -54,10 +54,10 @@ export function SetlistCritiqueDialog({
       return;
     }
     start(async () => {
-      const r = await critiqueSetlistAction(setlistId);
+      const r = await critiqueSetlistAction(setlistId, { ensaio: !!rehearsalId });
       setResult(r);
     });
-  }, [open, setlistId]);
+  }, [open, setlistId, rehearsalId]);
 
   function aplicar() {
     startApply(async () => {
@@ -85,8 +85,9 @@ export function SetlistCritiqueDialog({
         <DialogHeader>
           <DialogTitle>Avaliação do setlist</DialogTitle>
           <DialogDescription>
-            A IA aponta os problemas da curva. Use “Aplicar melhorias” pra
-            reorganizar na hora — grátis, sem custo de IA.
+            {rehearsalId
+              ? "A IA avalia como as prioritárias (estrela) se encaixam com o resto — colocação, agrupamento, categoria. “Aplicar melhorias” fixa as prioritárias no topo e organiza o resto."
+              : "A IA aponta os problemas da curva. Use “Aplicar melhorias” pra reorganizar na hora — grátis, sem custo de IA."}
           </DialogDescription>
         </DialogHeader>
 
@@ -142,8 +143,9 @@ export function SetlistCritiqueDialog({
               {applying ? "Reorganizando…" : "Aplicar melhorias (reorganizar)"}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Reordena as mesmas músicas na curva (abre leve → sobe → fecha
-              forte → Final Boss no fim). Depois é só arrastar e add/remover.
+              {rehearsalId
+                ? "Fixa as prioritárias (estrela) no topo, agrupa drops, e organiza o resto na curva de energia. Depois é só arrastar."
+                : "Reordena as mesmas músicas na curva (abre leve → sobe → fecha forte → Final Boss no fim). Depois é só arrastar e add/remover."}
             </p>
           </div>
         )}

@@ -238,6 +238,87 @@ Se estiver bem montado, "alertas":[] e veredito "forte" ou "ok". Máx 6 alertas.
   return { veredito, alertas };
 }
 
+// ---- Crítica de setlist de ENSAIO: foco em como as PRIORITÁRIAS se encaixam ----
+
+export type CritiqueEnsaioSong = CritiqueSong & {
+  prioridade: boolean; // marcada com estrela (foco do ensaio)
+  dropada: boolean;
+};
+
+export async function critiqueEnsaioSetlist(input: {
+  songs: CritiqueEnsaioSong[]; // NA ORDEM atual
+  targetMin: number;
+}): Promise<SetlistCritique> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new NoApiKeyError("IA não configurada.");
+
+  const lista = input.songs.map((s, i) => ({
+    pos: i + 1,
+    titulo: s.titulo,
+    artista: s.artista,
+    energia: s.energia ?? 2,
+    conhecida: s.conhecida,
+    exigeVocal: s.exigeVocal,
+    momento: s.momento,
+    finalBoss: s.finalBoss,
+    dropada: s.dropada,
+    prioritaria: s.prioridade,
+  }));
+  const priTitulos = input.songs.filter((s) => s.prioridade).map((s) => s.titulo);
+
+  const prompt = `Você é diretor musical e prepara um ENSAIO de banda cover de rock. Diferente de um show, aqui o objetivo é TREINAR — e as músicas marcadas como PRIORITÁRIAS (prioritaria:true) são o foco do ensaio.
+
+PRIORITÁRIAS (foco): ${priTitulos.join(", ") || "nenhuma marcada"}.
+
+SETLIST DO ENSAIO (na ordem atual; prioritárias já vêm fixadas no topo):
+${JSON.stringify(lista)}
+
+Avalie (NÃO reordene; só critique) COMO AS PRIORITÁRIAS SE ENCAIXAM com o restante do repertório do ensaio. Foque em:
+- COLOCAÇÃO: faz sentido tocar as prioritárias logo no começo (cabeça fresca pra treinar o difícil)? Alguma deveria vir antes/depois de outra?
+- AGRUPAMENTO: prioritárias que compartilham afinação DROP (dropada:true), tom ou andamento parecido deveriam ser ensaiadas em sequência (menos reafinação/troca de contexto)? Alguma quebra isso?
+- CATEGORIA/ENERGIA: misturar uma pesada com uma leve ajuda ou atrapalha o foco do treino? Sugira pares/blocos.
+- TRANSIÇÃO pro resto: depois das prioritárias, o set engata bem no restante (sem salto brusco)?
+- Se NÃO houver prioritárias marcadas, diga isso como 1º alerta e avalie o set como treino geral.
+
+Cada alerta deve ser CURTO e ACIONÁVEL (ex.: "Toque 'X' logo após 'Y' — as duas são drop").
+
+Responda SOMENTE com JSON:
+{"veredito":"forte|ok|fraco","alertas":["...", ...]}
+Se estiver bem encaixado, "alertas":[] e veredito "forte" ou "ok". Máx 6 alertas.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 800,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!res.ok)
+    throw new Error(`Anthropic falhou (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+  const text = (data.content ?? [])
+    .filter((b) => b.type === "text" && b.text)
+    .map((b) => b.text as string)
+    .join("\n");
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("IA não devolveu JSON.");
+  const parsed = JSON.parse(m[0]) as { veredito?: string; alertas?: unknown };
+  const veredito =
+    parsed.veredito === "forte" || parsed.veredito === "fraco"
+      ? parsed.veredito
+      : "ok";
+  const alertas = Array.isArray(parsed.alertas)
+    ? parsed.alertas.filter((x) => typeof x === "string").slice(0, 6)
+    : [];
+  return { veredito, alertas };
+}
+
 // ---- Roteiro de palco por IA (opcional): refina os momentos de fala ----
 
 const CUE_TYPES: StageCueType[] = [
