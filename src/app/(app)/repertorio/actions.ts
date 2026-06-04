@@ -109,6 +109,30 @@ export async function previewSpotifyTrackAction(
   };
 }
 
+/**
+ * Quando o usuário "puxou do Spotify" (trocou a versão), re-busca letra
+ * (LRCLIB, sincronizada) e BPM (GetSongBPM) pelo novo título/artista.
+ * Best-effort: só sobrescreve o que encontrar — se não achar, mantém o atual.
+ */
+async function refreshLyricsAndBpm(
+  songId: string,
+  titulo: string,
+  artista: string
+) {
+  try {
+    const hit = await fetchLyricsFull(titulo, artista);
+    const patch: Record<string, string | number> = {};
+    if (hit.plain) patch.lyrics = hit.plain;
+    if (hit.synced) patch.syncedLyrics = hit.synced;
+    const bpm = await fetchBpm(titulo, artista);
+    if (bpm) patch.bpm = bpm;
+    if (Object.keys(patch).length)
+      await db.update(songs).set(patch).where(eq(songs.id, songId));
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function createSongAction(
   _prev: ActionState,
   formData: FormData
@@ -116,7 +140,14 @@ export async function createSongAction(
   await requireSuperuser();
   const parsed = parseForm(songSchema, formData);
   if (!parsed.ok) return parsed.state;
-  await db.insert(songs).values({ ...parsed.data, ...extractSongMeta(formData) });
+  const [created] = await db
+    .insert(songs)
+    .values({ ...parsed.data, ...extractSongMeta(formData) })
+    .returning({ id: songs.id });
+  // Puxou do Spotify ao criar → já traz letra + BPM junto.
+  if (String(formData.get("spotifyTrackId") ?? "").trim()) {
+    await refreshLyricsAndBpm(created.id, parsed.data.titulo, parsed.data.artista);
+  }
   revalidatePath("/repertorio");
   redirect("/repertorio");
 }
@@ -133,6 +164,10 @@ export async function updateSongAction(
     .update(songs)
     .set({ ...parsed.data, ...extractSongMeta(formData) })
     .where(eq(songs.id, id));
+  // Puxou do Spotify (trocou a versão) → atualiza letra + BPM também.
+  if (String(formData.get("spotifyTrackId") ?? "").trim()) {
+    await refreshLyricsAndBpm(id, parsed.data.titulo, parsed.data.artista);
+  }
   revalidatePath("/repertorio");
   revalidatePath(`/repertorio/${id}`);
   redirect("/repertorio");

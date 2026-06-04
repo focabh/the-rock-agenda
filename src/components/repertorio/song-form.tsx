@@ -120,7 +120,8 @@ export function SongForm({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Preenche título, artista e duração. Útil pra corrigir um dado
+                  Preenche título, artista e duração. Ao salvar, também
+                  re-busca letra e BPM da nova versão. Útil pra corrigir um dado
                   errado ou trocar a versão.
                 </p>
               </div>
