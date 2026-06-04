@@ -188,6 +188,15 @@ export function extractPlaylistId(input: string): string | null {
   return match ? match[1] : null;
 }
 
+/** Aceita link/URI de FAIXA do Spotify (ou o ID de 22 chars cru). */
+export function extractTrackId(input: string): string | null {
+  const trimmed = input.trim();
+  const match = trimmed.match(/track[/:]([a-zA-Z0-9]+)/);
+  if (match) return match[1];
+  if (/^[a-zA-Z0-9]{22}$/.test(trimmed)) return trimmed;
+  return null;
+}
+
 export type SpotifyTrack = {
   spotifyId: string;
   titulo: string;
@@ -202,8 +211,72 @@ type EmbedTrack = {
   uid?: string;
   title?: string;
   subtitle?: string;
+  artists?: { name?: string }[];
   duration?: number;
 };
+
+// Busca recursiva por um objeto de FAIXA única (tem title + uri spotify:track)
+// no JSON do embed de uma faixa.
+function findTrackEntity(node: unknown): EmbedTrack | null {
+  if (!node || typeof node !== "object") return null;
+  const obj = node as Record<string, unknown>;
+  const uri = typeof obj.uri === "string" ? obj.uri : "";
+  if (
+    typeof obj.title === "string" &&
+    (uri.startsWith(TRACK_URI_PREFIX) || typeof obj.subtitle === "string")
+  ) {
+    return obj as EmbedTrack;
+  }
+  for (const value of Object.values(obj)) {
+    const found = findTrackEntity(value);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Lê UMA faixa pública pela página de embed (open.spotify.com/embed/track/{id}),
+ * mesma técnica da playlist. Retorna null se não conseguir ler.
+ */
+export async function fetchTrack(trackId: string): Promise<SpotifyTrack | null> {
+  const res = await fetch(`https://open.spotify.com/embed/track/${trackId}`, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; TheRock/1.0)" },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const html = await res.text();
+  const match = html.match(
+    /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/
+  );
+  if (!match) return null;
+  let data: unknown;
+  try {
+    data = JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
+  const t = findTrackEntity(data);
+  if (!t?.title) return null;
+  const uri = typeof t.uri === "string" ? t.uri : "";
+  const spotifyId = uri.startsWith(TRACK_URI_PREFIX)
+    ? uri.slice(TRACK_URI_PREFIX.length)
+    : trackId;
+  const artista =
+    (Array.isArray(t.artists)
+      ? t.artists
+          .map((a) => a?.name?.trim())
+          .filter(Boolean)
+          .join(", ")
+      : "") ||
+    t.subtitle?.trim() ||
+    "Desconhecido";
+  return {
+    spotifyId,
+    titulo: t.title,
+    artista,
+    duracaoSeg: Math.round((t.duration ?? 0) / 1000),
+  };
+}
 
 // Busca recursiva por um array `trackList` em qualquer profundidade do JSON
 // do __NEXT_DATA__ (o caminho exato pode mudar entre versões da página).

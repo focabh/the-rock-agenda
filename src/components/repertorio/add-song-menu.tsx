@@ -2,18 +2,41 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Music, Pencil, Plus } from "lucide-react";
+import { ChevronDown, ListMusic, Music, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
+import { SpotifySongDialog } from "@/components/repertorio/spotify-song-dialog";
 
 export function AddSongMenu({ defaultUrl }: { defaultUrl?: string | null }) {
-  const [spotifyOpen, setSpotifyOpen] = useState(false);
+  const [songOpen, setSongOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  function Linha({
+    icon,
+    title,
+    sub,
+  }: {
+    icon: React.ReactNode;
+    title: string;
+    sub: string;
+  }) {
+    return (
+      <>
+        {icon}
+        <span className="flex flex-col">
+          <span>{title}</span>
+          <span className="text-xs text-muted-foreground">{sub}</span>
+        </span>
+      </>
+    );
+  }
 
   return (
     <>
@@ -27,32 +50,37 @@ export function AddSongMenu({ defaultUrl }: { defaultUrl?: string | null }) {
             </Button>
           }
         />
-        <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuContent align="end" className="min-w-60">
           <DropdownMenuItem render={<Link href="/repertorio/novo" />}>
-            <Pencil className="size-4" />
-            <span className="flex flex-col">
-              <span>Manualmente</span>
-              <span className="text-xs text-muted-foreground">
-                Título, artista, tom…
-              </span>
-            </span>
+            <Linha
+              icon={<Pencil className="size-4" />}
+              title="Manualmente"
+              sub="Título, artista, tom…"
+            />
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setSpotifyOpen(true)}>
-            <Music className="size-4" />
-            <span className="flex flex-col">
-              <span>Importar do Spotify</span>
-              <span className="text-xs text-muted-foreground">
-                Playlist ou lista colada
-              </span>
-            </span>
+          <DropdownMenuItem onClick={() => setSongOpen(true)}>
+            <Linha
+              icon={<Music className="size-4" />}
+              title="Do Spotify (uma música)"
+              sub="Cola o link da faixa"
+            />
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setBulkOpen(true)}>
+            <Linha
+              icon={<ListMusic className="size-4" />}
+              title="Importar playlist ou lista"
+              sub="Várias de uma vez"
+            />
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <SpotifySongDialog open={songOpen} onOpenChange={setSongOpen} />
       <SpotifyImportDialog
         mode="repertorio"
-        open={spotifyOpen}
-        onOpenChange={setSpotifyOpen}
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
         defaultUrl={defaultUrl}
       />
     </>

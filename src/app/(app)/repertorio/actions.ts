@@ -13,7 +13,9 @@ import { sendPushToAll } from "@/lib/push";
 import {
   SpotifyConfigError,
   extractPlaylistId,
+  extractTrackId,
   fetchPlaylistTracks,
+  fetchTrack,
   fetchTracksPopularity,
 } from "@/lib/spotify";
 import { parseTracksFromText } from "@/lib/parse-tracks";
@@ -204,6 +206,84 @@ export async function importFromSpotifyAction(
           : "Erro desconhecido ao importar.";
     return { ok: false, error: message };
   }
+}
+
+export type AddSongFromSpotifyResult =
+  | { ok: false; error: string }
+  | { ok: true; id: string; titulo: string; artista: string; already: boolean };
+
+/** Adiciona UMA música ao repertório a partir do link dela no Spotify. */
+export async function addSongFromSpotifyAction(
+  url: string
+): Promise<AddSongFromSpotifyResult> {
+  await requireSuperuser();
+  const trackId = extractTrackId(url);
+  if (!trackId) {
+    return { ok: false, error: "Cole o link de uma música do Spotify." };
+  }
+  let track;
+  try {
+    track = await fetchTrack(trackId);
+  } catch {
+    track = null;
+  }
+  if (!track) {
+    return {
+      ok: false,
+      error: "Não consegui ler essa música. Confira o link ou cadastre na mão.",
+    };
+  }
+
+  // Dedupe por título+artista (mesma regra das outras importações).
+  const all = await db.select().from(songs);
+  const key = `${track.titulo.toLowerCase()}|${track.artista.toLowerCase()}`;
+  const found = all.find(
+    (s) => `${s.titulo.toLowerCase()}|${s.artista.toLowerCase()}` === key
+  );
+  if (found) {
+    return {
+      ok: true,
+      id: found.id,
+      titulo: found.titulo,
+      artista: found.artista,
+      already: true,
+    };
+  }
+
+  const [created] = await db
+    .insert(songs)
+    .values({
+      titulo: track.titulo,
+      artista: track.artista,
+      status: "aprendendo",
+      spotifyTrackId: track.spotifyId || null,
+      duracaoSeg: track.duracaoSeg || null,
+    })
+    .returning();
+
+  // Best-effort: já puxa letra (sincronizada) + BPM, igual à lista colada.
+  try {
+    const hit = await fetchLyricsFull(track.titulo, track.artista);
+    const patch: Record<string, string | number> = {};
+    if (hit.plain) patch.lyrics = hit.plain;
+    if (hit.synced) patch.syncedLyrics = hit.synced;
+    if (!created.duracaoSeg && hit.durationSec) patch.duracaoSeg = hit.durationSec;
+    const bpm = await fetchBpm(track.titulo, track.artista);
+    if (bpm) patch.bpm = bpm;
+    if (Object.keys(patch).length)
+      await db.update(songs).set(patch).where(eq(songs.id, created.id));
+  } catch {
+    /* best-effort */
+  }
+
+  revalidatePath("/repertorio");
+  return {
+    ok: true,
+    id: created.id,
+    titulo: created.titulo,
+    artista: created.artista,
+    already: false,
+  };
 }
 
 export async function importPastedToRepertorioAction(
