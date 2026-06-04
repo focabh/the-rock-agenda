@@ -319,15 +319,15 @@ export function PaymentBreakdown({
               {subs.map((sub) => {
                 const info = breakdown.perMember.get(sub.id);
                 return (
-                  <li key={sub.id} className="flex items-center gap-3 py-2.5">
-                    <div className="flex-1 min-w-0">
+                  <li key={sub.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">
                         {sub.nome}{" "}
                         <span className="rounded bg-sky-500/15 px-1 py-0.5 text-[10px] font-bold uppercase text-sky-300">sub</span>
                       </p>
                       <p className="text-xs text-muted-foreground">{sub.funcao || "Convidado"}</p>
                     </div>
-                    <span className="font-mono text-sm tabular-nums">{formatBRL(info?.valorCentavos ?? 0)}</span>
+                    <span className="shrink-0 font-mono text-sm tabular-nums">{formatBRL(info?.valorCentavos ?? 0)}</span>
                   </li>
                 );
               })}
@@ -374,7 +374,7 @@ export function PaymentBreakdown({
 
         {/* Repasse aos músicos (banda -> músico) */}
         {!noMusicos && (
-          <div className="flex items-center justify-between rounded-md p-2.5 border border-border bg-muted/20">
+          <div className="flex flex-col gap-1 rounded-md p-2.5 border border-border bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-xs uppercase tracking-wider text-muted-foreground">
               Repasse aos músicos
             </span>
@@ -462,11 +462,12 @@ function MemberPaymentRow({
   }
 
   return (
-    <li className="flex items-center gap-3 py-2.5">
-      <div className="flex-1 min-w-0">
+    <li className="flex flex-col gap-1.5 py-2.5 sm:flex-row sm:items-center sm:gap-3">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{member.nome}</p>
         <p className="text-xs text-muted-foreground">{member.funcao}</p>
       </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 self-stretch sm:flex-nowrap sm:self-auto">
       {manual && (
         <span
           className={cn(
@@ -554,6 +555,7 @@ function MemberPaymentRow({
         admin={admin}
         isSelf={isSelf}
       />
+      </div>
     </li>
   );
 }
