@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Activity, Play, Pause, Minus, Plus, Save } from "lucide-react";
+import { Play, Pause, Minus, Plus, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import {
   Dialog,
   DialogContent,
@@ -105,7 +106,7 @@ export function MetronomeButton({ bpm: bpmInicial, titulo, songId }: { bpm: numb
         className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-1.5 text-violet-300 transition-colors hover:bg-violet-500/15"
         title={bpmInicial ? `Metrônomo · ${bpmInicial} BPM` : "Metrônomo (defina o BPM)"}
       >
-        <Activity className="size-3.5" />
+        <MetronomeIcon className="size-3.5" />
         {bpmInicial ? <span className="font-mono text-[10px]">{bpmInicial}</span> : null}
       </button>
 

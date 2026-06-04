@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Mic, Play, Pause, Minus, Plus, Guitar, Music4, Search, Save, Volume2 } from "lucide-react";
+import { Mic, Play, Pause, Minus, Plus, Guitar, Search, Save, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import { toast } from "sonner";
 import { setSongBpmAction } from "@/app/(app)/repertorio/actions";
 
@@ -370,7 +371,7 @@ export function FerramentasClient({ songs = [] }: { songs?: SongTempo[] }) {
           <Guitar className="size-4" /> Afinador
         </button>
         <button onClick={() => setAba("metronomo")} className={cn("flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-semibold", aba === "metronomo" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
-          <Music4 className="size-4" /> Metrônomo
+          <MetronomeIcon className="size-4" /> Metrônomo
         </button>
       </div>
       {aba === "afinador" ? <Afinador /> : <Metronomo songs={songs} />}

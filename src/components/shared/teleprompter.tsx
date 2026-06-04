@@ -17,8 +17,8 @@ import {
   Type,
   Sparkles,
   RotateCcw,
-  Activity,
 } from "lucide-react";
+import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
 import { parseLrc, parseCues, buildTimeline, activeLineIndex, decideEntryWarning, type AlertMode } from "@/lib/lrc";
@@ -796,7 +796,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     : "Metrônomo (música sem BPM cadastrado)"
                 }
               >
-                <Activity className="size-5" />
+                <MetronomeIcon className="size-5" />
               </button>
               <button onClick={() => setShowList(true)} className={`size-11 ${ctrlBtn}`} title="Lista de músicas">
                 <ListMusic className="size-5" />
