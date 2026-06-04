@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import { Loader2, Music } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { FieldError } from "@/components/shared/field-error";
 import { SONG_STATUS_OPTIONS } from "@/components/shared/status-badge";
+import { previewSpotifyTrackAction } from "@/app/(app)/repertorio/actions";
 import type { ActionState } from "@/lib/form";
 import type { Song } from "@/db/schema";
 
@@ -33,19 +36,118 @@ export function SongForm({
 }) {
   const [state, formAction, pending] = useActionState(action, null);
 
+  // Campos que o "Puxar do Spotify" preenche → controlados.
+  const [titulo, setTitulo] = useState(song?.titulo ?? "");
+  const [artista, setArtista] = useState(song?.artista ?? "");
+  const [duracao, setDuracao] = useState(toMMSS(song?.duracaoSeg ?? null));
+  const [spotifyId, setSpotifyId] = useState("");
+
+  const [spOpen, setSpOpen] = useState(false);
+  const [spUrl, setSpUrl] = useState("");
+  const [spPending, startSp] = useTransition();
+
+  function puxarDoSpotify() {
+    if (!spUrl.trim()) return;
+    startSp(async () => {
+      const r = await previewSpotifyTrackAction(spUrl);
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      setTitulo(r.titulo);
+      setArtista(r.artista);
+      if (r.duracaoSeg) setDuracao(toMMSS(r.duracaoSeg));
+      setSpotifyId(r.spotifyId);
+      toast.success(`Puxado: ${r.titulo} — ${r.artista}`);
+      setSpOpen(false);
+      setSpUrl("");
+    });
+  }
+
   return (
     <Card>
       <CardContent className="py-6">
         <form action={formAction} className="grid gap-5 sm:grid-cols-2">
+          <input type="hidden" name="spotifyTrackId" value={spotifyId} />
+
+          <div className="sm:col-span-2">
+            {!spOpen ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSpOpen(true)}
+              >
+                <Music className="size-4" /> Puxar do Spotify
+              </Button>
+            ) : (
+              <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+                <Label htmlFor="sp-url">Link da música no Spotify</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    id="sp-url"
+                    value={spUrl}
+                    onChange={(e) => setSpUrl(e.target.value)}
+                    placeholder="https://open.spotify.com/track/..."
+                    className="min-w-0 flex-1"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        puxarDoSpotify();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={puxarDoSpotify}
+                    disabled={spPending || !spUrl.trim()}
+                  >
+                    {spPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : null}
+                    Puxar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setSpOpen(false);
+                      setSpUrl("");
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Preenche título, artista e duração. Útil pra corrigir um dado
+                  errado ou trocar a versão.
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="titulo">Música *</Label>
-            <Input id="titulo" name="titulo" defaultValue={song?.titulo ?? ""} required autoFocus />
+            <Input
+              id="titulo"
+              name="titulo"
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
+              required
+            />
             <FieldError state={state} name="titulo" />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="artista">Artista original *</Label>
-            <Input id="artista" name="artista" defaultValue={song?.artista ?? ""} required />
+            <Input
+              id="artista"
+              name="artista"
+              value={artista}
+              onChange={(e) => setArtista(e.target.value)}
+              required
+            />
             <FieldError state={state} name="artista" />
           </div>
 
@@ -79,7 +181,8 @@ export function SongForm({
             <Input
               id="duracao"
               name="duracao"
-              defaultValue={toMMSS(song?.duracaoSeg ?? null)}
+              value={duracao}
+              onChange={(e) => setDuracao(e.target.value)}
               placeholder="3:45"
               inputMode="numeric"
             />

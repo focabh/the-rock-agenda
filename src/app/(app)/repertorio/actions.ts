@@ -56,6 +56,9 @@ function parseDuracao(input: string): number | null {
 function extractSongMeta(fd: FormData) {
   const energia = Number(fd.get("energia"));
   const momentoRaw = String(fd.get("momento") ?? "qualquer");
+  // Só presente quando o usuário "puxou do Spotify" no form — caso contrário
+  // não tocamos no spotifyTrackId existente.
+  const spId = String(fd.get("spotifyTrackId") ?? "").trim();
   return {
     duracaoSeg: parseDuracao(String(fd.get("duracao") ?? "")),
     energia: energia >= 1 && energia <= 3 ? energia : null,
@@ -68,6 +71,41 @@ function extractSongMeta(fd: FormData) {
     dropada: fd.get("dropada") === "on",
     tom: String(fd.get("tom") ?? "").trim() || null,
     estilo: String(fd.get("estilo") ?? "").trim() || null,
+    ...(spId ? { spotifyTrackId: spId } : {}),
+  };
+}
+
+export type SpotifyTrackPreview =
+  | { ok: false; error: string }
+  | {
+      ok: true;
+      titulo: string;
+      artista: string;
+      duracaoSeg: number;
+      spotifyId: string;
+    };
+
+/** Lê os dados de UMA faixa do Spotify (sem gravar) pra preencher o form. */
+export async function previewSpotifyTrackAction(
+  url: string
+): Promise<SpotifyTrackPreview> {
+  await requireSuperuser();
+  const trackId = extractTrackId(url);
+  if (!trackId) return { ok: false, error: "Cole o link de uma música do Spotify." };
+  let track;
+  try {
+    track = await fetchTrack(trackId);
+  } catch {
+    track = null;
+  }
+  if (!track)
+    return { ok: false, error: "Não consegui ler essa música. Confira o link." };
+  return {
+    ok: true,
+    titulo: track.titulo,
+    artista: track.artista,
+    duracaoSeg: track.duracaoSeg,
+    spotifyId: track.spotifyId,
   };
 }
 
