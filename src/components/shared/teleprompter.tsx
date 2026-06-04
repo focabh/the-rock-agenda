@@ -22,6 +22,7 @@ import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
 import { parseLrc, parseCues, buildTimeline, activeLineIndex, decideEntryWarning, type AlertMode } from "@/lib/lrc";
+import { prepareAudioContext } from "@/lib/audio-unlock";
 
 type Song = {
   n: number;
@@ -267,8 +268,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const ctx = new Ctx();
     let beat = 0;
-    let next = ctx.currentTime + 0.06;
+    let next = 0;
     let timer = 0;
+    let cancelled = false;
     const tickSound = (t: number, acento: boolean) => {
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
@@ -290,8 +292,14 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       }
       timer = window.setTimeout(loop, 25);
     };
-    loop();
+    // Destrava no mobile (resume + iOS silencioso) antes de começar.
+    prepareAudioContext(ctx).then(() => {
+      if (cancelled) return;
+      next = ctx.currentTime + 0.12;
+      loop();
+    });
     return () => {
+      cancelled = true;
       clearTimeout(timer);
       ctx.close().catch(() => {});
       setMetroBeat(-1);

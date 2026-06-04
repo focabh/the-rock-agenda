@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { prepareAudioContext } from "@/lib/audio-unlock";
 import { setSongBpmAction } from "@/app/(app)/repertorio/actions";
 
 /** Botão compacto de metrônomo por música (repertório/setlist). Toca no BPM
@@ -54,12 +55,14 @@ export function MetronomeButton({ bpm: bpmInicial, titulo, songId }: { bpm: numb
     }
     timerRef.current = window.setTimeout(scheduler, 25);
   }
-  function start() {
+  async function start() {
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     ctxRef.current = ctx;
-    beatRef.current = 0;
-    nextRef.current = ctx.currentTime + 0.05;
     setTocando(true);
+    await prepareAudioContext(ctx); // destrava no mobile (resume + iOS silencioso)
+    if (ctxRef.current !== ctx) return; // parou enquanto destravava
+    beatRef.current = 0;
+    nextRef.current = ctx.currentTime + 0.1;
     scheduler();
   }
   function stop() {

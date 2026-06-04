@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import { toast } from "sonner";
+import { prepareAudioContext } from "@/lib/audio-unlock";
 import { setSongBpmAction } from "@/app/(app)/repertorio/actions";
 
 export type SongTempo = { id: string; titulo: string; artista: string; tom: string | null; bpm: number | null; obs: string | null };
@@ -214,12 +215,14 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
     timerRef.current = window.setTimeout(scheduler, 25);
   }
 
-  function start() {
+  async function start() {
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     ctxRef.current = ctx;
-    beatRef.current = 0;
-    nextNoteRef.current = ctx.currentTime + 0.05;
     setTocando(true);
+    await prepareAudioContext(ctx); // destrava no mobile (resume + iOS silencioso)
+    if (ctxRef.current !== ctx) return; // parou enquanto destravava
+    beatRef.current = 0;
+    nextNoteRef.current = ctx.currentTime + 0.1;
     scheduler();
   }
   function stop() {
