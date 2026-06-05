@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
-import { AtSign, Upload, Loader2, X } from "lucide-react";
+import { AtSign, Upload, Loader2, X, Eraser, Undo2 } from "lucide-react";
 import { toast } from "sonner";
+import { removeWhiteBackground } from "@/lib/remove-bg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -162,6 +163,24 @@ function LogoCasaField({ initial }: { initial: string | null }) {
   const [logo, setLogo] = useState<string | null>(initial);
   const [busca, startBusca] = useTransition();
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [processando, setProcessando] = useState(false);
+  // Guarda a logo de antes pra permitir "desfazer" o recorte do fundo.
+  const [antesFundo, setAntesFundo] = useState<string | null>(null);
+
+  async function tirarFundo() {
+    if (!logo) return;
+    setProcessando(true);
+    try {
+      const semFundo = await removeWhiteBackground(logo);
+      setAntesFundo(logo);
+      setLogo(semFundo);
+      toast.success("Fundo branco removido. Confira o preview.");
+    } catch {
+      toast.error("Não consegui processar essa imagem.");
+    } finally {
+      setProcessando(false);
+    }
+  }
 
   function buscarNoGoogle() {
     const nome = (document.getElementById("nome") as HTMLInputElement | null)?.value ?? "";
@@ -174,6 +193,7 @@ function LogoCasaField({ initial }: { initial: string | null }) {
       const r = await buscarLogoCasaAction(nome, cidade);
       if (r.ok) {
         setLogo(r.dataUrl);
+        setAntesFundo(null);
         toast.success("Imagem encontrada no Google!");
       } else {
         toast.error(r.erro);
@@ -198,12 +218,24 @@ function LogoCasaField({ initial }: { initial: string | null }) {
         onCancel={() => setCropSrc(null)}
         onConfirm={(url) => {
           setLogo(url);
+          setAntesFundo(null);
           setCropSrc(null);
         }}
       />
       {logo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logo} alt="logo da casa" className="size-16 rounded-md object-contain ring-1 ring-border" />
+        // Fundo xadrez pra enxergar a transparência depois de tirar o fundo.
+        <div
+          className="size-16 rounded-md ring-1 ring-border"
+          style={{
+            backgroundImage:
+              "linear-gradient(45deg,#9994 25%,transparent 25%),linear-gradient(-45deg,#9994 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#9994 75%),linear-gradient(-45deg,transparent 75%,#9994 75%)",
+            backgroundSize: "10px 10px",
+            backgroundPosition: "0 0,0 5px,5px -5px,-5px 0",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logo} alt="logo da casa" className="size-16 object-contain" />
+        </div>
       ) : (
         <div className="flex size-16 items-center justify-center rounded-md text-xs text-muted-foreground ring-1 ring-dashed ring-border">
           sem logo
@@ -218,14 +250,26 @@ function LogoCasaField({ initial }: { initial: string | null }) {
           <Upload className="size-4" /> Enviar imagem
           <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onUpload(f); }} />
         </label>
+        {logo && !antesFundo && (
+          <Button type="button" variant="outline" size="sm" onClick={tirarFundo} disabled={processando}>
+            {processando ? <Loader2 className="size-4 animate-spin" /> : <Eraser className="size-4" />}
+            Tirar fundo branco
+          </Button>
+        )}
+        {antesFundo && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => { setLogo(antesFundo); setAntesFundo(null); }} className="text-muted-foreground">
+            <Undo2 className="size-4" /> Desfazer fundo
+          </Button>
+        )}
         {logo && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => setLogo(null)} className="text-muted-foreground">
+          <Button type="button" variant="ghost" size="sm" onClick={() => { setLogo(null); setAntesFundo(null); }} className="text-muted-foreground">
             <X className="size-4" /> Remover
           </Button>
         )}
       </div>
       <p className="w-full text-[11px] text-muted-foreground">
-        “Buscar no Google” pega a foto da casa no Google (e o @ se estiver no perfil). O flyer do show usa essa imagem automaticamente. Pra uma logo exata, envie a imagem.
+        “Buscar no Google” pega a foto da casa no Google (e o @ se estiver no perfil). O flyer do show usa essa imagem automaticamente. Pra uma logo exata, envie a imagem.{" "}
+        <strong className="text-foreground">“Tirar fundo branco”</strong> deixa a logo transparente (ideal pra logos de fundo branco chapado, ex.: print do Instagram).
       </p>
     </div>
   );
