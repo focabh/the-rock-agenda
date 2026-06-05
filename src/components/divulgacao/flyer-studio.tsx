@@ -27,6 +27,7 @@ import { FlyerInspiracao } from "@/components/divulgacao/flyer-inspiracao";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { fileToDownscaledDataUrl } from "@/lib/image-resize";
+import { removeWhiteBackground } from "@/lib/remove-bg";
 import { addImagemDivulgacaoAction, deleteImagemDivulgacaoAction } from "@/app/(app)/shows/[id]/divulgacao/actions";
 
 type Show = {
@@ -312,6 +313,26 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
   // Logo/foto da casa NÃO aparece sozinha (evita "resíduo" no canto). Opt-in.
   const [mostrarLogoCasa, setMostrarLogoCasa] = useState(false);
   const [logoCasaTam, setLogoCasaTam] = useState(64);
+  const [logoCasaOpacidade, setLogoCasaOpacidade] = useState(100);
+  const [logoSemFundo, setLogoSemFundo] = useState(false);
+  const [logoProcessada, setLogoProcessada] = useState<string | null>(null);
+  const [processandoLogo, setProcessandoLogo] = useState(false);
+
+  async function toggleLogoSemFundo(v: boolean) {
+    setLogoSemFundo(v);
+    if (v && !logoProcessada && show.casaLogoUrl) {
+      setProcessandoLogo(true);
+      try {
+        setLogoProcessada(await removeWhiteBackground(show.casaLogoUrl));
+      } catch {
+        toast.error("Não consegui tirar o fundo dessa logo.");
+        setLogoSemFundo(false);
+      } finally {
+        setProcessandoLogo(false);
+      }
+    }
+  }
+  const logoCasaSrc = logoSemFundo && logoProcessada ? logoProcessada : show.casaLogoUrl;
 
   const [headline, setHeadline] = useState("AO VIVO");
   const [banda, setBanda] = useState(show.banda);
@@ -461,7 +482,7 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
           {mostrarLogoCasa && show.casaLogoUrl && (
             // logo da casa — canto superior direito
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={show.casaLogoUrl} alt="logo da casa" crossOrigin="anonymous" className="absolute right-3 top-3 rounded-md object-contain" style={{ width: logoCasaTam, height: logoCasaTam }} />
+            <img src={logoCasaSrc ?? undefined} alt="logo da casa" crossOrigin="anonymous" className="absolute right-3 top-3 rounded-md object-contain" style={{ width: logoCasaTam, height: logoCasaTam, opacity: logoCasaOpacidade / 100 }} />
           )}
           <div
             onPointerDown={onDragStart}
@@ -637,9 +658,20 @@ export function FlyerStudio({ show, galeria }: { show: Show; galeria: { id: stri
                 Mostrar a logo da casa (canto superior direito)
               </label>
               {mostrarLogoCasa && (
-                <div className="flex items-center gap-1.5 px-0.5">
-                  <span className="text-[9px] uppercase tracking-wide text-zinc-500">tam logo {logoCasaTam}px</span>
-                  <input type="range" min={32} max={120} value={logoCasaTam} onChange={(e) => setLogoCasaTam(Number(e.target.value))} className="h-1 flex-1 accent-red-600" />
+                <div className="space-y-1.5 px-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-24 shrink-0 text-[9px] uppercase tracking-wide text-zinc-500">tam {logoCasaTam}px</span>
+                    <input type="range" min={32} max={120} value={logoCasaTam} onChange={(e) => setLogoCasaTam(Number(e.target.value))} className="h-1 flex-1 accent-red-600" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-24 shrink-0 text-[9px] uppercase tracking-wide text-zinc-500">opacidade {logoCasaOpacidade}%</span>
+                    <input type="range" min={20} max={100} value={logoCasaOpacidade} onChange={(e) => setLogoCasaOpacidade(Number(e.target.value))} className="h-1 flex-1 accent-red-600" />
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-300">
+                    <input type="checkbox" checked={logoSemFundo} onChange={(e) => toggleLogoSemFundo(e.target.checked)} disabled={processandoLogo} className="size-4 accent-red-600" />
+                    {processandoLogo ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                    Tirar fundo branco da logo
+                  </label>
                 </div>
               )}
             </div>
