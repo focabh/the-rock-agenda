@@ -88,8 +88,8 @@ export function isAdmin(user: CurrentUser | null): boolean {
   return user?.role === "admin";
 }
 
-/** Superusuário (Foca): controla configurações do app, repertório e ensaios.
- *  O manager (admin não-superuser) NÃO tem acesso a essas áreas. */
+/** Superusuário (Foca): controla configurações do app, integrações (ex.: conexão
+ *  do Spotify) e ensaios. Repertório é gerenciado por admin (manager) + superuser. */
 export function isSuperuser(user: CurrentUser | null): boolean {
   return Boolean(user?.superuser);
 }

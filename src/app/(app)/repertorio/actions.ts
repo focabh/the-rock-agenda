@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { songs, songMemberReadiness, members } from "@/db/schema";
 import { and } from "drizzle-orm";
 import { parseForm, type ActionState } from "@/lib/form";
-import { requireAdmin, requireSuperuser, requireCurrentUser } from "@/lib/auth";
+import { requireAdmin, requireCurrentUser } from "@/lib/auth";
 import { sendPushToAll } from "@/lib/push";
 import {
   SpotifyConfigError,
@@ -89,7 +89,7 @@ export type SpotifyTrackPreview =
 export async function previewSpotifyTrackAction(
   url: string
 ): Promise<SpotifyTrackPreview> {
-  await requireSuperuser();
+  await requireAdmin();
   const trackId = extractTrackId(url);
   if (!trackId) return { ok: false, error: "Cole o link de uma música do Spotify." };
   let track;
@@ -138,7 +138,7 @@ export async function createSongAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireSuperuser();
+  await requireAdmin();
   const parsed = parseForm(songSchema, formData);
   if (!parsed.ok) return parsed.state;
   const [created] = await db
@@ -159,7 +159,7 @@ export async function updateSongAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireSuperuser();
+  await requireAdmin();
   const parsed = parseForm(songSchema, formData);
   if (!parsed.ok) return parsed.state;
   await db
@@ -177,7 +177,7 @@ export async function updateSongAction(
 }
 
 export async function deleteSongAction(id: string) {
-  await requireSuperuser();
+  await requireAdmin();
   await db.delete(songs).where(eq(songs.id, id));
   revalidatePath("/repertorio");
 }
@@ -189,7 +189,7 @@ export async function syncSpotifyPopularityAction(): Promise<{
   total?: number;
   error?: string;
 }> {
-  await requireSuperuser();
+  await requireAdmin();
   const all = await db.select().from(songs);
   const withId = all.filter((s) => s.spotifyTrackId);
   if (withId.length === 0)
@@ -227,7 +227,7 @@ export type SpotifyImportResult = {
 export async function importFromSpotifyAction(
   playlistUrl: string
 ): Promise<SpotifyImportResult> {
-  await requireSuperuser();
+  await requireAdmin();
   const playlistId = extractPlaylistId(playlistUrl);
   if (!playlistId) {
     return { ok: false, error: "URL ou ID do Spotify inválido." };
@@ -292,7 +292,7 @@ export type AddSongFromSpotifyResult =
 export async function addSongFromSpotifyAction(
   url: string
 ): Promise<AddSongFromSpotifyResult> {
-  await requireSuperuser();
+  await requireAdmin();
   const trackId = extractTrackId(url);
   if (!trackId) {
     return { ok: false, error: "Cole o link de uma música do Spotify." };
@@ -365,7 +365,7 @@ export async function addSongFromSpotifyAction(
 export async function importPastedToRepertorioAction(
   text: string
 ): Promise<SpotifyImportResult> {
-  await requireSuperuser();
+  await requireAdmin();
   const parsed = parseTracksFromText(text);
   if (parsed.length === 0) {
     return { ok: false, error: "Nenhuma música encontrada no texto." };
@@ -425,7 +425,7 @@ export type BulkResult = { ok: boolean; count?: number; error?: string };
 export async function bulkDeleteSongsAction(
   ids: string[]
 ): Promise<BulkResult> {
-  await requireSuperuser();
+  await requireAdmin();
   if (ids.length === 0) return { ok: false, error: "Nada selecionado." };
   await db.delete(songs).where(inArray(songs.id, ids));
   revalidatePath("/repertorio");
@@ -436,7 +436,7 @@ export async function bulkSetStatusAction(
   ids: string[],
   status: (typeof SONG_STATUSES)[number]
 ): Promise<BulkResult> {
-  await requireSuperuser();
+  await requireAdmin();
   if (ids.length === 0) return { ok: false, error: "Nada selecionado." };
   if (!SONG_STATUSES.includes(status)) {
     return { ok: false, error: "Status inválido." };
@@ -450,7 +450,7 @@ export async function bulkSetFavoritaAction(
   ids: string[],
   favorita: boolean
 ): Promise<BulkResult> {
-  await requireSuperuser();
+  await requireAdmin();
   if (ids.length === 0) return { ok: false, error: "Nada selecionado." };
   await db.update(songs).set({ favorita }).where(inArray(songs.id, ids));
   revalidatePath("/repertorio");
@@ -469,7 +469,7 @@ export type EnrichResult = {
 
 /** Preenche energia/conhecida/momento (via IA) das músicas que ainda não têm. */
 export async function enrichSongsAIAction(): Promise<EnrichResult> {
-  await requireSuperuser();
+  await requireAdmin();
   const pendentes = await db
     .select({ id: songs.id, titulo: songs.titulo, artista: songs.artista })
     .from(songs)
@@ -599,7 +599,7 @@ export async function saveLyricsAction(
   songId: string,
   lyrics: string
 ): Promise<LyricsResult> {
-  await requireSuperuser();
+  await requireAdmin();
   const value = lyrics.trim() || null;
   await db.update(songs).set({ lyrics: value }).where(eq(songs.id, songId));
   revalidatePath("/repertorio");
@@ -662,7 +662,7 @@ export async function setMemberReadinessAction(
 }
 
 export async function toggleFavoritaAction(id: string, favorita: boolean) {
-  await requireSuperuser();
+  await requireAdmin();
   await db.update(songs).set({ favorita }).where(eq(songs.id, id));
   revalidatePath("/repertorio");
 }
@@ -737,7 +737,7 @@ export async function setSongCuesAction(
   id: string,
   cues: { t: number; label: string }[]
 ): Promise<{ ok: boolean }> {
-  await requireSuperuser();
+  await requireAdmin();
   const clean = (cues ?? [])
     .filter((c) => typeof c.t === "number" && c.label?.trim())
     .map((c) => ({ t: Math.max(0, Math.round(c.t)), label: c.label.trim().slice(0, 60) }))
@@ -753,7 +753,7 @@ export async function setSongCuesAction(
 export async function getSuggestedCuesAction(
   id: string
 ): Promise<{ ok: boolean; cues: { t: number; label: string }[]; error?: string }> {
-  await requireSuperuser();
+  await requireAdmin();
   const [song] = await db.select().from(songs).where(eq(songs.id, id)).limit(1);
   if (!song) return { ok: false, cues: [], error: "Música não encontrada." };
   const { parseLrc, suggestCues } = await import("@/lib/lrc");
@@ -775,7 +775,7 @@ export async function setSongDropAction(id: string, dropada: boolean) {
 /** Marca/desmarca uma música como prioridade de ensaio (treinar: nova ou pouco
  *  passada). O "Gerar" do ensaio puxa estas pra frente. */
 export async function setSongPrioridadeAction(id: string, prioridade: boolean) {
-  await requireSuperuser();
+  await requireAdmin();
   await db.update(songs).set({ prioridade }).where(eq(songs.id, id));
   revalidatePath("/repertorio");
   revalidatePath("/ensaios", "layout");
@@ -784,7 +784,7 @@ export async function setSongPrioridadeAction(id: string, prioridade: boolean) {
 /** Verifica o repertório e marca como drop as músicas detectadas (heurística).
  *  Só adiciona (não desmarca) — o admin ajusta manualmente o que quiser. */
 export async function verificarDropsAction(): Promise<{ marcadas: number }> {
-  await requireSuperuser();
+  await requireAdmin();
   const { isLikelyDrop } = await import("@/lib/drop-detect");
   const rows = await db.select({ id: songs.id, titulo: songs.titulo, artista: songs.artista, dropada: songs.dropada }).from(songs);
   let marcadas = 0;

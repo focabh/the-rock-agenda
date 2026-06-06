@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { members, songMemberReadiness, songs } from "@/db/schema";
-import { adminMaterialPorPosicao, getBrand, getCurrentUser, isSuperuser } from "@/lib/auth";
+import { adminMaterialPorPosicao, getBrand, getCurrentUser, isAdmin, isSuperuser } from "@/lib/auth";
 import { BAND } from "@/lib/band";
 import { isSpotifyConnected } from "@/lib/spotify";
 import { asc, desc, eq } from "drizzle-orm";
@@ -17,9 +17,11 @@ import { ExternalLink } from "lucide-react";
 
 export default async function RepertorioPage() {
   const user = await getCurrentUser();
-  // Repertório é gerenciado só pelo superusuário (Foca). Demais veem leitura.
-  const admin = isSuperuser(user);
-  const spotify = admin
+  // Repertório é gerenciado por admin (manager) + superusuário. Demais veem leitura.
+  const admin = isAdmin(user);
+  // Conectar/desconectar o Spotify (credencial do app) é só do superusuário.
+  const superuser = isSuperuser(user);
+  const spotify = superuser
     ? await isSpotifyConnected()
     : { connected: false, ownerName: null };
   const lista = await db
@@ -74,10 +76,12 @@ export default async function RepertorioPage() {
             <SyncLyricsButton />
             {admin && (
               <>
-                <SpotifyConnect
-                  connected={spotify.connected}
-                  ownerName={spotify.ownerName ?? null}
-                />
+                {superuser && (
+                  <SpotifyConnect
+                    connected={spotify.connected}
+                    ownerName={spotify.ownerName ?? null}
+                  />
+                )}
                 <EnrichSongsButton />
                 <SpotifyPopularityButton />
                 <BpmFetchButton />
