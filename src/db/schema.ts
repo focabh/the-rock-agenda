@@ -273,6 +273,13 @@ export const songs = sqliteTable("songs", {
   })
     .notNull()
     .default("qualquer"),
+  // Posição ideal no SHOW (campo único, usado pelo gerador de show). Deriva
+  // momento + finalBoss ao salvar — não vale pra ensaio (ensaio é livre).
+  posicaoShow: text("posicao_show", {
+    enum: ["qualquer", "abertura", "bloco_inicial", "bloco_final", "encerramento"],
+  })
+    .notNull()
+    .default("qualquer"),
   // "Munição pesada": hino/catarse que fecha show. Trava: só nos últimos 20%
   // (fechamento/bis), nunca no início.
   finalBoss: integer("final_boss", { mode: "boolean" })

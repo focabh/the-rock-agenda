@@ -215,18 +215,22 @@ export function SongForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="momento">Melhor momento</Label>
+            <Label htmlFor="posicaoShow">Posição no show</Label>
             <select
-              id="momento"
-              name="momento"
-              defaultValue={song?.momento ?? "qualquer"}
+              id="posicaoShow"
+              name="posicaoShow"
+              defaultValue={song?.posicaoShow ?? "qualquer"}
               className={SELECT_CLS}
             >
               <option value="qualquer">Qualquer</option>
-              <option value="abertura">Abre o show</option>
-              <option value="meio">Meio do show</option>
-              <option value="fechamento">Fecha o show</option>
+              <option value="abertura">Abertura</option>
+              <option value="bloco_inicial">Bloco inicial</option>
+              <option value="bloco_final">Bloco final</option>
+              <option value="encerramento">Encerramento (hino/catarse)</option>
             </select>
+            <p className="text-[11px] text-muted-foreground">
+              Usado quando o app gera o setlist de <strong>show</strong>. Ensaio é livre.
+            </p>
           </div>
 
           <div className="space-y-2 sm:col-span-2">
@@ -266,15 +270,6 @@ export function SongForm({
                 className="size-4 accent-primary"
               />
               Afinação dropada (Drop D/C…)
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="finalBoss"
-                defaultChecked={song?.finalBoss ?? false}
-                className="size-4 accent-primary"
-              />
-              Música de final / hino (munição pesada)
             </label>
           </div>
 

@@ -56,6 +56,19 @@ await addCol("members", "pagamento_fixo_centavos", "INTEGER");
 await addCol("venues", "pipeline_stage", "TEXT");
 // andamento (BPM) por música — metrônomo
 await addCol("songs", "bpm", "INTEGER");
+// posição no show (campo único): qualquer/abertura/bloco_inicial/bloco_final/encerramento
+{
+  const novo = !(await hasCol("songs", "posicao_show"));
+  await addCol("songs", "posicao_show", "TEXT NOT NULL DEFAULT 'qualquer'");
+  if (novo) {
+    // Backfill do que já existia (momento + finalBoss) pra não perder marcação.
+    await c.execute("UPDATE songs SET posicao_show = 'encerramento' WHERE final_boss = 1");
+    await c.execute("UPDATE songs SET posicao_show = 'abertura' WHERE final_boss = 0 AND momento = 'abertura'");
+    await c.execute("UPDATE songs SET posicao_show = 'bloco_final' WHERE final_boss = 0 AND momento = 'fechamento'");
+    await c.execute("UPDATE songs SET posicao_show = 'bloco_inicial' WHERE final_boss = 0 AND momento = 'meio'");
+    console.log("  ↳ backfill posicao_show a partir de momento/final_boss");
+  }
+}
 
 // --- tabelas ---
 await c.execute(`CREATE TABLE IF NOT EXISTS show_song_feedback (

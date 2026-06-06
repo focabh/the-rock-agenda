@@ -41,6 +41,27 @@ const songSchema = z.object({
 });
 
 const MOMENTOS = ["qualquer", "abertura", "meio", "fechamento"] as const;
+const POSICOES_SHOW = ["qualquer", "abertura", "bloco_inicial", "bloco_final", "encerramento"] as const;
+type PosicaoShow = (typeof POSICOES_SHOW)[number];
+
+/** A posição (campo único) deriva momento + finalBoss, que o gerador/arranjo já usam. */
+function derivarMomentoFinal(pos: PosicaoShow): {
+  momento: (typeof MOMENTOS)[number];
+  finalBoss: boolean;
+} {
+  switch (pos) {
+    case "abertura":
+      return { momento: "abertura", finalBoss: false };
+    case "bloco_inicial":
+      return { momento: "meio", finalBoss: false };
+    case "bloco_final":
+      return { momento: "fechamento", finalBoss: false };
+    case "encerramento":
+      return { momento: "fechamento", finalBoss: true };
+    default:
+      return { momento: "qualquer", finalBoss: false };
+  }
+}
 
 /** "3:45" ou "225" → segundos. Vazio/invalid → null. */
 function parseDuracao(input: string): number | null {
@@ -55,19 +76,22 @@ function parseDuracao(input: string): number | null {
 /** Metadados de setlist vindos do form (campos extras, fora do songSchema). */
 function extractSongMeta(fd: FormData) {
   const energia = Number(fd.get("energia"));
-  const momentoRaw = String(fd.get("momento") ?? "qualquer");
+  const posRaw = String(fd.get("posicaoShow") ?? "qualquer");
+  const posicaoShow: PosicaoShow = (POSICOES_SHOW as readonly string[]).includes(posRaw)
+    ? (posRaw as PosicaoShow)
+    : "qualquer";
+  const { momento, finalBoss } = derivarMomentoFinal(posicaoShow);
   // Só presente quando o usuário "puxou do Spotify" no form — caso contrário
   // não tocamos no spotifyTrackId existente.
   const spId = String(fd.get("spotifyTrackId") ?? "").trim();
   return {
     duracaoSeg: parseDuracao(String(fd.get("duracao") ?? "")),
     energia: energia >= 1 && energia <= 3 ? energia : null,
-    momento: (MOMENTOS as readonly string[]).includes(momentoRaw)
-      ? (momentoRaw as (typeof MOMENTOS)[number])
-      : "qualquer",
+    posicaoShow,
+    momento,
+    finalBoss,
     conhecida: fd.get("conhecida") === "on",
     exigeVocal: fd.get("exigeVocal") === "on",
-    finalBoss: fd.get("finalBoss") === "on",
     dropada: fd.get("dropada") === "on",
     tom: String(fd.get("tom") ?? "").trim() || null,
     estilo: String(fd.get("estilo") ?? "").trim() || null,

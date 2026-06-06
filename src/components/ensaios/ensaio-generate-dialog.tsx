@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Wand2, Loader2, Target, CalendarCheck } from "lucide-react";
+import { Wand2, Loader2, Target, CalendarCheck, ListMusic } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   gerarEnsaioSetlistAction,
+  gerarShowNoEnsaioAction,
   simularShowNoEnsaioAction,
 } from "@/app/(app)/ensaios/[id]/actions-setlist";
 
@@ -47,6 +48,29 @@ export function EnsaioGenerateDialog({
   const [levesComeco, setLevesComeco] = useState(true);
   const [showId, setShowId] = useState(simular?.defaultShowId ?? "");
   const [pending, start] = useTransition();
+  // "Montar set de show" — opções próprias
+  const [showMin, setShowMin] = useState(90);
+  const [showConhecidas, setShowConhecidas] = useState(true);
+  const [showPesadas, setShowPesadas] = useState(false);
+  const [showLeves, setShowLeves] = useState(true);
+
+  function montarShow() {
+    start(async () => {
+      const r = await gerarShowNoEnsaioAction(rehearsalId, setlistId, {
+        targetMin: showMin,
+        seed: Date.now() % 2147483647 || 1,
+        priConhecidas: showConhecidas,
+        priPesadas: showPesadas,
+        levesNoComeco: showLeves,
+      });
+      if (r.ok) {
+        toast.success(`Set de show montado: ${r.count} música(s). Toque "Montar" de novo pra outra opção.`);
+        setOpen(false);
+      } else {
+        toast.error("Não foi possível montar o set.");
+      }
+    });
+  }
 
   function gerar() {
     start(async () => {
@@ -99,6 +123,9 @@ export function EnsaioGenerateDialog({
             <TabsTrigger value="treino">
               <Target className="size-4" /> Treino
             </TabsTrigger>
+            <TabsTrigger value="montar">
+              <ListMusic className="size-4" /> Montar set de show
+            </TabsTrigger>
             {simular && simular.shows.length > 0 && (
               <TabsTrigger value="simular">
                 <CalendarCheck className="size-4" /> Simular show
@@ -133,6 +160,38 @@ export function EnsaioGenerateDialog({
               <Button onClick={gerar} disabled={pending}>
                 {pending ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
                 {pending ? "Gerando…" : "Gerar treino"}
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="montar" className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              O app monta um set no <strong>estilo show</strong> (curva de energia, abre/fecha,
+              drops agrupados) usando a <strong>posição no show</strong> de cada música. Bom pra
+              ensaiar um set possível e ir ajustando. Cada clique gera uma variação.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="show-alvo">Duração-alvo (min)</Label>
+              <Input id="show-alvo" type="number" min={5} max={300} step={5} value={showMin} onChange={(e) => setShowMin(Number(e.target.value) || 90)} className="w-28" />
+            </div>
+            <div className="space-y-2 text-sm">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input type="checkbox" checked={showConhecidas} onChange={(e) => setShowConhecidas(e.target.checked)} className="size-4 accent-red-600" />
+                Priorizar conhecidas (mais hits)
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input type="checkbox" checked={showPesadas} onChange={(e) => setShowPesadas(e.target.checked)} className="size-4 accent-red-600" />
+                Priorizar pesadas
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input type="checkbox" checked={showLeves} onChange={(e) => setShowLeves(e.target.checked)} className="size-4 accent-red-600" />
+                Começar mais leve
+              </label>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={montarShow} disabled={pending}>
+                {pending ? <Loader2 className="size-4 animate-spin" /> : <ListMusic className="size-4" />}
+                {pending ? "Montando…" : "Montar set de show"}
               </Button>
             </div>
           </TabsContent>

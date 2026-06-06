@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { setlists, setlistItems, songs } from "@/db/schema";
 import { requireSuperuser } from "@/lib/auth";
 import { arrangeSetlist } from "@/lib/setlist-arrange";
-import { generateEnsaioSetlist } from "@/lib/setlist-generator";
+import { generateEnsaioSetlist, generateSetlist } from "@/lib/setlist-generator";
 
 // Setlist de ENSAIO: mesma estrutura do show, mas ligado a um rehearsal e sem
 // duração-alvo (ensaio não tem tempo a cumprir).
@@ -168,6 +168,59 @@ export async function gerarEnsaioSetlistAction(
   }
   rev(rehearsalId);
   return { ok: true, count: finalIds.length };
+}
+
+/** "Montar set de show" no ensaio: o app GERA um setlist no estilo show (curva de
+ *  energia, abertura/encerramento, drops agrupados) usando a posição-no-show de
+ *  cada música — pra banda ensaiar um set possível e ir ajustando. Cada clique
+ *  varia (seed). Substitui o set atual. Grátis (heurística, sem IA, sem casa). */
+export async function gerarShowNoEnsaioAction(
+  rehearsalId: string,
+  setlistId: string,
+  opts: {
+    targetMin: number;
+    seed: number;
+    priConhecidas: boolean;
+    priPesadas: boolean;
+    levesNoComeco: boolean;
+  }
+): Promise<{ ok: boolean; count: number }> {
+  await requireSuperuser();
+  const all = await db.select().from(songs);
+  const gen = generateSetlist(
+    all.map((s) => ({
+      id: s.id,
+      status: s.status,
+      duracaoSeg: s.duracaoSeg,
+      energia: s.energia,
+      conhecida: s.conhecida,
+      exigeVocal: s.exigeVocal,
+      momento: s.momento,
+      finalBoss: s.finalBoss,
+      artista: s.artista,
+      dropada: s.dropada,
+      popularidade: s.popularidade,
+    })),
+    {
+      targetSeg: Math.max(5, Math.min(600, opts.targetMin)) * 60,
+      venueTags: [],
+      priConhecidas: opts.priConhecidas,
+      priPesadas: opts.priPesadas,
+      priAlternativas: false,
+      levesNoComeco: opts.levesNoComeco,
+      evitarVocalDificil: false,
+      ordem: "equilibrada",
+      evitarRepetir: false,
+      avoidIds: [],
+      seed: opts.seed || 1,
+    }
+  );
+  await db.delete(setlistItems).where(eq(setlistItems.setlistId, setlistId));
+  for (let i = 0; i < gen.orderedIds.length; i++) {
+    await db.insert(setlistItems).values({ setlistId, songId: gen.orderedIds[i], ordem: i });
+  }
+  rev(rehearsalId);
+  return { ok: true, count: gen.orderedIds.length };
 }
 
 /** "Simular show": copia o setlist de um show específico pro setlist de ensaio
