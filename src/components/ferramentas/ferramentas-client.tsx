@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Mic, Play, Pause, Minus, Plus, Guitar, Search, Save, Volume2 } from "lucide-react";
+import { Mic, Play, Pause, Minus, Plus, Guitar, Search, Save, Volume2, VolumeX, Maximize2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -164,6 +164,10 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
   const [sigId, setSigId] = useState("4/4");
   const [beat, setBeat] = useState(0);
   const [vol, setVol] = useState(0.8);
+  const [mudo, setMudo] = useState(false);
+  // Modo visual (tela cheia): a tela pisca no tempo — pra batera de in-ear.
+  const [visual, setVisual] = useState(false);
+  const [flash, setFlash] = useState<{ on: boolean; acc: boolean }>({ on: false, acc: false });
   const [busca, setBusca] = useState("");
   const [selId, setSelId] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -175,8 +179,11 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
   const bpmRef = useRef(bpm);
   const sigRef = useRef<Sig>(SIGS[0]);
   const volRef = useRef(vol);
+  const mudoRef = useRef(mudo);
+  const runningRef = useRef(false);
   const tapsRef = useRef<number[]>([]);
   bpmRef.current = bpm;
+  mudoRef.current = mudo;
   const sig = SIGS.find((s) => s.id === sigId) ?? SIGS[0];
   sigRef.current = sig;
   volRef.current = vol;
@@ -193,7 +200,8 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.frequency.value = acento ? 1500 : 900;
-    const peak = Math.max(0.0001, (acento ? 0.5 : 0.32) * volRef.current);
+    const v = mudoRef.current ? 0 : volRef.current; // mudo = só visual
+    const peak = Math.max(0.0001, (acento ? 0.5 : 0.32) * v);
     g.gain.setValueAtTime(peak, time);
     g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
     osc.connect(g);
@@ -207,8 +215,20 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
     while (nextNoteRef.current < ctx.currentTime + 0.1) {
       const beats = sigRef.current.beats;
       const pos = beatRef.current % beats;
-      click(nextNoteRef.current, sigRef.current.accents.includes(pos));
-      setBeat(pos);
+      const acc = sigRef.current.accents.includes(pos);
+      const t = nextNoteRef.current;
+      click(t, acc);
+      // Agenda o flash/contagem pro INSTANTE do clique (preciso, não adiantado).
+      const delay = Math.max(0, (t - ctx.currentTime) * 1000);
+      window.setTimeout(() => {
+        if (!runningRef.current) return;
+        setBeat(pos);
+        setFlash({ on: true, acc });
+      }, delay);
+      window.setTimeout(() => {
+        if (!runningRef.current) return;
+        setFlash((f) => ({ ...f, on: false }));
+      }, delay + 90);
       nextNoteRef.current += 60 / bpmRef.current;
       beatRef.current = (beatRef.current + 1) % beats;
     }
@@ -218,6 +238,7 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
   async function start() {
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     ctxRef.current = ctx;
+    runningRef.current = true;
     setTocando(true);
     await prepareAudioContext(ctx); // destrava no mobile (resume + iOS silencioso)
     if (ctxRef.current !== ctx) return; // parou enquanto destravava
@@ -226,11 +247,13 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
     scheduler();
   }
   function stop() {
+    runningRef.current = false;
     setTocando(false);
     if (timerRef.current) clearTimeout(timerRef.current);
     ctxRef.current?.close().catch(() => {});
     ctxRef.current = null;
     setBeat(0);
+    setFlash({ on: false, acc: false });
   }
   function toggle() {
     if (tocando) stop();
@@ -269,6 +292,44 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
 
   useEffect(() => () => stop(), []);
 
+  // Tela visual ligada → mantém a tela acesa (não dorme no meio do ensaio).
+  useEffect(() => {
+    if (!visual) return;
+    let lock: { release?: () => Promise<void> } | null = null;
+    const req = async () => {
+      try {
+        lock = (await navigator.wakeLock?.request("screen")) ?? null;
+      } catch {
+        /* sem suporte */
+      }
+    };
+    req();
+    const onVis = () => document.visibilityState === "visible" && visual && req();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      lock?.release?.().catch(() => {});
+    };
+  }, [visual]);
+
+  function enterVisual() {
+    setVisual(true);
+    if (!tocando) start();
+    try {
+      document.documentElement.requestFullscreen?.();
+    } catch {
+      /* ignore */
+    }
+  }
+  function exitVisual() {
+    setVisual(false);
+    try {
+      if (document.fullscreenElement) document.exitFullscreen?.();
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
     <div className="space-y-5 text-center">
       <Card className="py-8">
@@ -301,6 +362,9 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
           {tocando ? "Parar" : "Iniciar"}
         </Button>
         <Button variant="outline" onClick={tap}>Tap tempo</Button>
+        <Button variant="outline" onClick={enterVisual} title="Metrônomo visual em tela cheia (pra in-ear)">
+          <Maximize2 className="size-4" /> Visual
+        </Button>
         <div className="inline-flex overflow-hidden rounded-full ring-1 ring-border">
           {SIGS.map((s) => (
             <button key={s.id} onClick={() => setSigId(s.id)} className={cn("px-3 py-1.5 text-sm font-semibold", sigId === s.id ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
@@ -359,7 +423,47 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
         )}
       </div>
 
-      <p className="text-[11px] text-muted-foreground">Toque "Tap tempo" no ritmo da música; busque uma música pra carregar/salvar o BPM dela.</p>
+      <p className="text-[11px] text-muted-foreground">Toque "Tap tempo" no ritmo da música; busque uma música pra carregar/salvar o BPM dela. <strong className="text-foreground">Visual</strong> abre o metrônomo em tela cheia (pra in-ear).</p>
+
+      {/* Metrônomo VISUAL em tela cheia — a tela pisca no tempo (tempo 1 em âmbar). */}
+      {visual && (
+        <div
+          className="fixed inset-0 z-100 flex select-none flex-col items-center justify-center transition-colors duration-75"
+          style={{ backgroundColor: flash.on ? (flash.acc ? "#f59e0b" : "#e4e4e7") : "#09090b" }}
+          onClick={() => (tocando ? stop() : start())}
+        >
+          <div className="pointer-events-none text-center leading-none">
+            <div
+              className={cn("font-mono font-black tabular-nums", flash.on ? "text-zinc-950" : "text-zinc-100")}
+              style={{ fontSize: "40vmin", lineHeight: 1 }}
+            >
+              {tocando ? beat + 1 : "•"}
+            </div>
+            <p className={cn("mt-3 text-xl font-semibold", flash.on ? "text-zinc-900" : "text-zinc-400")}>
+              {bpm} BPM · {sig.label}{mudo ? " · mudo" : ""}
+            </p>
+            <p className={cn("mt-1 text-sm", flash.on ? "text-zinc-800/80" : "text-zinc-500")}>
+              {tocando ? "toque na tela pra parar" : "toque na tela pra iniciar"}
+            </p>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] flex flex-wrap items-center justify-center gap-2 px-4">
+            <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setBpmClamp(bpm - 1); }}><Minus className="size-4" /></Button>
+            <Button onClick={(e) => { e.stopPropagation(); toggle(); }} className={cn("min-w-28", tocando && "bg-red-600 hover:bg-red-700")}>
+              {tocando ? <Pause className="size-4" /> : <Play className="size-4" />}
+              {tocando ? "Parar" : "Iniciar"}
+            </Button>
+            <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setBpmClamp(bpm + 1); }}><Plus className="size-4" /></Button>
+            <Button variant="outline" onClick={(e) => { e.stopPropagation(); setMudo((m) => !m); }}>
+              {mudo ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+              {mudo ? "Mudo" : "Som"}
+            </Button>
+            <Button variant="outline" onClick={(e) => { e.stopPropagation(); exitVisual(); }}>
+              <X className="size-4" /> Sair
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
