@@ -827,14 +827,21 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
               </div>
               <button
                 onClick={() => setMetroOn((v) => !v)}
-                className={`size-11 ${ctrlBtn} ${metroOn ? "text-amber-400" : ""}`}
+                className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-bold ring-1 transition-colors ${
+                  metroOn
+                    ? "bg-amber-400 text-black ring-amber-400"
+                    : "text-white/70 ring-white/25 hover:text-white"
+                }`}
                 title={
                   songs[current]?.bpm
-                    ? `Metrônomo ${metroOn ? "ligado" : "desligado"} · ${songs[current]?.bpm} BPM`
-                    : "Metrônomo (música sem BPM cadastrado)"
+                    ? `Metrônomo: marca o tempo da música (som + moldura piscando) a ${songs[current]?.bpm} BPM. Toque pra ${metroOn ? "desligar" : "ligar"}.`
+                    : "Metrônomo — esta música não tem BPM cadastrado (defina no repertório)"
                 }
               >
-                <MetronomeIcon className="size-5" />
+                <MetronomeIcon className="size-4" />
+                <span className="font-mono">
+                  {songs[current]?.bpm ? songs[current]?.bpm : "BPM"}
+                </span>
               </button>
               <button onClick={() => setShowList(true)} className={`size-11 ${ctrlBtn}`} title="Lista de músicas">
                 <ListMusic className="size-5" />
