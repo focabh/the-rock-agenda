@@ -78,6 +78,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [alertMode, setAlertMode] = useState<AlertMode>("show"); // avisos: padrão discreto (Show)
   const [metroOn, setMetroOn] = useState(true); // metrônomo automático (BPM da música)
   const [metroBeat, setMetroBeat] = useState(-1);
+  // Pulso pra moldura piscar no tempo (visual, ajuda quem está de in-ear).
+  const [metroPulse, setMetroPulse] = useState<{ on: boolean; acc: boolean }>({ on: false, acc: false });
   const [activeIdx, setActiveIdx] = useState(-1); // linha ativa (modo sincronizado)
   const [rateView, setRateView] = useState(1); // ritmo do sync (1 = igual à gravação)
   const [songSec, setSongSec] = useState(0); // cronômetro do tempo-música (modo sync)
@@ -263,6 +265,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     const bpm = songs[current]?.bpm ?? null;
     if (!open || !playing || !metroOn || !bpm || bpm <= 0) {
       setMetroBeat(-1);
+      setMetroPulse({ on: false, acc: false });
       return;
     }
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -285,8 +288,19 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     const loop = () => {
       while (next < ctx.currentTime + 0.12) {
         const pos = beat % 4;
-        tickSound(next, pos === 0);
-        setMetroBeat(pos);
+        const acc = pos === 0;
+        tickSound(next, acc);
+        // Beat + pulso da moldura agendados pro instante exato do clique.
+        const delay = Math.max(0, (next - ctx.currentTime) * 1000);
+        window.setTimeout(() => {
+          if (cancelled) return;
+          setMetroBeat(pos);
+          setMetroPulse({ on: true, acc });
+        }, delay);
+        window.setTimeout(() => {
+          if (cancelled) return;
+          setMetroPulse((p) => ({ ...p, on: false }));
+        }, delay + 90);
         next += 60 / bpm;
         beat = (beat + 1) % 4;
       }
@@ -303,6 +317,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       clearTimeout(timer);
       ctx.close().catch(() => {});
       setMetroBeat(-1);
+      setMetroPulse({ on: false, acc: false });
     };
   }, [open, playing, metroOn, current, songs]);
 
@@ -546,6 +561,19 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
               <X className="size-4" /> Sair
             </button>
           </div>
+
+          {/* Metrônomo visual: moldura pisca no tempo (âmbar no tempo 1) — ajuda
+              quem está de in-ear a seguir o andamento sem depender do som. */}
+          {metroOn && (
+            <div
+              className="pointer-events-none absolute inset-0 z-10 transition-shadow duration-75"
+              style={{
+                boxShadow: metroPulse.on
+                  ? `inset 0 0 0 10px ${metroPulse.acc ? "rgba(245,158,11,0.85)" : "rgba(255,255,255,0.45)"}`
+                  : "inset 0 0 0 10px transparent",
+              }}
+            />
+          )}
 
           {/* Metrônomo: bolinhas discretas no topo (sempre visíveis durante o play) */}
           {metroOn && metroBeat >= 0 && (
