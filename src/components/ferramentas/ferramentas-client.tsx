@@ -167,6 +167,8 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
   const [mudo, setMudo] = useState(false);
   // Modo visual (tela cheia): a tela pisca no tempo — pra batera de in-ear.
   const [visual, setVisual] = useState(false);
+  // "borda" = discreto (só a moldura pisca); "tela" = a tela inteira pisca.
+  const [visualMode, setVisualMode] = useState<"borda" | "tela">("borda");
   const [flash, setFlash] = useState<{ on: boolean; acc: boolean }>({ on: false, acc: false });
   const [busca, setBusca] = useState("");
   const [selId, setSelId] = useState<string | null>(null);
@@ -429,23 +431,50 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
       {visual && (
         <div
           className="fixed inset-0 z-100 flex select-none flex-col items-center justify-center transition-colors duration-75"
-          style={{ backgroundColor: flash.on ? (flash.acc ? "#f59e0b" : "#e4e4e7") : "#09090b" }}
+          style={{
+            backgroundColor:
+              visualMode === "tela" && flash.on ? (flash.acc ? "#f59e0b" : "#e4e4e7") : "#09090b",
+          }}
           onClick={() => (tocando ? stop() : start())}
         >
-          <div className="pointer-events-none text-center leading-none">
+          {/* Modo borda: só a moldura pisca (discreto) */}
+          {visualMode === "borda" && (
             <div
-              className={cn("font-mono font-black tabular-nums", flash.on ? "text-zinc-950" : "text-zinc-100")}
-              style={{ fontSize: "40vmin", lineHeight: 1 }}
-            >
-              {tocando ? beat + 1 : "•"}
-            </div>
-            <p className={cn("mt-3 text-xl font-semibold", flash.on ? "text-zinc-900" : "text-zinc-400")}>
-              {bpm} BPM · {sig.label}{mudo ? " · mudo" : ""}
-            </p>
-            <p className={cn("mt-1 text-sm", flash.on ? "text-zinc-800/80" : "text-zinc-500")}>
-              {tocando ? "toque na tela pra parar" : "toque na tela pra iniciar"}
-            </p>
-          </div>
+              className="pointer-events-none absolute inset-0 transition-shadow duration-75"
+              style={{
+                boxShadow: flash.on
+                  ? `inset 0 0 0 18px ${flash.acc ? "#f59e0b" : "#e4e4e7"}`
+                  : "inset 0 0 0 18px transparent",
+              }}
+            />
+          )}
+
+          {(() => {
+            const claroFundo = visualMode === "tela" && flash.on;
+            const numCls = claroFundo
+              ? "text-zinc-950"
+              : flash.on
+                ? flash.acc
+                  ? "text-amber-400"
+                  : "text-zinc-100"
+                : "text-zinc-600";
+            return (
+              <div className="pointer-events-none text-center leading-none">
+                <div
+                  className={cn("font-mono font-black tabular-nums transition-colors duration-75", numCls)}
+                  style={{ fontSize: "40vmin", lineHeight: 1 }}
+                >
+                  {tocando ? beat + 1 : "•"}
+                </div>
+                <p className={cn("mt-3 text-xl font-semibold", claroFundo ? "text-zinc-900" : "text-zinc-400")}>
+                  {bpm} BPM · {sig.label}{mudo ? " · mudo" : ""}
+                </p>
+                <p className={cn("mt-1 text-sm", claroFundo ? "text-zinc-800/80" : "text-zinc-500")}>
+                  {tocando ? "toque na tela pra parar" : "toque na tela pra iniciar"}
+                </p>
+              </div>
+            );
+          })()}
 
           <div className="absolute inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] flex flex-wrap items-center justify-center gap-2 px-4">
             <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setBpmClamp(bpm - 1); }}><Minus className="size-4" /></Button>
@@ -457,6 +486,9 @@ function Metronomo({ songs }: { songs: SongTempo[] }) {
             <Button variant="outline" onClick={(e) => { e.stopPropagation(); setMudo((m) => !m); }}>
               {mudo ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
               {mudo ? "Mudo" : "Som"}
+            </Button>
+            <Button variant="outline" onClick={(e) => { e.stopPropagation(); setVisualMode((m) => (m === "borda" ? "tela" : "borda")); }} title="Alternar entre moldura piscando e tela cheia">
+              {visualMode === "borda" ? "Borda" : "Tela"}
             </Button>
             <Button variant="outline" onClick={(e) => { e.stopPropagation(); exitVisual(); }}>
               <X className="size-4" /> Sair
