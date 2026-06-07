@@ -21,6 +21,7 @@ _*.mts
 
 # testing
 /coverage
+/resp-report
 
 # next.js
 /.next/
