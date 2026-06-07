@@ -66,8 +66,8 @@ export function ShowResumo({
           </CardContent>
         </Card>
       )}
-      <div className="grid md:grid-cols-3 gap-4">
-      <Card className="md:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <Card className="lg:col-span-2">
         <CardContent className="py-5 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -110,7 +110,7 @@ export function ShowResumo({
             {formatDataExtensa(show.data)}
           </p>
 
-          <div className="grid sm:grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-sm">
             <p className="flex items-center gap-2">
               <Clock className="size-4 text-muted-foreground" />
               <span className="text-muted-foreground">Início:</span>

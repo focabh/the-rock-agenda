@@ -699,7 +699,7 @@ function SortableSetlistItem({
         isDragging && "z-10 shadow-lg ring-1 ring-primary/40"
       )}
     >
-      <div className="flex flex-col px-2 py-1.5 sm:flex-row sm:items-center sm:gap-2 sm:px-3 sm:py-2">
+      <div className="flex flex-col px-2 py-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:px-3 sm:py-2">
         {/* PRIMÁRIO — sempre visível: nº, prioridade, nome, emenda, letra */}
         <div className="flex items-center gap-1.5 sm:contents">
           {canEdit && (

@@ -404,7 +404,7 @@ export function SongList({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <div className="flex flex-col md:flex-row gap-2">
+        <div className="flex flex-col md:flex-row md:flex-wrap gap-2">
           <Input
             placeholder="Buscar por música ou artista..."
             value={q}
@@ -698,16 +698,17 @@ export function SongList({
 
                     <SongStatusBadge status={s.status} />
 
-                    {/* Desktop: ações inline */}
-                    <div className="hidden items-center gap-1 md:flex">
+                    {/* Desktop largo: ações inline (só quando há largura real;
+                        a sidebar come 240px, então só a partir de lg). */}
+                    <div className="hidden flex-wrap items-center justify-end gap-1 lg:flex">
                       {renderActions(s)}
                     </div>
 
-                    {/* Mobile: toca pra expandir o card */}
+                    {/* Telas menores: toca pra expandir o card */}
                     <button
                       type="button"
                       onClick={() => toggleMobileOpen(s.id)}
-                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent md:hidden"
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent lg:hidden"
                       title={mOpen ? "Recolher" : "Mais ações"}
                       aria-expanded={mOpen}
                       aria-label="Mais ações"
@@ -721,9 +722,9 @@ export function SongList({
                     </button>
                   </div>
 
-                  {/* Mobile: ações expandidas (accordion) */}
+                  {/* Telas menores: ações expandidas (accordion) */}
                   {mOpen && (
-                    <div className="flex flex-wrap items-center gap-2 border-t border-border bg-muted/10 px-4 py-2.5 md:hidden">
+                    <div className="flex flex-wrap items-center gap-2 border-t border-border bg-muted/10 px-4 py-2.5 lg:hidden">
                       {renderActions(s)}
                     </div>
                   )}
