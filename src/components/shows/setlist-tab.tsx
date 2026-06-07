@@ -23,7 +23,6 @@ import {
   TriangleAlert,
   Play,
   ExternalLink,
-  ChevronDown,
   CornerRightDown,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
@@ -684,7 +683,6 @@ function SortableSetlistItem({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: !canEdit });
   const [, startTransition] = useTransition();
   const [playing, setPlaying] = useState(false);
-  const [expanded, setExpanded] = useState(false); // card aberto no mobile
   const style = { transform: CSS.Transform.toString(transform), transition };
   const dur = item.duracaoSeg ?? item.song.duracaoSeg ?? 0;
   const trackId = item.song.spotifyTrackId;
@@ -699,9 +697,11 @@ function SortableSetlistItem({
         isDragging && "z-10 shadow-lg ring-1 ring-primary/40"
       )}
     >
-      <div className="flex flex-col px-2 py-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:px-3 sm:py-2">
-        {/* PRIMÁRIO — sempre visível: nº, prioridade, nome, emenda, letra */}
-        <div className="flex items-center gap-1.5 sm:contents">
+      {/* Linha em 2 NÍVEIS, tudo visível em qualquer largura: nome completo em
+          cima; controles na linha de baixo (com wrap). Sem accordion. */}
+      <div className="flex flex-col gap-1.5 px-3 py-2">
+        {/* NÍVEL 1 — nº, prioridade, nome, letra */}
+        <div className="flex items-center gap-1.5">
           {canEdit && (
             <button
               {...attributes}
@@ -731,16 +731,6 @@ function SortableSetlistItem({
             <p className="truncate text-xs text-muted-foreground">{item.song.artista}</p>
           </div>
 
-          {/* Emenda (lê de imediato): esta música cola na próxima, sem pausa. */}
-          {emenda && (
-            <span
-              className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary sm:hidden"
-              title="Emenda: cola na próxima música, sem pausa"
-            >
-              <CornerRightDown className="size-3" /> emenda
-            </span>
-          )}
-
           {/* Letra (sempre acessível) */}
           <LyricsDialog
             songId={item.song.id}
@@ -749,22 +739,11 @@ function SortableSetlistItem({
             spotifyTrackId={item.song.spotifyTrackId}
             admin={false}
           />
-
-          {/* Abrir/fechar detalhes — só no mobile */}
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted sm:hidden"
-            title={expanded ? "Menos opções" : "Mais opções"}
-            aria-label="Mais opções"
-          >
-            <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
-          </button>
         </div>
 
-        {/* SECUNDÁRIO — mobile: abre no toque; desktop: inline (sm:contents) */}
-        <div className={cn("mt-1.5 flex-wrap items-center gap-1.5 pl-7 sm:mt-0 sm:pl-0 sm:contents", expanded ? "flex" : "hidden")}>
-          <span className="hidden shrink-0 md:inline">
+        {/* NÍVEL 2 — controles, sempre visíveis, quebram em várias linhas se preciso */}
+        <div className="flex flex-wrap items-center gap-1.5 pl-7">
+          <span className="shrink-0">
             <SongStatusBadge status={item.song.status} />
           </span>
 
