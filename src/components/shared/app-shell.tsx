@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { SidebarNav } from "./sidebar-nav";
+import { OfflineStatusPill, DownloadOfflineButton } from "@/components/offline/offline-controls";
 import { logoutAction } from "@/app/(auth)/actions";
 
 function Brand({ logoUrl }: { logoUrl: string }) {
@@ -43,6 +44,10 @@ function SidebarContent({ username, role, displayName, logoUrl, onNavigate }: Si
         <SidebarNav onNavigate={onNavigate} isAdmin={role === "admin"} />
       </div>
       <Separator />
+      <div className="px-3 pt-3 flex flex-col gap-2">
+        <OfflineStatusPill className="self-start" />
+        <DownloadOfflineButton className="w-full justify-center" />
+      </div>
       <div className="p-3 flex items-center justify-between gap-2">
         <Link
           href="/conta"
@@ -115,7 +120,11 @@ export function AppShell({
         <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={appBackgroundUrl} alt="" className="size-full object-cover" />
-          <div className="absolute inset-0 bg-linear-to-b from-black/55 to-black/30" />
+          {/* Scrim de leitura. No MOBILE tudo é full-width e o fundo (que pode ter
+              texto/grafismo embutido) aparece inteiro atrás dos painéis vidro e dos
+              títulos sem card → o texto do fundo colidia com o da UI. Scrim bem mais
+              forte no celular; no desktop (sm+) volta a ser leve pra preservar o efeito. */}
+          <div className="absolute inset-0 bg-linear-to-b from-black/80 to-black/65 sm:from-black/55 sm:to-black/30" />
         </div>
       )}
       {/* Desktop sidebar */}
@@ -155,6 +164,7 @@ export function AppShell({
             </div>
             <span className="text-sm font-semibold">The Rock</span>
           </div>
+          <OfflineStatusPill className="ml-auto" />
         </header>
 
         {/* Scroller principal. overflow-x-hidden + scrollbar-gutter:stable

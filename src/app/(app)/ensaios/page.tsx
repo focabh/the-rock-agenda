@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { asc } from "drizzle-orm";
-import { Plus, CalendarClock, ChevronRight, Pencil, MapPin } from "lucide-react";
+import { Plus, CalendarClock, Pencil, MapPin } from "lucide-react";
 import { db } from "@/db";
 import { rehearsals } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
@@ -20,35 +20,40 @@ function Row({ r, admin }: { r: Rehearsal; admin: boolean }) {
     <li className="flex items-center gap-2 pr-3">
       <Link
         href={`/ensaios/${r.id}`}
-        className="flex items-center gap-4 flex-1 min-w-0 px-5 py-4 hover:bg-accent/30"
+        className="flex items-center gap-3 flex-1 min-w-0 px-4 py-3 hover:bg-accent/30"
       >
-        <div className="flex flex-col items-center text-center w-16 shrink-0">
+        <div className="flex flex-col items-center text-center w-12 shrink-0">
           <span className="text-[10px] uppercase text-muted-foreground tracking-widest">
             {partes.mes}
           </span>
           <span className="text-2xl font-bold leading-none">{partes.dia}</span>
-          <span className="text-xs text-muted-foreground mt-1">
-            {partes.ano}
-          </span>
+          <span className="text-xs text-muted-foreground mt-0.5">{partes.ano}</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">
+        {/* Conteúdo em 2 níveis pra caber no mobile sem cortar: foco (até 2
+            linhas) + status; embaixo horário e local com largura total. */}
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="font-medium leading-snug line-clamp-3">
             {r.foco || "Ensaio"}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <EnsaioStatusBadge status={r.status} />
             {r.inicio && (
-              <span className="font-mono text-muted-foreground ml-2 text-sm">
+              <span className="font-mono">
                 {r.inicio}
                 {r.termino ? `–${r.termino}` : ""}
               </span>
             )}
-          </p>
-          <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
-            {(r.local || r.endereco) && <MapPin className="size-3.5 shrink-0" />}
-            {[r.local, r.endereco].filter(Boolean).join(" · ") ||
-              formatDataBR(r.data)}
-          </p>
+            {(r.local || r.endereco) && (
+              <span className="inline-flex min-w-0 items-center gap-1">
+                <MapPin className="size-3.5 shrink-0" />
+                <span className="truncate">{r.local || r.endereco}</span>
+              </span>
+            )}
+            {!r.inicio && !r.local && !r.endereco && (
+              <span>{formatDataBR(r.data)}</span>
+            )}
+          </div>
         </div>
-        <EnsaioStatusBadge status={r.status} />
-        <ChevronRight className="size-4 text-muted-foreground shrink-0" />
       </Link>
       {admin && (
         <>

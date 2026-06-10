@@ -146,37 +146,45 @@ select optgroup {
 /* O desfoque (backdrop-blur) é caro na GPU. Aplicamos blur SÓ nos painéis
    principais (cards + sidebar), com raio menor (8px), pra ficar liso até em
    celular de entrada. Botões/campos mantêm só a transparência (sem blur). */
-[data-glass] .bg-card,
-[data-glass] [data-slot="card"] {
-  background-color: color-mix(in oklab, var(--card) var(--surface-opacity, 100%), transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-[data-glass] .bg-sidebar {
-  background-color: color-mix(in oklab, var(--sidebar) var(--surface-opacity, 100%), transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-/* Botões e campos: só a transparência (sem blur, pra não pesar). */
-[data-glass] .bg-background {
-  background-color: color-mix(in oklab, var(--background) var(--surface-opacity, 100%), transparent);
-}
-[data-glass] .bg-secondary {
-  background-color: color-mix(in oklab, var(--secondary) var(--surface-opacity, 100%), transparent);
-}
-[data-glass] .bg-accent {
-  background-color: color-mix(in oklab, var(--accent) var(--surface-opacity, 100%), transparent);
-}
-/* Ações (primário/destrutivo) acompanham, mas mais opacas pra não perder força. */
-[data-glass] .bg-primary {
-  background-color: color-mix(in oklab, var(--primary) calc(var(--surface-opacity, 100%) + 22%), transparent);
-}
-[data-glass] .bg-destructive {
-  background-color: color-mix(in oklab, var(--destructive) calc(var(--surface-opacity, 100%) + 22%), transparent);
-}
-/* Blocos internos sutis (muted) — um pouco mais opacos pra leitura. */
-[data-glass] .bg-muted\/30,
-[data-glass] .bg-muted\/20,
-[data-glass] .bg-muted\/10 {
-  background-color: color-mix(in oklab, var(--muted) calc(var(--surface-opacity, 100%) + 12%), transparent);
+/* IMPORTANTE: o vidro só vale do desktop (sm+) pra cima. No MOBILE tudo é
+   full-width empilhado e o fundo (que pode ter texto/grafismo embutido) aparece
+   inteiro atrás dos painéis e dos títulos sem card — translucidez ali faz o
+   texto do fundo colidir com o da UI. Então no celular as superfícies ficam
+   SÓLIDAS (legibilidade vence); o efeito vidro continua no desktop, onde o fundo
+   aparece mais nas margens/sidebar. */
+@media (min-width: 640px) {
+  [data-glass] .bg-card,
+  [data-glass] [data-slot="card"] {
+    background-color: color-mix(in oklab, var(--card) var(--surface-opacity, 100%), transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  [data-glass] .bg-sidebar {
+    background-color: color-mix(in oklab, var(--sidebar) var(--surface-opacity, 100%), transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  /* Botões e campos: só a transparência (sem blur, pra não pesar). */
+  [data-glass] .bg-background {
+    background-color: color-mix(in oklab, var(--background) var(--surface-opacity, 100%), transparent);
+  }
+  [data-glass] .bg-secondary {
+    background-color: color-mix(in oklab, var(--secondary) var(--surface-opacity, 100%), transparent);
+  }
+  [data-glass] .bg-accent {
+    background-color: color-mix(in oklab, var(--accent) var(--surface-opacity, 100%), transparent);
+  }
+  /* Ações (primário/destrutivo) acompanham, mas mais opacas pra não perder força. */
+  [data-glass] .bg-primary {
+    background-color: color-mix(in oklab, var(--primary) calc(var(--surface-opacity, 100%) + 22%), transparent);
+  }
+  [data-glass] .bg-destructive {
+    background-color: color-mix(in oklab, var(--destructive) calc(var(--surface-opacity, 100%) + 22%), transparent);
+  }
+  /* Blocos internos sutis (muted) — um pouco mais opacos pra leitura. */
+  [data-glass] .bg-muted\/30,
+  [data-glass] .bg-muted\/20,
+  [data-glass] .bg-muted\/10 {
+    background-color: color-mix(in oklab, var(--muted) calc(var(--surface-opacity, 100%) + 12%), transparent);
+  }
 }

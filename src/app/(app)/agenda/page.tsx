@@ -6,12 +6,15 @@ import {
   memberUnavailability,
   rehearsals,
 } from "@/db/schema";
+import { CalendarDays } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { MonthGrid } from "@/components/agenda/month-grid";
 import { MonthNav } from "@/components/agenda/month-nav";
+import { CalendarSubscribe } from "@/components/agenda/calendar-subscribe";
 import { Card, CardContent } from "@/components/ui/card";
 import { colorForMember, brDateKey } from "@/lib/conflicts";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getOrCreateCalendarToken } from "@/lib/calendar";
 
 function parseMonth(m?: string): { year: number; month: number } {
   if (m && /^\d{4}-\d{2}$/.test(m)) {
@@ -75,6 +78,7 @@ export default async function AgendaPage({
     ]);
 
   const admin = isAdmin(currentUser);
+  const calendarToken = admin ? await getOrCreateCalendarToken() : null;
 
   return (
     <div>
@@ -85,6 +89,17 @@ export default async function AgendaPage({
       />
 
       <div className="p-6 space-y-4">
+        {admin && calendarToken && (
+          <Card>
+            <CardContent className="py-4">
+              <p className="mb-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <CalendarDays className="size-4" /> Sincronizar com sua agenda
+              </p>
+              <CalendarSubscribe token={calendarToken} />
+            </CardContent>
+          </Card>
+        )}
+
         <MonthGrid
           year={year}
           month={month}

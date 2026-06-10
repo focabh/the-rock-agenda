@@ -23,6 +23,7 @@ import {
   deleteGastoAction,
   getGastoComprovanteAction,
 } from "@/app/(app)/gastos/actions";
+import { isRealComprovante } from "@/lib/comprovante";
 
 type Row = {
   id: string;
@@ -164,6 +165,7 @@ function ComprovanteViewer({
     };
   }, [gastoId]);
 
+  const isReal = isRealComprovante(url);
   const isPdf = url?.startsWith("data:application/pdf");
 
   return (
@@ -179,20 +181,20 @@ function ComprovanteViewer({
           <p className="text-sm text-muted-foreground py-6 text-center">
             <Wallet className="size-5 mx-auto mb-2 opacity-50" /> Carregando…
           </p>
-        ) : !url ? (
+        ) : !isReal ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            Sem comprovante.
+            {url ? "Importado — sem comprovante anexado." : "Sem comprovante."}
           </p>
         ) : isPdf ? (
           <iframe
-            src={url}
+            src={url ?? undefined}
             title="Comprovante PDF"
             className="h-[60vh] w-full rounded-md border border-border"
           />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={url}
+            src={url ?? undefined}
             alt="Comprovante"
             className="max-h-[70vh] w-full rounded-md object-contain"
           />

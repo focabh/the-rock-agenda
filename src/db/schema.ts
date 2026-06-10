@@ -98,6 +98,9 @@ export const appSettings = sqliteTable("app_settings", {
   })
     .notNull()
     .default(false),
+  // Token secreto do feed .ics público (assinatura no Google/Apple Calendar).
+  // Gerado sob demanda; quem tem a URL vê a agenda (acesso por obscuridade).
+  calendarToken: text("calendar_token"),
   updatedAt: updatedAt(),
 });
 

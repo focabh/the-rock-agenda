@@ -10,7 +10,12 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx --env-file=.env.local src/db/seed.ts"
+    "db:seed": "tsx --env-file=.env.local src/db/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "tsc --noEmit && vitest run",
+    "sanity": "node scripts/sanity.mjs",
+    "test:e2e": "node scripts/regression.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -54,8 +59,11 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "drizzle-kit": "^0.31.10",
+    "fake-indexeddb": "^6.2.5",
+    "playwright": "^1.60.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }

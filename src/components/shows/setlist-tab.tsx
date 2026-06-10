@@ -35,7 +35,6 @@ import { CuesDialog } from "@/components/repertorio/cues-dialog";
 import { MetronomeButton } from "@/components/shared/metronome-button";
 import { SongStatusBadge } from "@/components/shared/status-badge";
 import { parseCues } from "@/lib/lrc";
-import { setSongDropAction } from "@/app/(app)/repertorio/actions";
 import {
   DndContext,
   KeyboardSensor,
@@ -81,8 +80,6 @@ import { toast } from "sonner";
 import {
   addSongToSetlistAction,
   removeSetlistItemAction,
-  updateSetlistItemAction,
-  reorderSetlistItemsAction,
   createSetlistAction,
   updateSetlistAction,
   deleteSetlistAction,
@@ -91,14 +88,14 @@ import {
 import {
   addSongToEnsaioSetlistAction,
   removeEnsaioSetlistItemAction,
-  updateEnsaioSetlistItemAction,
-  reorderEnsaioSetlistItemsAction,
   createEnsaioSetlistAction,
   renameEnsaioSetlistAction,
   deleteEnsaioSetlistAction,
   reorganizeEnsaioSetlistAction,
   importarSetlistDeShowAction,
 } from "@/app/(app)/ensaios/[id]/actions-setlist";
+import { runOrQueue } from "@/lib/offline/mutations";
+import { KIND } from "@/lib/offline/actions-registry";
 import type { Song, SetlistItem, Setlist } from "@/db/schema";
 import { materialForPosicao, type PlayMaterial } from "@/lib/instrument-material";
 
@@ -161,26 +158,37 @@ export function SetlistTab({
     isEnsaio ? addSongToEnsaioSetlistAction(rehearsalId!, slId, songId) : addSongToSetlistAction(showId!, slId, songId);
   const aRemove = (itemId: string) =>
     isEnsaio ? removeEnsaioSetlistItemAction(rehearsalId!, itemId) : removeSetlistItemAction(showId!, itemId);
+  // Mutações que funcionam OFFLINE (enfileiram + replicam ao reconectar). O
+  // estado otimista local (localItems, dropOverride, emendaOverride, valor do
+  // Input de tom) já reflete a mudança na hora — o runOrQueue só garante que
+  // offline não estoura e que sincroniza depois.
   const aReorder = (ids: string[]) =>
-    isEnsaio ? reorderEnsaioSetlistItemsAction(rehearsalId!, ids) : reorderSetlistItemsAction(showId!, ids);
+    isEnsaio
+      ? runOrQueue(KIND.reorderEnsaioSetlistItems, [rehearsalId!, ids])
+      : runOrQueue(KIND.reorderSetlistItems, [showId!, ids]);
   const aTom = (itemId: string, tom: string | null) =>
-    isEnsaio ? updateEnsaioSetlistItemAction(rehearsalId!, itemId, { tom }) : updateSetlistItemAction(showId!, itemId, { tom });
+    isEnsaio
+      ? runOrQueue(KIND.updateEnsaioSetlistItem, [rehearsalId!, itemId, { tom }])
+      : runOrQueue(KIND.updateSetlistItem, [showId!, itemId, { tom }]);
   const aPrioridade = (itemId: string, prioridade: boolean) =>
-    updateEnsaioSetlistItemAction(rehearsalId!, itemId, { prioridade });
+    runOrQueue(KIND.updateEnsaioSetlistItem, [rehearsalId!, itemId, { prioridade }]);
   // DROP é propriedade da MÚSICA (songs.dropada): marcar/desmarcar aqui reflete
   // no repertório e em todos os setlists. Atualiza na hora (otimista) + persiste.
   const aDrop = (songId: string, dropada: boolean) => {
     setDropOverride((m) => ({ ...m, [songId]: dropada }));
-    startTransition(() => setSongDropAction(songId, dropada));
+    startTransition(() => {
+      void runOrQueue(KIND.setSongDrop, [songId, dropada]);
+    });
   };
   // "Emenda": esta música emenda na próxima (propriedade do item do setlist).
   const aEmenda = (itemId: string, emenda: boolean) => {
     setEmendaOverride((m) => ({ ...m, [itemId]: emenda }));
-    startTransition(() =>
-      isEnsaio
-        ? updateEnsaioSetlistItemAction(rehearsalId!, itemId, { emenda })
-        : updateSetlistItemAction(showId!, itemId, { emenda })
-    );
+    startTransition(() => {
+      void runOrQueue(
+        isEnsaio ? KIND.updateEnsaioSetlistItem : KIND.updateSetlistItem,
+        [isEnsaio ? rehearsalId! : showId!, itemId, { emenda }]
+      );
+    });
   };
 
   useEffect(() => {
@@ -242,7 +250,9 @@ export function SetlistTab({
     if (oldIdx < 0 || newIdx < 0) return;
     const next = arrayMove(localItems, oldIdx, newIdx);
     setLocalItems(next);
-    startTransition(() => aReorder(next.map((i) => i.id)));
+    startTransition(() => {
+      void aReorder(next.map((i) => i.id));
+    });
   }
 
   function handleCreate(nome: string) {

@@ -1,22 +1,19 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Check, X, HelpCircle, Users, MessageCircle, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { runOrQueue } from "@/lib/offline/mutations";
 import type { Member } from "@/db/schema";
 
 type Status = "pendente" | "confirmado" | "recusado";
 
 type PresenceLite = { memberId: string; status: string };
-type PresenceAction = (
-  eventId: string,
-  memberId: string,
-  status: Status,
-  viaPush?: boolean
-) => Promise<{ error?: string } | { ok?: boolean } | void>;
+/** Identifica qual server action replicar no sync offline (ver actions-registry). */
+type PresenceKind = "setShowPresence" | "setRehearsalPresence";
 
 const STATUS_LABEL: Record<Status, string> = {
   pendente: "Pendente",
@@ -39,7 +36,7 @@ function waNumber(telefone: string): string {
 
 export function PresenceCard({
   eventId,
-  action,
+  mutationKind,
   members,
   presences,
   currentMemberId,
@@ -49,7 +46,7 @@ export function PresenceCard({
   pushHint = false,
 }: {
   eventId: string;
-  action: PresenceAction;
+  mutationKind: PresenceKind;
   members: Member[];
   presences: PresenceLite[];
   currentMemberId: string | null;
@@ -61,7 +58,12 @@ export function PresenceCard({
   pushHint?: boolean;
 }) {
   const [, startTransition] = useTransition();
+  // Atualização otimista: offline (ou enquanto a action roda) o status muda na
+  // hora; sobrepõe o que veio do servidor. Some quando o snapshot/props chegam.
+  const [optimistic, setOptimistic] = useState<Record<string, Status>>({});
   const byMember = new Map(presences.map((p) => [p.memberId, p]));
+  const statusOf = (id: string): Status =>
+    optimistic[id] ?? (byMember.get(id)?.status as Status) ?? "pendente";
 
   const url =
     typeof window !== "undefined" ? `${window.location.origin}${wa.path}` : "";
@@ -94,18 +96,28 @@ export function PresenceCard({
       .catch(() => toast.error("Não consegui copiar."));
   }
 
-  const confirmados = members.filter(
-    (m) => byMember.get(m.id)?.status === "confirmado"
-  ).length;
-  const recusados = members.filter(
-    (m) => byMember.get(m.id)?.status === "recusado"
-  ).length;
+  const confirmados = members.filter((m) => statusOf(m.id) === "confirmado").length;
+  const recusados = members.filter((m) => statusOf(m.id) === "recusado").length;
 
   function update(memberId: string, status: Status) {
+    setOptimistic((o) => ({ ...o, [memberId]: status }));
+    const nome = members.find((m) => m.id === memberId)?.nome ?? "";
     startTransition(async () => {
-      const result = await action(eventId, memberId, status, pushHint && status === "confirmado");
-      if (result && "error" in result && result.error) {
-        toast.error(result.error);
+      const r = await runOrQueue(
+        mutationKind,
+        [eventId, memberId, status, pushHint && status === "confirmado"],
+        { label: `Presença · ${nome}` }
+      );
+      if (!r.ok) {
+        toast.error(r.error ?? "Erro ao atualizar presença.");
+        // desfaz o otimista no erro
+        setOptimistic((o) => {
+          const n = { ...o };
+          delete n[memberId];
+          return n;
+        });
+      } else if (r.queued) {
+        toast.success("Salvo offline — sincroniza quando a conexão voltar.");
       } else {
         toast.success("Presença atualizada.");
       }
@@ -139,8 +151,7 @@ export function PresenceCard({
         ) : (
           <ul className="divide-y divide-border">
             {members.map((m) => {
-              const p = byMember.get(m.id);
-              const status: Status = (p?.status as Status) ?? "pendente";
+              const status: Status = statusOf(m.id);
               const isOwn = currentMemberId === m.id;
               const canEdit = admin || isOwn;
 

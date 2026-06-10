@@ -33,6 +33,7 @@ await addCol("app_settings", "spotify_list_repertorio", "TEXT");
 await addCol("app_settings", "spotify_list_setlist", "TEXT");
 await addCol("app_settings", "spotify_list_ensaio", "TEXT");
 await addCol("app_settings", "surface_opacity", "INTEGER NOT NULL DEFAULT 100");
+await addCol("app_settings", "calendar_token", "TEXT");
 await addCol("users", "superuser", "INTEGER NOT NULL DEFAULT 0");
 await addCol("setlist_items", "emenda", "INTEGER NOT NULL DEFAULT 0");
 await addCol("setlists", "oficial", "INTEGER NOT NULL DEFAULT 0");

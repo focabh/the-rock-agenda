@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { desc } from "drizzle-orm";
-import { Plus, Wallet } from "lucide-react";
+import { Plus, Wallet, Upload } from "lucide-react";
 import { db } from "@/db";
 import { gastos } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
@@ -34,9 +34,14 @@ export default async function GastosPage() {
         actions={
           <div className="flex items-center gap-2">
             {admin && (
-              <Button size="sm" render={<Link href="/gastos/novo" />}>
-                <Plus className="size-4" /> Novo gasto
-              </Button>
+              <>
+                <Button variant="outline" size="sm" render={<Link href="/gastos/importar" />}>
+                  <Upload className="size-4" /> Importar
+                </Button>
+                <Button size="sm" render={<Link href="/gastos/novo" />}>
+                  <Plus className="size-4" /> Novo gasto
+                </Button>
+              </>
             )}
           </div>
         }

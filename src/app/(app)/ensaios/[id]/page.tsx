@@ -11,7 +11,6 @@ import { EnsaioStatusBadge } from "@/components/agenda/ensaio-status-badge";
 import { PresenceCard } from "@/components/shows/presence-card";
 import { SetlistTab } from "@/components/shows/setlist-tab";
 import { NotifyBandButton } from "@/components/shared/notify-band-button";
-import { setRehearsalPresenceAction } from "@/app/(app)/agenda/actions";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
 import { getCurrentUser, isSuperuser, getBrand } from "@/lib/auth";
 
@@ -208,7 +207,7 @@ export default async function EnsaioDetailPage({
 
         <PresenceCard
           eventId={r.id}
-          action={setRehearsalPresenceAction}
+          mutationKind="setRehearsalPresence"
           members={playableMembers}
           presences={presences}
           currentMemberId={user?.member?.id ?? null}

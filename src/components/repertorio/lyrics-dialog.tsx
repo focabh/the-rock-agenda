@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { LyricsText } from "@/components/shared/lyrics-text";
+import { useOffline } from "@/lib/offline/store";
 import {
   getOrFetchLyricsAction,
   saveLyricsAction,
@@ -41,8 +42,30 @@ export function LyricsDialog({
   const [loading, startLoad] = useTransition();
   const [saving, startSave] = useTransition();
 
+  // Local-first: a letra cacheada no snapshot offline. Se já tiver, usa na hora
+  // (instantâneo e funciona sem internet); senão cai pra rede (quando online).
+  const cachedLyrics = useOffline(
+    (s) => s.snapshot?.songs.find((x) => x.id === songId)?.lyrics ?? null
+  );
+  const online = useOffline((s) => s.online);
+
   useEffect(() => {
     if (!open || loaded) return;
+    // 1) letra no snapshot → resolve offline, sem rede
+    if (cachedLyrics) {
+      setLyrics(cachedLyrics);
+      setFound(true);
+      setLoaded(true);
+      return;
+    }
+    // 2) offline e sem letra cacheada → nada a buscar
+    if (!online) {
+      setLyrics(null);
+      setFound(false);
+      setLoaded(true);
+      return;
+    }
+    // 3) online → busca/cacheia na fonte (LRCLIB)
     startLoad(async () => {
       const r = await getOrFetchLyricsAction(songId);
       if (!r.ok) {
@@ -53,7 +76,7 @@ export function LyricsDialog({
       setFound(r.found);
       setLoaded(true);
     });
-  }, [open, loaded, songId]);
+  }, [open, loaded, songId, cachedLyrics, online]);
 
   function startEdit() {
     setDraft(lyrics ?? "");

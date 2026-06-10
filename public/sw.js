@@ -9,7 +9,7 @@
 //  - "Modo Show": a página warm-a o próprio cache via postMessage pra garantir
 //    o pacote do show inteiro disponível offline.
 
-const VERSION = "v3-safe";
+const VERSION = "v4-offline";
 const STATIC_CACHE = "rock-static-" + VERSION;
 const RUNTIME_CACHE = "rock-runtime-" + VERSION;
 
@@ -50,13 +50,21 @@ async function cacheFirst(request) {
   return res;
 }
 
-// Páginas e dados: SEMPRE pela rede quando online (nunca serve build velha,
-// nunca trava o app interativo). Só cai no cache quando está OFFLINE — e o
-// cache só tem o que foi explicitamente baixado ("Baixar pra offline" do Modo
-// Show) ou os assets imutáveis. Não cacheia navegações automaticamente.
+// Páginas e dados: NETWORK-FIRST com WRITE-THROUGH. Online sempre pega o fresco
+// (nunca serve build velha, nunca trava o app) E grava uma cópia no RUNTIME —
+// assim toda página/dado visitado fica disponível offline automaticamente, sem
+// precisar "baixar". Offline cai no último visto; navegação sem cache cai no
+// shell (/modo-show ou /). Como online é sempre rede-primeiro e os assets são
+// versionados por hash, não há risco de servir build velha quando há conexão.
 async function networkThenCacheOffline(request) {
   try {
-    return await fetch(request);
+    const res = await fetch(request);
+    // Grava cópia de respostas boas same-origin (200, tipo basic) pra offline.
+    if (res && res.ok && res.type === "basic") {
+      const copy = res.clone();
+      caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+    }
+    return res;
   } catch (err) {
     const cached = await caches.match(request);
     if (cached) return cached;

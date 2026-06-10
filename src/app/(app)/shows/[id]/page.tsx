@@ -17,7 +17,6 @@ import {
 import { membersUnavailableOn } from "@/lib/conflicts";
 import { getCurrentUser, isAdmin, isSuperuser, getBrand } from "@/lib/auth";
 import { PresenceCard } from "@/components/shows/presence-card";
-import { setPresenceAction } from "@/app/(app)/shows/[id]/actions-presence";
 import { PaymentBreakdown } from "@/components/shows/payment-breakdown";
 import { PageHeader } from "@/components/shared/page-header";
 import { ShowDetailTabs } from "@/components/shows/show-detail-tabs";
@@ -232,7 +231,7 @@ export default async function ShowDetailPage({
               )}
               <PresenceCard
                 eventId={show.id}
-                action={setPresenceAction}
+                mutationKind="setShowPresence"
                 members={playableMembers}
                 presences={presences}
                 currentMemberId={user?.member?.id ?? null}
