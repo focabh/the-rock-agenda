@@ -2,47 +2,28 @@
 
 import { useOffline } from "./store";
 import { kvSet } from "./idb";
+import { syncAllLyricsAction } from "@/app/(app)/repertorio/actions";
 import type { Snapshot } from "./types";
 
 export const DL_PENDING_KEY = "dlPending";
 export const DL_VERSION_KEY = "dlCompleteVersion";
 
-/** Telas fixas (sem parâmetro) que a banda usa. */
-const STATIC_ROUTES = [
+/** Telas de PALCO (o que se usa no show). O resto (financeiro, casas, banda,
+ *  etc.) NÃO é baixado de propósito — não precisa offline e deixa o download
+ *  leve e rápido. */
+const STAGE_ROUTES = [
   "/",
   "/repertorio",
-  "/agenda",
+  "/modo-show",
   "/shows",
   "/ensaios",
-  "/modo-show",
-  "/financeiro",
-  "/gastos",
-  "/pagamentos",
-  "/banda",
-  "/casas",
-  "/casas/funil",
-  "/casas/descobrir",
-  "/checklists",
-  "/equipamentos",
-  "/divulgacao",
-  "/contratantes",
-  "/posicoes",
-  "/estatisticas",
-  "/rider",
-  "/ferramentas",
-  "/sobre",
-  "/conta",
-  "/guia",
-  "/guia/musico",
-  "/guia/admin",
-  "/shows/cartaz",
   "/api/offline/snapshot",
 ];
 
-/** Monta a lista COMPLETA de URLs a baixar a partir do snapshot (todas as
- *  telas + cada música/show/ensaio/casa/membro). */
+/** Monta a lista de URLs de PALCO a baixar: repertório (cada música), modo show,
+ *  e cada show/ensaio + suas letras (teleprompter) + setlist pra imprimir. */
 export function buildOfflineUrlList(snap: Snapshot | null): string[] {
-  const urls = new Set<string>(STATIC_ROUTES);
+  const urls = new Set<string>(STAGE_ROUTES);
   if (snap) {
     for (const s of snap.songs) urls.add(`/repertorio/${s.id}`);
     for (const sh of snap.shows) {
@@ -55,8 +36,6 @@ export function buildOfflineUrlList(snap: Snapshot | null): string[] {
       urls.add(`/ensaios/${r.id}/letras`);
       urls.add(`/ensaios/${r.id}/imprimir-setlist`);
     }
-    for (const v of snap.venues) urls.add(`/casas/${v.id}`);
-    for (const m of snap.members) urls.add(`/banda/${m.id}`);
   }
   return [...urls];
 }
@@ -68,12 +47,28 @@ export function buildOfflineUrlList(snap: Snapshot | null): string[] {
 export async function startFullDownload(
   opts: { force?: boolean } = {}
 ): Promise<{ urls: number }> {
+  // estado "preparando" enquanto busca as letras que faltam
+  useOffline.getState().setDownload({ active: true, done: 0, total: 0, complete: false, hasNew: false });
+
+  // 1) GARANTE as letras (e letras sincronizadas do teleprompter) no banco —
+  //    elas são cacheadas só na 1ª abertura, então sem isso o snapshot offline
+  //    viria sem letra. Qualquer músico logado pode disparar (requireCurrentUser).
+  try {
+    await syncAllLyricsAction();
+  } catch {
+    /* sem permissão/erro de rede → segue com as letras que já existem */
+  }
+
+  // 2) snapshot fresco (agora com as letras) + lista de URLs de palco
   await useOffline.getState().refresh();
   const snap = useOffline.getState().snapshot;
   const urls = buildOfflineUrlList(snap);
 
   const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
-  if (!sw || !sw.controller) return { urls: 0 };
+  if (!sw || !sw.controller) {
+    useOffline.getState().setDownload({ active: false });
+    return { urls: 0 };
+  }
 
   // marca que um download foi INTENCIONADO (pra retomar se cair a conexão)
   try {
