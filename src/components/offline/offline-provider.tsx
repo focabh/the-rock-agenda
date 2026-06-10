@@ -1,69 +1,80 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useOffline } from "@/lib/offline/store";
 import { ensureActionsRegistered } from "@/lib/offline/actions-registry";
 import { syncQueue } from "@/lib/offline/sync";
-import { downloadAllForOffline } from "@/lib/offline/download";
+import { startFullDownload } from "@/lib/offline/download";
+import { kvGet, kvSet } from "@/lib/offline/idb";
 import { toast } from "sonner";
 
-/** Monta a camada offline (escopo autenticado):
- *  - registra as server actions que podem ser replicadas;
- *  - no 1º render carrega o snapshot do IndexedDB (instantâneo, offline) e, se
- *    online, busca o fresco;
- *  - ao reconectar (ou voltar o foco estando online) sincroniza a fila de
- *    mutações feitas offline e avisa quantas subiram. */
+const DL_DONE_KEY = "dlComplete";
+
+/** Camada offline (escopo autenticado). Registra as actions; hidrata o snapshot;
+ *  ouve o progresso do download (que roda no Service Worker, sobrevive à
+ *  navegação e é retomável); auto-inicia/retoma o "baixar tudo" enquanto não
+ *  estiver completo; e sincroniza a fila de mutações ao reconectar. */
 export function OfflineProvider() {
   const hydrate = useOffline((s) => s.hydrate);
   const refresh = useOffline((s) => s.refresh);
   const setOnline = useOffline((s) => s.setOnline);
-  const router = useRouter();
+  const setDownload = useOffline((s) => s.setDownload);
 
   useEffect(() => {
     ensureActionsRegistered();
-
     let cancelled = false;
-    (async () => {
-      await hydrate();
-      if (cancelled) return;
-      await refresh();
-      // se sobrou fila de um uso offline anterior e já estamos online, sobe agora
-      const r = await syncQueue();
-      if (!cancelled && r.done > 0) {
-        toast.success(`${r.done} alteração(ões) offline sincronizada(s).`);
+    const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+
+    // progresso do download vindo do SW
+    const onSwMsg = (e: MessageEvent) => {
+      const m = e.data || {};
+      if (m.type === "DOWNLOAD_PROGRESS") {
+        setDownload({ active: true, done: m.cached ?? m.done, total: m.total });
+      } else if (m.type === "DOWNLOAD_DONE") {
+        setDownload({ active: false, done: m.done, total: m.total, complete: !!m.complete });
+        if (m.complete) kvSet(DL_DONE_KEY, true).catch(() => {});
       }
-      // Pré-baixa as telas de palco 1x por sessão (online, em segundo plano), pra
-      // ficarem disponíveis offline sem o usuário abrir cada uma antes.
+    };
+    sw?.addEventListener("message", onSwMsg);
+
+    // inicia/retoma o download de tudo (SW pula o que já está em cache)
+    const maybeDownload = async () => {
+      if (typeof navigator === "undefined" || !navigator.onLine) return;
+      if (!("serviceWorker" in navigator)) return;
       try {
-        if (
-          !cancelled &&
-          typeof navigator !== "undefined" &&
-          navigator.onLine &&
-          "serviceWorker" in navigator &&
-          !sessionStorage.getItem("rock-warmed")
-        ) {
-          await navigator.serviceWorker.ready;
-          sessionStorage.setItem("rock-warmed", "1");
-          downloadAllForOffline((href) => router.prefetch(href)).catch(() => {});
-        }
+        await navigator.serviceWorker.ready;
+        const done = await kvGet<boolean>(DL_DONE_KEY);
+        if (!done && !cancelled) await startFullDownload();
       } catch {
         /* best-effort */
       }
-    })();
+    };
 
     const doSync = async () => {
       const r = await syncQueue();
       if (r.done > 0) toast.success(`${r.done} alteração(ões) offline sincronizada(s).`);
     };
+
+    (async () => {
+      await hydrate();
+      if (cancelled) return;
+      await refresh();
+      await doSync();
+      maybeDownload();
+    })();
+
     const onOnline = () => {
       setOnline(true);
       refresh();
       doSync();
+      maybeDownload(); // retoma o download de onde parou
     };
     const onOffline = () => setOnline(false);
     const onVisible = () => {
-      if (document.visibilityState === "visible" && navigator.onLine) doSync();
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        doSync();
+        maybeDownload();
+      }
     };
 
     window.addEventListener("online", onOnline);
@@ -71,11 +82,12 @@ export function OfflineProvider() {
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
+      sw?.removeEventListener("message", onSwMsg);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [hydrate, refresh, setOnline, router]);
+  }, [hydrate, refresh, setOnline, setDownload]);
 
   return null;
 }

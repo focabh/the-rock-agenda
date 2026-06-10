@@ -9,7 +9,7 @@
 //  - "Modo Show": a página warm-a o próprio cache via postMessage pra garantir
 //    o pacote do show inteiro disponível offline.
 
-const VERSION = "v5-offline";
+const VERSION = "v6-offline";
 const STATIC_CACHE = "rock-static-" + VERSION;
 const RUNTIME_CACHE = "rock-runtime-" + VERSION;
 
@@ -100,29 +100,94 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// "Baixar pra offline": a página manda as URLs a pré-cachear (a própria página
-// + letras/recursos). Cacheamos no RUNTIME pra ficar igual à navegação.
+// ---- Download "TUDO pra offline" dirigido pelo SW ----
+// Roda DENTRO do service worker → sobrevive a navegação no app e até ao
+// fechamento da aba. RETOMÁVEL: pula o que já está em cache, então reconectar e
+// reenviar a mesma lista continua de onde parou. Cacheia o DOCUMENTO de cada
+// rota + os chunks /_next/static que ele referencia (senão a tela não renderiza
+// offline).
+let downloading = false;
+
+async function broadcast(msg) {
+  const cs = await self.clients.matchAll({ includeUncontrolled: true });
+  for (const c of cs) c.postMessage(msg);
+}
+
+async function cacheAssetsFromHtml(html) {
+  const assets = new Set();
+  const re = /(?:src|href)="(\/_next\/static\/[^"]+)"/g;
+  let m;
+  while ((m = re.exec(html))) assets.add(m[1]);
+  if (assets.size === 0) return;
+  const cache = await caches.open(STATIC_CACHE);
+  await Promise.all(
+    [...assets].map(async (a) => {
+      try {
+        if (await cache.match(a)) return;
+        const r = await fetch(a);
+        if (r && r.ok) await cache.put(a, r.clone());
+      } catch {
+        /* ignora */
+      }
+    })
+  );
+}
+
+/** Baixa uma URL (se ainda não estiver em cache). Documento + assets. */
+async function warmUrl(runtime, u) {
+  if (await runtime.match(u)) return true; // já baixado → retomável
+  const res = await fetch(u, { credentials: "same-origin" });
+  if (!res || !res.ok) throw new Error("fetch falhou " + u);
+  const ct = res.headers.get("content-type") || "";
+  await runtime.put(u, res.clone());
+  if (ct.includes("text/html")) {
+    try {
+      await cacheAssetsFromHtml(await res.clone().text());
+    } catch {
+      /* ignora */
+    }
+  }
+  return true;
+}
+
+async function runDownload(urls) {
+  if (downloading) return;
+  downloading = true;
+  const runtime = await caches.open(RUNTIME_CACHE);
+  const total = urls.length;
+  let done = 0;
+  let failed = 0;
+  const BATCH = 5;
+  try {
+    for (let i = 0; i < urls.length; i += BATCH) {
+      // Obs.: NÃO checar self.navigator.onLine aqui — é não-confiável no SW e
+      // abortava o download. Se cair a rede, os fetches falham e o cliente
+      // retoma ao reconectar (skip-cached preserva o que já baixou).
+      const group = urls.slice(i, i + BATCH);
+      await Promise.all(
+        group.map(async (u) => {
+          try {
+            await warmUrl(runtime, u);
+            done++;
+          } catch {
+            failed++;
+          }
+        })
+      );
+      await broadcast({ type: "DOWNLOAD_PROGRESS", done: done + failed, total, cached: done, failed });
+    }
+  } finally {
+    downloading = false;
+  }
+  // "complete" só quando TUDO está em cache (done conta cacheados + já-existentes).
+  // Se pausou (offline) ou algo falhou, done < total → cliente retoma depois.
+  await broadcast({ type: "DOWNLOAD_DONE", done, total, failed, complete: done === total });
+}
+
 self.addEventListener("message", (event) => {
   const msg = event.data || {};
-  if (msg.type === "WARM_CACHE" && Array.isArray(msg.urls)) {
-    event.waitUntil(
-      (async () => {
-        const cache = await caches.open(RUNTIME_CACHE);
-        await Promise.all(
-          msg.urls.map(async (u) => {
-            try {
-              const res = await fetch(u, { credentials: "same-origin" });
-              if (res && res.ok) await cache.put(u, res.clone());
-            } catch {
-              /* ignora o que não der */
-            }
-          })
-        );
-        // Avisa quem pediu que terminou.
-        const clientsArr = await self.clients.matchAll();
-        for (const c of clientsArr) c.postMessage({ type: "WARM_CACHE_DONE" });
-      })()
-    );
+  if (msg.type === "DOWNLOAD_ALL" && Array.isArray(msg.urls)) {
+    event.waitUntil(runDownload(msg.urls));
   }
 });
 

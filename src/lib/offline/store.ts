@@ -17,6 +17,9 @@ type OfflineStore = {
   lastSyncedAt: number | null;
   /** Quantas mutações offline aguardam replay. */
   pendingCount: number;
+  /** Progresso do "Baixar tudo pra offline". */
+  download: { active: boolean; done: number; total: number; complete: boolean };
+  setDownload: (d: Partial<OfflineStore["download"]>) => void;
 
   /** Carrega o snapshot persistido do IndexedDB (rápido, funciona offline). */
   hydrate: () => Promise<void>;
@@ -33,6 +36,8 @@ export const useOffline = create<OfflineStore>((set, get) => ({
   status: "idle",
   lastSyncedAt: null,
   pendingCount: 0,
+  download: { active: false, done: 0, total: 0, complete: false },
+  setDownload: (d) => set((s) => ({ download: { ...s.download, ...d } })),
 
   hydrate: async () => {
     try {

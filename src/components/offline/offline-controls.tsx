@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CloudOff, RefreshCw, Download, Check } from "lucide-react";
 import { useOffline } from "@/lib/offline/store";
-import { downloadAllForOffline } from "@/lib/offline/download";
+import { startFullDownload } from "@/lib/offline/download";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -54,54 +52,45 @@ export function OfflineStatusPill({ className }: { className?: string }) {
   );
 }
 
-/** Botão "Baixar tudo pra offline": pré-cacheia as telas de palco + snapshot. */
+/** Botão "Baixar tudo pra offline". O download roda no Service Worker (segundo
+ *  plano, sobrevive à navegação, retomável); o progresso vem do store. */
 export function DownloadOfflineButton({ className }: { className?: string }) {
-  const [state, setState] = useState<"idle" | "loading" | "done">("idle");
-  const [pct, setPct] = useState(0);
   const online = useOffline((s) => s.online);
-  const router = useRouter();
+  const dl = useOffline((s) => s.download);
+
+  const pct = dl.total > 0 ? Math.round((dl.done / dl.total) * 100) : 0;
+  const loading = dl.active && !dl.complete;
 
   async function run() {
-    if (state === "loading") return;
+    if (loading) return;
     if (!online) {
       toast.error("Conecte à internet pra baixar o conteúdo offline.");
       return;
     }
-    setState("loading");
-    setPct(0);
-    try {
-      const { urls } = await downloadAllForOffline(
-        (href) => router.prefetch(href),
-        (done, total) => setPct(Math.round((done / total) * 100))
-      );
-      setState("done");
-      toast.success(`Pronto pra offline (${urls} telas baixadas).`);
-      setTimeout(() => setState("idle"), 3000);
-    } catch {
-      setState("idle");
-      toast.error("Não consegui baixar tudo agora.");
-    }
+    const { urls } = await startFullDownload();
+    if (urls === 0) toast.error("Service worker ainda não pronto — recarregue e tente de novo.");
+    else toast.success("Baixando tudo pra offline em segundo plano…");
   }
 
   return (
     <button
       type="button"
       onClick={run}
-      disabled={state === "loading"}
+      disabled={loading}
       className={cn(
         "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ring-1 ring-inset ring-border transition-colors hover:bg-accent/50 disabled:opacity-60",
         className
       )}
-      title="Baixa letras, setlists, shows e ensaios pra usar sem internet no palco"
+      title="Baixa todas as telas (letras, setlists, shows, ensaios, repertório…) pra usar sem internet"
     >
-      {state === "loading" ? (
+      {loading ? (
         <RefreshCw className="size-4 animate-spin" />
-      ) : state === "done" ? (
+      ) : dl.complete ? (
         <Check className="size-4 text-emerald-400" />
       ) : (
         <Download className="size-4" />
       )}
-      {state === "loading" ? `Baixando… ${pct}%` : state === "done" ? "Baixado!" : "Baixar tudo pra offline"}
+      {loading ? `Baixando… ${pct}%` : dl.complete ? "Baixado pra offline" : "Baixar tudo pra offline"}
     </button>
   );
 }

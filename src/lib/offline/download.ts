@@ -3,29 +3,6 @@
 import { useOffline } from "./store";
 import type { Snapshot } from "./types";
 
-/** Manda o SW pré-cachear uma lista de URLs (handler WARM_CACHE do sw.js). */
-function warm(urls: string[]): Promise<void> {
-  return new Promise((resolve) => {
-    const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
-    if (!sw || !sw.controller) {
-      resolve();
-      return;
-    }
-    const onMsg = (e: MessageEvent) => {
-      if (e.data && e.data.type === "WARM_CACHE_DONE") {
-        sw.removeEventListener("message", onMsg);
-        resolve();
-      }
-    };
-    sw.addEventListener("message", onMsg);
-    sw.controller.postMessage({ type: "WARM_CACHE", urls });
-    setTimeout(() => {
-      sw.removeEventListener("message", onMsg);
-      resolve();
-    }, 120000);
-  });
-}
-
 /** Telas fixas (sem parâmetro) que a banda usa. */
 const STATIC_ROUTES = [
   "/",
@@ -80,38 +57,19 @@ export function buildOfflineUrlList(snap: Snapshot | null): string[] {
   return [...urls];
 }
 
-/** Baixa TUDO pra offline: snapshot fresco + pré-cache de TODAS as telas
- *  (estáticas + cada música/show/ensaio/casa/membro). Processa em LOTES
- *  pequenos e sequenciais pra não sobrecarregar o navegador/servidor (baixar
- *  100+ páginas SSR de uma vez trava). Se receber `prefetch` (router.prefetch),
- *  também aquece o RSC/JS de cada rota — navegação offline funciona, não só o
- *  carregamento direto. `onProgress` reporta o avanço pra UI. */
-export async function downloadAllForOffline(
-  prefetch?: (href: string) => void,
-  onProgress?: (done: number, total: number) => void
-): Promise<{ urls: number }> {
+/** Dispara o download de TUDO no Service Worker (que roda em segundo plano,
+ *  sobrevive à navegação e ao fechamento, e é retomável — pula o que já está em
+ *  cache). O progresso chega por mensagens do SW (tratadas no OfflineProvider).
+ *  Retorna o total de URLs enfileiradas (0 se o SW ainda não controla a página). */
+export async function startFullDownload(): Promise<{ urls: number }> {
   await useOffline.getState().refresh();
   const snap = useOffline.getState().snapshot;
   const urls = buildOfflineUrlList(snap);
 
-  const BATCH = 5;
-  for (let i = 0; i < urls.length; i += BATCH) {
-    const group = urls.slice(i, i + BATCH);
-    // aquece RSC/JS das rotas navegáveis do lote (ignora as de API)
-    if (prefetch) {
-      for (const u of group) {
-        if (!u.startsWith("/api/")) {
-          try {
-            prefetch(u);
-          } catch {
-            /* best-effort */
-          }
-        }
-      }
-    }
-    // cacheia os documentos do lote (e espera terminar antes do próximo)
-    await warm(group);
-    onProgress?.(Math.min(i + BATCH, urls.length), urls.length);
-  }
+  const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+  if (!sw || !sw.controller) return { urls: 0 };
+
+  useOffline.getState().setDownload({ active: true, done: 0, total: urls.length, complete: false });
+  sw.controller.postMessage({ type: "DOWNLOAD_ALL", urls });
   return { urls: urls.length };
 }
