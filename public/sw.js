@@ -9,9 +9,14 @@
 //  - "Modo Show": a página warm-a o próprio cache via postMessage pra garantir
 //    o pacote do show inteiro disponível offline.
 
-const VERSION = "v4-offline";
+const VERSION = "v5-offline";
 const STATIC_CACHE = "rock-static-" + VERSION;
 const RUNTIME_CACHE = "rock-runtime-" + VERSION;
+
+// Página de OFFLINE dedicada (HTML puro, sem React). Servida quando se navega
+// pra uma rota que ainda não foi baixada. NUNCA servir outra rota cacheada no
+// lugar — o HTML de "/" numa URL diferente quebra a hidratação (React #418).
+const OFFLINE_HTML = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sem conexão</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0b0c;color:#e5e5e5;font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:24px}.c{max-width:340px}h1{font-size:19px;margin:0 0 10px}p{color:#a1a1aa;font-size:14px;line-height:1.55;margin:0 0 18px}button{background:#dc2626;color:#fff;border:0;border-radius:9px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer}</style></head><body><div class="c"><h1>📴 Sem conexão</h1><p>Essa tela ainda não foi baixada pra usar offline. Conecte uma vez à internet — ou toque em <b>"Baixar tudo pra offline"</b> no menu — e ela fica disponível no palco.</p><button onclick="location.reload()">Tentar de novo</button></div></body></html>`;
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -68,10 +73,13 @@ async function networkThenCacheOffline(request) {
   } catch (err) {
     const cached = await caches.match(request);
     if (cached) return cached;
+    // Navegação pra rota ainda não baixada → página de offline DEDICADA.
+    // (Servir outra rota no lugar causava erro de hidratação React #418.)
     if (request.mode === "navigate") {
-      const fallback =
-        (await caches.match("/modo-show")) || (await caches.match("/"));
-      if (fallback) return fallback;
+      return new Response(OFFLINE_HTML, {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
     }
     throw err;
   }

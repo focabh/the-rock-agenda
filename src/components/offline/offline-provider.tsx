@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useOffline } from "@/lib/offline/store";
 import { ensureActionsRegistered } from "@/lib/offline/actions-registry";
 import { syncQueue } from "@/lib/offline/sync";
+import { downloadAllForOffline } from "@/lib/offline/download";
 import { toast } from "sonner";
 
 /** Monta a camada offline (escopo autenticado):
@@ -29,6 +30,23 @@ export function OfflineProvider() {
       const r = await syncQueue();
       if (!cancelled && r.done > 0) {
         toast.success(`${r.done} alteração(ões) offline sincronizada(s).`);
+      }
+      // Pré-baixa as telas de palco 1x por sessão (online, em segundo plano), pra
+      // ficarem disponíveis offline sem o usuário abrir cada uma antes.
+      try {
+        if (
+          !cancelled &&
+          typeof navigator !== "undefined" &&
+          navigator.onLine &&
+          "serviceWorker" in navigator &&
+          !sessionStorage.getItem("rock-warmed")
+        ) {
+          await navigator.serviceWorker.ready;
+          sessionStorage.setItem("rock-warmed", "1");
+          downloadAllForOffline().catch(() => {});
+        }
+      } catch {
+        /* best-effort */
       }
     })();
 
