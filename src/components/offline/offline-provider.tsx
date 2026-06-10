@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useOffline } from "@/lib/offline/store";
 import { ensureActionsRegistered } from "@/lib/offline/actions-registry";
 import { syncQueue } from "@/lib/offline/sync";
@@ -17,6 +18,7 @@ export function OfflineProvider() {
   const hydrate = useOffline((s) => s.hydrate);
   const refresh = useOffline((s) => s.refresh);
   const setOnline = useOffline((s) => s.setOnline);
+  const router = useRouter();
 
   useEffect(() => {
     ensureActionsRegistered();
@@ -43,7 +45,7 @@ export function OfflineProvider() {
         ) {
           await navigator.serviceWorker.ready;
           sessionStorage.setItem("rock-warmed", "1");
-          downloadAllForOffline().catch(() => {});
+          downloadAllForOffline((href) => router.prefetch(href)).catch(() => {});
         }
       } catch {
         /* best-effort */
@@ -73,7 +75,7 @@ export function OfflineProvider() {
       window.removeEventListener("offline", onOffline);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [hydrate, refresh, setOnline]);
+  }, [hydrate, refresh, setOnline, router]);
 
   return null;
 }

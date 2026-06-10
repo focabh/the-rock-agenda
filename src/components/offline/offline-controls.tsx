@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CloudOff, RefreshCw, Download, Check } from "lucide-react";
 import { useOffline } from "@/lib/offline/store";
 import { downloadAllForOffline } from "@/lib/offline/download";
@@ -56,7 +57,9 @@ export function OfflineStatusPill({ className }: { className?: string }) {
 /** Botão "Baixar tudo pra offline": pré-cacheia as telas de palco + snapshot. */
 export function DownloadOfflineButton({ className }: { className?: string }) {
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
+  const [pct, setPct] = useState(0);
   const online = useOffline((s) => s.online);
+  const router = useRouter();
 
   async function run() {
     if (state === "loading") return;
@@ -65,8 +68,12 @@ export function DownloadOfflineButton({ className }: { className?: string }) {
       return;
     }
     setState("loading");
+    setPct(0);
     try {
-      const { urls } = await downloadAllForOffline();
+      const { urls } = await downloadAllForOffline(
+        (href) => router.prefetch(href),
+        (done, total) => setPct(Math.round((done / total) * 100))
+      );
       setState("done");
       toast.success(`Pronto pra offline (${urls} telas baixadas).`);
       setTimeout(() => setState("idle"), 3000);
@@ -94,7 +101,7 @@ export function DownloadOfflineButton({ className }: { className?: string }) {
       ) : (
         <Download className="size-4" />
       )}
-      {state === "loading" ? "Baixando…" : state === "done" ? "Baixado!" : "Baixar tudo pra offline"}
+      {state === "loading" ? `Baixando… ${pct}%` : state === "done" ? "Baixado!" : "Baixar tudo pra offline"}
     </button>
   );
 }
