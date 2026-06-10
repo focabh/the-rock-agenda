@@ -24,7 +24,7 @@ import { RehearsalForm } from "@/components/agenda/rehearsal-manager";
 import { createUnavailabilityAction } from "@/app/(app)/agenda/actions";
 import { formatDataExtensa, formatDataBR, formatHoraBR } from "@/lib/formatters";
 import { toast } from "sonner";
-import type { Show, Venue, Member, Rehearsal } from "@/db/schema";
+import type { Show, Venue, Member, Rehearsal, MemberUnavailability } from "@/db/schema";
 
 type ShowItem = Show & { casa: Venue };
 
@@ -159,6 +159,7 @@ export function DayDialog({
   onOpenChange,
   shows,
   rehearsals,
+  blocks = [],
   isAdmin,
   currentMemberId,
   members,
@@ -170,6 +171,7 @@ export function DayDialog({
   onOpenChange: (open: boolean) => void;
   shows: ShowItem[];
   rehearsals: Rehearsal[];
+  blocks?: MemberUnavailability[];
   isAdmin: boolean;
   currentMemberId: string | null;
   members: Member[];
@@ -265,6 +267,40 @@ export function DayDialog({
                 </span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Indisponibilidades neste dia */}
+        {mode === "menu" && blocks.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              Indisponibilidades neste dia
+            </p>
+            {blocks.map((bk) => {
+              const m = members.find((x) => x.id === bk.memberId);
+              const faixa =
+                bk.horaInicio && bk.horaFim
+                  ? `${bk.horaInicio}–${bk.horaFim}`
+                  : bk.horaInicio
+                    ? `a partir de ${bk.horaInicio}`
+                    : "dia todo";
+              return (
+                <div
+                  key={bk.id}
+                  className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm"
+                >
+                  <CalendarOff className="size-4 text-amber-400 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="font-medium">{m?.nome ?? "Músico"}</span>
+                    <span className="text-muted-foreground">
+                      {" · "}
+                      {faixa}
+                      {bk.motivo ? ` · ${bk.motivo}` : ""}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
 

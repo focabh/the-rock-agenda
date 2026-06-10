@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { CalendarOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -151,6 +150,13 @@ export function MonthGrid({
   const selectedRehearsals = selected
     ? (rehearsalsByDay.get(selected.key) ?? [])
     : [];
+  const selectedBlocks = selected
+    ? blocks.filter(
+        (b) =>
+          brDateKey(b.dataInicio) <= selected.key &&
+          selected.key <= brDateKey(b.dataFim)
+      )
+    : [];
 
   return (
     <div className="space-y-3">
@@ -258,18 +264,16 @@ export function MonthGrid({
               </div>
               <div className="space-y-0.5">
                 {dayShows.map((s) => (
-                  <Link
+                  <div
                     key={s.id}
-                    href={`/shows/${s.id}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="block truncate text-[10px] leading-tight px-1.5 py-1 rounded bg-primary/20 text-primary-foreground ring-1 ring-primary/40 font-medium hover:bg-primary/30"
+                    className="block truncate text-[10px] leading-tight px-1.5 py-1 rounded bg-primary/20 text-primary-foreground ring-1 ring-primary/40 font-medium"
                     title={`${s.casa.nome} — ${s.status}`}
                   >
                     <span className="font-mono opacity-70 mr-1">
                       {formatHoraBR(s.data)}
                     </span>
                     {s.casa.nome}
-                  </Link>
+                  </div>
                 ))}
                 {dayRehearsals.map((r) => (
                   <div
@@ -333,6 +337,7 @@ export function MonthGrid({
           onOpenChange={setOpen}
           shows={selectedShows}
           rehearsals={selectedRehearsals}
+          blocks={selectedBlocks}
           isAdmin={isAdmin}
           currentMemberId={currentMemberId}
           members={members}
