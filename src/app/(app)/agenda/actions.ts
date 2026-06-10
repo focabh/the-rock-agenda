@@ -8,11 +8,27 @@ import {
   memberUnavailability,
   rehearsals,
   rehearsalMemberPresence,
+  members,
 } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireSuperuser, requireCurrentUser } from "@/lib/auth";
 import { formatDataBR } from "@/lib/formatters";
 import { sendPushToAll } from "@/lib/push";
+import {
+  detectConflicts,
+  announceUnavailabilityConflict,
+  announceAvailabilityRestored,
+  type Alternativa,
+} from "@/lib/agenda-notify";
+
+function nomeOf(memberId: string): Promise<string> {
+  return db
+    .select({ nome: members.nome })
+    .from(members)
+    .where(eq(members.id, memberId))
+    .limit(1)
+    .then((r) => r[0]?.nome ?? "Um músico");
+}
 
 const dateOnly = z
   .string()
@@ -55,6 +71,28 @@ export async function createUnavailabilityAction(
     return { error: "Você só pode bloquear datas no próprio perfil." };
   }
 
+  // Conflita com show/ensaio marcado no período?
+  const conflict = await detectConflicts(parsed.data.dataInicio, parsed.data.dataFim);
+
+  // Alternativas de disponibilidade (OBRIGATÓRIAS quando há conflito).
+  let alternativas: Alternativa[] = [];
+  const raw = formData.get("alternativas");
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      alternativas = JSON.parse(raw) as Alternativa[];
+    } catch {
+      alternativas = [];
+    }
+  }
+  const validAlts = (Array.isArray(alternativas) ? alternativas : []).filter(
+    (a) => a && /^\d{4}-\d{2}-\d{2}$/.test(a.data) && a.periodo
+  );
+  if (conflict.has && validAlts.length < 3) {
+    return {
+      error: `Há ${conflict.label} neste período. Informe 3 datas/horários em que você poderia tocar, pra reagendar.`,
+    };
+  }
+
   await db.insert(memberUnavailability).values({
     memberId: parsed.data.memberId,
     dataInicio: parsed.data.dataInicio,
@@ -62,12 +100,25 @@ export async function createUnavailabilityAction(
     horaInicio: parsed.data.horaInicio,
     horaFim: parsed.data.horaFim,
     motivo: parsed.data.motivo,
+    alternativas: conflict.has ? JSON.stringify(validAlts) : null,
   });
   revalidatePath("/agenda");
   revalidatePath(`/banda/${parsed.data.memberId}`);
   revalidatePath("/");
   revalidatePath("/shows");
-  return null;
+
+  if (conflict.has) {
+    const nome = await nomeOf(parsed.data.memberId);
+    const { whatsappText, groupLink } = await announceUnavailabilityConflict({
+      nome,
+      conflict,
+      alternativas: validAlts,
+      motivo: parsed.data.motivo,
+      createdById: user.id,
+    });
+    return { ok: true, whatsapp: { text: whatsappText, groupLink } };
+  }
+  return { ok: true };
 }
 
 // ---------------- ENSAIOS (REHEARSALS) ----------------
@@ -217,10 +268,12 @@ export async function setRehearsalPresenceAction(
   return { ok: true };
 }
 
-export async function deleteUnavailabilityAction(id: string) {
+export async function deleteUnavailabilityAction(
+  id: string
+): Promise<ActionState | void> {
   const user = await requireCurrentUser();
   const [row] = await db
-    .select({ memberId: memberUnavailability.memberId })
+    .select()
     .from(memberUnavailability)
     .where(eq(memberUnavailability.id, id))
     .limit(1);
@@ -228,9 +281,23 @@ export async function deleteUnavailabilityAction(id: string) {
   if (user.role !== "admin" && user.member?.id !== row.memberId) {
     return { error: "Sem permissão." };
   }
+
+  // Voltou a ficar disponível onde havia evento? Avisa (lógica reversa).
+  const conflict = await detectConflicts(row.dataInicio, row.dataFim);
+
   await db.delete(memberUnavailability).where(eq(memberUnavailability.id, id));
   revalidatePath("/agenda");
-  if (row) revalidatePath(`/banda/${row.memberId}`);
+  revalidatePath(`/banda/${row.memberId}`);
   revalidatePath("/");
   revalidatePath("/shows");
+
+  if (conflict.has) {
+    const nome = await nomeOf(row.memberId);
+    const { whatsappText, groupLink } = await announceAvailabilityRestored({
+      nome,
+      conflict,
+      createdById: user.id,
+    });
+    return { ok: true, whatsapp: { text: whatsappText, groupLink } };
+  }
 }

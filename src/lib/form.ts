@@ -3,6 +3,10 @@ import { z } from "zod";
 export type ActionState = {
   error?: string;
   fieldErrors?: Record<string, string[]>;
+  /** Sucesso explícito (algumas ações usam pra disparar efeitos no cliente). */
+  ok?: boolean;
+  /** Payload opcional pra "avisar a banda" no WhatsApp (ex.: conflito de agenda). */
+  whatsapp?: { text: string; groupLink: string | null };
 } | null;
 
 export function parseForm<T extends z.ZodType>(

@@ -20,6 +20,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { FieldError } from "@/components/shared/field-error";
+import type { ActionState } from "@/lib/form";
 import { RehearsalForm } from "@/components/agenda/rehearsal-manager";
 import { createUnavailabilityAction } from "@/app/(app)/agenda/actions";
 import { formatDataExtensa, formatDataBR, formatHoraBR } from "@/lib/formatters";
@@ -36,12 +37,17 @@ function toDateInput(d: Date): string {
   return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
 }
 
+type Alt = { data: string; periodo: "manha" | "tarde" | "noite" | "custom"; horaInicio: string; horaFim: string };
+const emptyAlt = (data: string): Alt => ({ data, periodo: "noite", horaInicio: "", horaFim: "" });
+
 function UnavailabilityForm({
   date,
   endDate,
   isAdmin,
   currentMemberId,
   members,
+  hasEvent = false,
+  eventLabel,
   onDone,
 }: {
   date: Date;
@@ -49,6 +55,8 @@ function UnavailabilityForm({
   isAdmin: boolean;
   currentMemberId: string | null;
   members: Member[];
+  hasEvent?: boolean;
+  eventLabel?: string;
   onDone: () => void;
 }) {
   const [state, formAction, pending] = useActionState(
@@ -57,17 +65,37 @@ function UnavailabilityForm({
   );
   const dStr = toDateInput(date);
   const fimStr = toDateInput(endDate ?? date);
+  const [alts, setAlts] = useState<Alt[]>(() => [emptyAlt(dStr), emptyAlt(""), emptyAlt("")]);
+  const setAlt = (i: number, patch: Partial<Alt>) =>
+    setAlts((a) => a.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+
+  // Reage ao resultado da ação (sucesso normal, conflito c/ WhatsApp, ou erro).
+  useEffect(() => {
+    if (!state) return;
+    if ("ok" in state && state.ok) {
+      const wa = "whatsapp" in state ? state.whatsapp : undefined;
+      if (wa) {
+        navigator.clipboard?.writeText(wa.text).catch(() => {});
+        toast.success("Conflito de agenda — aviso no mural + mensagem copiada pro WhatsApp.");
+        if (wa.groupLink) window.open(wa.groupLink, "_blank");
+      } else {
+        toast.success("Indisponibilidade marcada.");
+      }
+      onDone();
+    } else if ("error" in state && state.error) {
+      toast.error(state.error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  // Só os erros de campo/validação interessam pro FieldError (não o {ok,whatsapp}).
+  const fieldState: ActionState = state && !("ok" in state) ? (state as ActionState) : null;
 
   return (
     <form
       action={(fd) => {
+        if (hasEvent) fd.set("alternativas", JSON.stringify(alts));
         formAction(fd);
-        setTimeout(() => {
-          if (!state?.error && !state?.fieldErrors) {
-            toast.success("Indisponibilidade marcada.");
-            onDone();
-          }
-        }, 300);
       }}
       className="space-y-3"
     >
@@ -88,7 +116,7 @@ function UnavailabilityForm({
               </option>
             ))}
           </select>
-          <FieldError state={state} name="memberId" />
+          <FieldError state={fieldState} name="memberId" />
         </div>
       ) : (
         <input type="hidden" name="memberId" value={currentMemberId ?? ""} />
@@ -103,7 +131,7 @@ function UnavailabilityForm({
             defaultValue={dStr}
             required
           />
-          <FieldError state={state} name="dataInicio" />
+          <FieldError state={fieldState} name="dataInicio" />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="dataFim">Fim</Label>
@@ -114,28 +142,70 @@ function UnavailabilityForm({
             defaultValue={fimStr}
             required
           />
-          <FieldError state={state} name="dataFim" />
+          <FieldError state={fieldState} name="dataFim" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="horaInicio">Hora início (opcional)</Label>
           <Input id="horaInicio" name="horaInicio" type="time" />
-          <FieldError state={state} name="horaInicio" />
+          <FieldError state={fieldState} name="horaInicio" />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="horaFim">Hora fim (opcional)</Label>
           <Input id="horaFim" name="horaFim" type="time" />
-          <FieldError state={state} name="horaFim" />
+          <FieldError state={fieldState} name="horaFim" />
         </div>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="motivo">Motivo (opcional)</Label>
         <Input id="motivo" name="motivo" placeholder="Compromisso pessoal, viagem..." />
-        <FieldError state={state} name="motivo" />
+        <FieldError state={fieldState} name="motivo" />
       </div>
-      {state?.error && !state.fieldErrors && (
-        <p className="text-sm text-destructive">{state.error}</p>
+
+      {/* Conflito com evento marcado → 3 janelas alternativas (obrigatórias) */}
+      {hasEvent && (
+        <div className="space-y-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+          <p className="text-xs text-amber-300">
+            ⚠ Há {eventLabel || "um evento marcado"} neste dia. Como isso afeta a
+            banda, informe <strong>3 datas/horários</strong> em que você poderia —
+            todos serão avisados pra reagendar.
+          </p>
+          {alts.map((a, i) => (
+            <div key={i} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-4 shrink-0 text-xs text-muted-foreground">{i + 1}.</span>
+                <Input
+                  type="date"
+                  value={a.data}
+                  onChange={(e) => setAlt(i, { data: e.target.value })}
+                  className="flex-1"
+                  required={hasEvent}
+                />
+                <select
+                  value={a.periodo}
+                  onChange={(e) => setAlt(i, { periodo: e.target.value as Alt["periodo"] })}
+                  className={selectCls + " w-28 shrink-0"}
+                >
+                  <option value="manha">Manhã</option>
+                  <option value="tarde">Tarde</option>
+                  <option value="noite">Noite</option>
+                  <option value="custom">Hora…</option>
+                </select>
+              </div>
+              {a.periodo === "custom" && (
+                <div className="ml-6 grid grid-cols-2 gap-2">
+                  <Input type="time" value={a.horaInicio} onChange={(e) => setAlt(i, { horaInicio: e.target.value })} />
+                  <Input type="time" value={a.horaFim} onChange={(e) => setAlt(i, { horaFim: e.target.value })} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {fieldState?.error && (
+        <p className="text-sm text-destructive">{fieldState.error}</p>
       )}
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="outline" onClick={onDone}>
@@ -356,6 +426,13 @@ export function DayDialog({
             isAdmin={isAdmin}
             currentMemberId={currentMemberId}
             members={members}
+            hasEvent={shows.length + rehearsals.length > 0}
+            eventLabel={[
+              shows.length ? `${shows.length} show(s)` : null,
+              rehearsals.length ? `${rehearsals.length} ensaio(s)` : null,
+            ]
+              .filter(Boolean)
+              .join(" e ")}
             onDone={close}
           />
         )}

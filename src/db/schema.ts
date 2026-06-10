@@ -631,6 +631,9 @@ export const memberUnavailability = sqliteTable("member_unavailability", {
   horaInicio: text("hora_inicio"), // HH:mm — opcional
   horaFim: text("hora_fim"), // HH:mm — opcional
   motivo: text("motivo"),
+  // Quando a indisponibilidade conflita com um evento, a pessoa informa 3
+  // janelas alternativas em que poderia. JSON: [{data,periodo,horaInicio?,horaFim?}].
+  alternativas: text("alternativas"),
   createdAt: createdAt(),
 });
 

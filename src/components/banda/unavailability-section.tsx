@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import type { MemberUnavailability } from "@/db/schema";
 import { formatDataBR } from "@/lib/formatters";
 import { CalendarOff, Plus, X } from "lucide-react";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 function toDateInput(d: Date | number): string {
   const date = typeof d === "number" ? new Date(d) : d;
@@ -51,6 +52,15 @@ export function UnavailabilitySection({
   const [open, setOpen] = useState(false);
   const todayStr = toDateInput(new Date());
 
+  // Fecha só no sucesso; conflito (erro) mantém o form aberto com a mensagem.
+  useEffect(() => {
+    if (state && "ok" in state && state.ok) {
+      toast.success("Indisponibilidade marcada.");
+      setOpen(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
   // Atalhos: a partir de hoje, por N dias.
   function quickRange(days: number) {
     const hoje = new Date();
@@ -87,7 +97,6 @@ export function UnavailabilitySection({
             action={(fd) => {
               fd.set("memberId", memberId);
               formAction(fd);
-              if (!state?.error) setOpen(false);
             }}
             className="border border-border rounded-md p-4 space-y-3 bg-muted/20"
           >
@@ -157,6 +166,15 @@ export function UnavailabilitySection({
               />
               <FieldError state={state} name="motivo" />
             </div>
+            {state?.error && (
+              <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+                {state.error}{" "}
+                <span className="text-muted-foreground">
+                  Pra informar suas 3 datas alternativas, marque pela{" "}
+                  <strong>Agenda</strong> (clique no dia).
+                </span>
+              </p>
+            )}
             <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
