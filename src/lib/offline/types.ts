@@ -17,7 +17,7 @@ import type {
  *  os usamos nas features de palco, então mantemos os tipos do schema por
  *  conveniência (lyrics/bpm/tom/etc. são o que importa offline). */
 export type Snapshot = {
-  version: number;
+  version: string; // impressão digital do conteúdo (estável; muda só quando algo muda)
   geradoEm: string;
   members: Member[];
   songs: Song[];

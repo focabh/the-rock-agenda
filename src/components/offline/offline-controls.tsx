@@ -59,7 +59,8 @@ export function DownloadOfflineButton({ className }: { className?: string }) {
   const dl = useOffline((s) => s.download);
 
   const pct = dl.total > 0 ? Math.round((dl.done / dl.total) * 100) : 0;
-  const loading = dl.active && !dl.complete;
+  const loading = dl.active;
+  const upToDate = dl.complete && !dl.hasNew;
 
   async function run() {
     if (loading) return;
@@ -67,10 +68,23 @@ export function DownloadOfflineButton({ className }: { className?: string }) {
       toast.error("Conecte à internet pra baixar o conteúdo offline.");
       return;
     }
-    const { urls } = await startFullDownload();
+    if (upToDate) {
+      toast.info("Já está tudo baixado e atualizado.");
+      return;
+    }
+    const force = dl.hasNew; // atualizar = re-busca o que mudou
+    const { urls } = await startFullDownload({ force });
     if (urls === 0) toast.error("Service worker ainda não pronto — recarregue e tente de novo.");
-    else toast.success("Baixando tudo pra offline em segundo plano…");
+    else toast.success(force ? "Atualizando o conteúdo offline…" : "Baixando tudo pra offline em segundo plano…");
   }
+
+  const label = loading
+    ? `Baixando… ${pct}%`
+    : upToDate
+      ? "Offline atualizado"
+      : dl.hasNew
+        ? "Atualizar offline"
+        : "Baixar tudo pra offline";
 
   return (
     <button
@@ -85,12 +99,12 @@ export function DownloadOfflineButton({ className }: { className?: string }) {
     >
       {loading ? (
         <RefreshCw className="size-4 animate-spin" />
-      ) : dl.complete ? (
+      ) : upToDate ? (
         <Check className="size-4 text-emerald-400" />
       ) : (
         <Download className="size-4" />
       )}
-      {loading ? `Baixando… ${pct}%` : dl.complete ? "Baixado pra offline" : "Baixar tudo pra offline"}
+      {label}
     </button>
   );
 }

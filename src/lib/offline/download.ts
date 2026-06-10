@@ -1,7 +1,11 @@
 "use client";
 
 import { useOffline } from "./store";
+import { kvSet } from "./idb";
 import type { Snapshot } from "./types";
+
+export const DL_PENDING_KEY = "dlPending";
+export const DL_VERSION_KEY = "dlCompleteVersion";
 
 /** Telas fixas (sem parâmetro) que a banda usa. */
 const STATIC_ROUTES = [
@@ -61,7 +65,9 @@ export function buildOfflineUrlList(snap: Snapshot | null): string[] {
  *  sobrevive à navegação e ao fechamento, e é retomável — pula o que já está em
  *  cache). O progresso chega por mensagens do SW (tratadas no OfflineProvider).
  *  Retorna o total de URLs enfileiradas (0 se o SW ainda não controla a página). */
-export async function startFullDownload(): Promise<{ urls: number }> {
+export async function startFullDownload(
+  opts: { force?: boolean } = {}
+): Promise<{ urls: number }> {
   await useOffline.getState().refresh();
   const snap = useOffline.getState().snapshot;
   const urls = buildOfflineUrlList(snap);
@@ -69,7 +75,15 @@ export async function startFullDownload(): Promise<{ urls: number }> {
   const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
   if (!sw || !sw.controller) return { urls: 0 };
 
-  useOffline.getState().setDownload({ active: true, done: 0, total: urls.length, complete: false });
-  sw.controller.postMessage({ type: "DOWNLOAD_ALL", urls });
+  // marca que um download foi INTENCIONADO (pra retomar se cair a conexão)
+  try {
+    await kvSet(DL_PENDING_KEY, true);
+  } catch {
+    /* ignora */
+  }
+  useOffline.getState().setDownload({ active: true, done: 0, total: urls.length, complete: false, hasNew: false });
+  // force=true (Atualizar): re-baixa as páginas que mudaram. force=false
+  // (1ª vez/retomar): pula o que já está em cache.
+  sw.controller.postMessage({ type: "DOWNLOAD_ALL", urls, force: !!opts.force });
   return { urls: urls.length };
 }

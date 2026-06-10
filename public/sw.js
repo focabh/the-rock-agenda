@@ -9,9 +9,14 @@
 //  - "Modo Show": a página warm-a o próprio cache via postMessage pra garantir
 //    o pacote do show inteiro disponível offline.
 
-const VERSION = "v6-offline";
-const STATIC_CACHE = "rock-static-" + VERSION;
-const RUNTIME_CACHE = "rock-runtime-" + VERSION;
+// Nomes de cache ESTÁVEIS (sem versão) — o conteúdo baixado pra offline
+// SOBREVIVE a deploys/atualizações do SW. Antes o nome levava a versão e cada
+// deploy apagava tudo (forçando re-download). Páginas são network-first (online
+// sempre pega fresco) e assets são hash-named (imutáveis), então não há risco
+// de servir build velha. O activate abaixo limpa os caches versionados antigos.
+const VERSION = "v7-offline";
+const STATIC_CACHE = "rock-static";
+const RUNTIME_CACHE = "rock-runtime";
 
 // Página de OFFLINE dedicada (HTML puro, sem React). Servida quando se navega
 // pra uma rota que ainda não foi baixada. NUNCA servir outra rota cacheada no
@@ -133,9 +138,10 @@ async function cacheAssetsFromHtml(html) {
   );
 }
 
-/** Baixa uma URL (se ainda não estiver em cache). Documento + assets. */
-async function warmUrl(runtime, u) {
-  if (await runtime.match(u)) return true; // já baixado → retomável
+/** Baixa uma URL. Documento + assets. Sem force, PULA se já estiver em cache
+ *  (retomável); com force, re-busca (atualizar conteúdo que mudou). */
+async function warmUrl(runtime, u, force) {
+  if (!force && (await runtime.match(u))) return true; // já baixado → pula
   const res = await fetch(u, { credentials: "same-origin" });
   if (!res || !res.ok) throw new Error("fetch falhou " + u);
   const ct = res.headers.get("content-type") || "";
@@ -150,7 +156,7 @@ async function warmUrl(runtime, u) {
   return true;
 }
 
-async function runDownload(urls) {
+async function runDownload(urls, force) {
   if (downloading) return;
   downloading = true;
   const runtime = await caches.open(RUNTIME_CACHE);
@@ -167,7 +173,7 @@ async function runDownload(urls) {
       await Promise.all(
         group.map(async (u) => {
           try {
-            await warmUrl(runtime, u);
+            await warmUrl(runtime, u, force);
             done++;
           } catch {
             failed++;
@@ -187,7 +193,7 @@ async function runDownload(urls) {
 self.addEventListener("message", (event) => {
   const msg = event.data || {};
   if (msg.type === "DOWNLOAD_ALL" && Array.isArray(msg.urls)) {
-    event.waitUntil(runDownload(msg.urls));
+    event.waitUntil(runDownload(msg.urls, !!msg.force));
   }
 });
 

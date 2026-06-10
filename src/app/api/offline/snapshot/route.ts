@@ -62,8 +62,36 @@ export async function GET() {
       return c;
     });
 
+  // VERSION = impressão digital do CONTEÚDO (não muda a cada request, só quando
+  // algo de palco muda). Permite ao cliente saber se já baixou tudo e se há
+  // conteúdo novo. Ignora presença (muda muito e não afeta o que se baixa).
+  const stampOf = (rows: { updatedAt?: Date | null; createdAt?: Date | null }[]) =>
+    rows.reduce((mx, r) => {
+      const t = r.updatedAt ? +new Date(r.updatedAt) : r.createdAt ? +new Date(r.createdAt) : 0;
+      return t > mx ? t : mx;
+    }, 0);
+  const maxUpdated = Math.max(
+    stampOf(songsData),
+    stampOf(setlistsData),
+    stampOf(showsData),
+    stampOf(rehearsalsData),
+    stampOf(membersData),
+    stampOf(venuesData),
+    stampOf(positionsData),
+    stampOf(settingsData)
+  );
+  const count =
+    songsData.length +
+    setlistsData.length +
+    setlistItemsData.length +
+    showsData.length +
+    rehearsalsData.length +
+    membersData.length +
+    venuesData.length;
+  const version = `${maxUpdated}.${count}`;
+
   const snapshot = {
-    version: Date.now(),
+    version,
     geradoEm: new Date().toISOString(),
     members: semCampos(membersData, ["avatar"]),
     songs: songsData,

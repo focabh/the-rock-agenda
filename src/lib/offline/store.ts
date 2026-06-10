@@ -17,8 +17,10 @@ type OfflineStore = {
   lastSyncedAt: number | null;
   /** Quantas mutações offline aguardam replay. */
   pendingCount: number;
-  /** Progresso do "Baixar tudo pra offline". */
-  download: { active: boolean; done: number; total: number; complete: boolean };
+  /** Progresso/estado do "Baixar tudo pra offline".
+   *  complete = tudo baixado pra versão atual do conteúdo.
+   *  hasNew = já baixou antes, mas o conteúdo mudou (há atualização). */
+  download: { active: boolean; done: number; total: number; complete: boolean; hasNew: boolean };
   setDownload: (d: Partial<OfflineStore["download"]>) => void;
 
   /** Carrega o snapshot persistido do IndexedDB (rápido, funciona offline). */
@@ -36,13 +38,13 @@ export const useOffline = create<OfflineStore>((set, get) => ({
   status: "idle",
   lastSyncedAt: null,
   pendingCount: 0,
-  download: { active: false, done: 0, total: 0, complete: false },
+  download: { active: false, done: 0, total: 0, complete: false, hasNew: false },
   setDownload: (d) => set((s) => ({ download: { ...s.download, ...d } })),
 
   hydrate: async () => {
     try {
       const snap = await kvGet<Snapshot>(SNAP_KEY);
-      if (snap) set({ snapshot: snap, lastSyncedAt: snap.version ?? null });
+      if (snap) set({ snapshot: snap });
     } catch {
       /* IndexedDB indisponível — segue sem cache local */
     }
@@ -66,7 +68,7 @@ export const useOffline = create<OfflineStore>((set, get) => ({
       set({
         snapshot: snap,
         status: "idle",
-        lastSyncedAt: snap.version ?? Date.now(),
+        lastSyncedAt: Date.now(),
       });
     } catch {
       set({ status: "error" });
