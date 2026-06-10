@@ -26,6 +26,7 @@ import {
   CornerRightDown,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
+import { SpotifyExportButton } from "@/components/repertorio/spotify-export-button";
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
 import { SetlistShare } from "@/components/shows/setlist-share";
 import { SetlistCritiqueDialog } from "@/components/shows/setlist-critique-dialog";
@@ -496,6 +497,9 @@ export function SetlistTab({
                     dur: fmtMMSS(it.duracaoSeg ?? it.song.duracaoSeg ?? 0),
                   }))}
                 />
+              )}
+              {superuser && selected && localItems.some((i) => i.song.spotifyTrackId) && (
+                <SpotifyExportButton mode="setlist" setlistId={selected.id} label="Exportar Spotify" />
               )}
             </div>
           </div>

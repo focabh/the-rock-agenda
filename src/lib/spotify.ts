@@ -16,7 +16,15 @@ const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const AUTH_URL = "https://accounts.spotify.com/authorize";
 const API_BASE = "https://api.spotify.com/v1";
 
-const SCOPES = ["playlist-read-private", "playlist-read-collaborative"];
+const SCOPES = [
+  "playlist-read-private",
+  "playlist-read-collaborative",
+  // escrita: criar/editar playlists PÚBLICAS na conta conectada (exportar)
+  "playlist-modify-public",
+];
+
+/** Escopo que habilita exportar (criar playlist). */
+const EXPORT_SCOPE = "playlist-modify-public";
 
 export class SpotifyConfigError extends Error {}
 export class SpotifyNotConnectedError extends Error {}
@@ -78,11 +86,81 @@ export async function exchangeCodeForTokens(code: string): Promise<TokenResponse
 export async function isSpotifyConnected(): Promise<{
   connected: boolean;
   ownerName?: string | null;
+  /** A conexão atual tem escopo pra EXPORTAR (criar playlist)? Conexões antigas
+   *  (read-only) não têm — o usuário precisa reconectar. */
+  canExport: boolean;
 }> {
   const [auth] = await db.select().from(spotifyAuth).limit(1);
   return {
     connected: !!auth,
     ownerName: auth?.ownerDisplayName ?? null,
+    canExport: !!auth?.scope && auth.scope.includes(EXPORT_SCOPE),
+  };
+}
+
+export type ExportResult =
+  | { ok: true; url: string; count: number }
+  | { ok: false; error: string; needsReconnect?: boolean };
+
+/** Cria uma playlist PÚBLICA na conta conectada e adiciona as faixas. */
+export async function exportTracksToPlaylist(opts: {
+  name: string;
+  description?: string;
+  trackIds: string[];
+}): Promise<ExportResult> {
+  const { name, description, trackIds } = opts;
+  if (trackIds.length === 0) {
+    return { ok: false, error: "Nenhuma música com faixa do Spotify pra exportar." };
+  }
+  const token = await getValidAccessToken();
+  if (!token) return { ok: false, error: "Spotify não conectado.", needsReconnect: true };
+
+  const meRes = await fetch(`${API_BASE}/me`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!meRes.ok) {
+    return {
+      ok: false,
+      error: `Spotify recusou (${meRes.status}). Tente reconectar.`,
+      needsReconnect: meRes.status === 401 || meRes.status === 403,
+    };
+  }
+  const me = (await meRes.json()) as { id?: string };
+  if (!me.id) return { ok: false, error: "Não consegui identificar a conta Spotify." };
+
+  const createRes = await fetch(`${API_BASE}/users/${me.id}/playlists`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name, description: description ?? "", public: true }),
+  });
+  if (!createRes.ok) {
+    const insufficient = createRes.status === 401 || createRes.status === 403;
+    return {
+      ok: false,
+      error: insufficient
+        ? "O Spotify não autorizou criar a playlist. Reconecte o Spotify (pra dar a permissão de escrita) — e, se persistir, sua conta precisa estar no allowlist do app no Spotify Dashboard."
+        : `Não consegui criar a playlist (${createRes.status}).`,
+      needsReconnect: insufficient,
+    };
+  }
+  const pl = (await createRes.json()) as { id: string; external_urls?: { spotify?: string } };
+
+  const uris = trackIds.map((id) => `spotify:track:${id}`);
+  for (let i = 0; i < uris.length; i += 100) {
+    const addRes = await fetch(`${API_BASE}/playlists/${pl.id}/tracks`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ uris: uris.slice(i, i + 100) }),
+    });
+    if (!addRes.ok) {
+      return {
+        ok: false,
+        error: `Playlist criada, mas falhou ao adicionar as faixas (${addRes.status}).`,
+      };
+    }
+  }
+  return {
+    ok: true,
+    url: pl.external_urls?.spotify ?? `https://open.spotify.com/playlist/${pl.id}`,
+    count: trackIds.length,
   };
 }
 

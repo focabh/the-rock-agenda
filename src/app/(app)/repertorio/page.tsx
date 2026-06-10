@@ -5,6 +5,7 @@ import { SpotifyPopularityButton } from "@/components/repertorio/spotify-popular
 import { BpmFetchButton } from "@/components/repertorio/bpm-fetch-button";
 import { AddSongMenu } from "@/components/repertorio/add-song-menu";
 import { SpotifyConnect } from "@/components/repertorio/spotify-connect";
+import { SpotifyExportButton } from "@/components/repertorio/spotify-export-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
@@ -23,7 +24,7 @@ export default async function RepertorioPage() {
   const superuser = isSuperuser(user);
   const spotify = superuser
     ? await isSpotifyConnected()
-    : { connected: false, ownerName: null };
+    : { connected: false, ownerName: null, canExport: false };
   const lista = await db
     .select()
     .from(songs)
@@ -81,6 +82,9 @@ export default async function RepertorioPage() {
                     connected={spotify.connected}
                     ownerName={spotify.ownerName ?? null}
                   />
+                )}
+                {superuser && spotify.connected && (
+                  <SpotifyExportButton mode="repertorio" label="Exportar repertório" />
                 )}
                 <EnrichSongsButton />
                 <SpotifyPopularityButton />
