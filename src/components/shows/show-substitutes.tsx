@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { UserPlus, Send, Trash2, UserX } from "lucide-react";
+import { UserPlus, Send, Trash2, UserX, Mail } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,17 @@ import {
   createSubstituteAction,
   deleteSubstituteAction,
 } from "@/app/(app)/shows/[id]/actions-substitute";
+import { createInviteAction } from "@/app/(app)/cadastros/actions";
 import type { ShowSubstitute } from "@/db/schema";
+
+function inviteUrl(token: string) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/cadastro?invite=${token}`;
+}
+function inviteMessage(nome: string | null, token: string, banda: string) {
+  const saud = nome?.trim() ? `Fala, ${nome.trim()}! 🤘` : "Fala! 🤘";
+  return `${saud}\n\nVocê tá sendo convidado pra entrar no app da *${banda}* — onde a gente organiza tudo: shows, ensaios, setlist, cachês e avisos.\n\nÉ rapidinho: toque no link, faça seu cadastro e ative as notificações. O link é pessoal e expira em alguns dias.\n\n👉 ${inviteUrl(token)}`;
+}
 
 type Decliner = { id: string; nome: string; funcao: string | null };
 
@@ -83,6 +93,36 @@ export function ShowSubstitutes({
     });
   }
 
+  // Convite de CADASTRO: gera um token amarrado ao telefone do sub e
+  // compartilha o link /cadastro?invite=… no WhatsApp (cria conta no app).
+  function enviarCadastro(sub: ShowSubstitute) {
+    if ((sub.contato ?? "").replace(/\D/g, "").length < 10) {
+      toast.error("Adicione o WhatsApp do sub (DDD + número) pra mandar o convite de cadastro.");
+      return;
+    }
+    start(async () => {
+      const r = await createInviteAction(sub.nome, sub.contato ?? "");
+      if (r && "error" in r && r.error) {
+        toast.error(r.error);
+        return;
+      }
+      if (r && "ok" in r && r.ok && r.token) {
+        const num = (r.telefone ?? sub.contato ?? "").replace(/\D/g, "");
+        const text = encodeURIComponent(inviteMessage(sub.nome, r.token, brandName));
+        const url = num
+          ? `https://wa.me/55${num}?text=${text}`
+          : `https://wa.me/?text=${text}`;
+        try {
+          await navigator.clipboard.writeText(inviteUrl(r.token));
+        } catch {
+          /* ignora */
+        }
+        toast.success("Convite de cadastro criado — abrindo WhatsApp (link copiado também).");
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+    });
+  }
+
   function waLink(sub: ShowSubstitute) {
     const digits = (sub.contato ?? "").replace(/\D/g, "");
     const msg =
@@ -133,7 +173,7 @@ export function ShowSubstitutes({
         {subs.length > 0 && (
           <ul className="divide-y divide-border">
             {subs.map((s) => (
-              <li key={s.id} className="flex items-center gap-2 py-2.5">
+              <li key={s.id} className="flex flex-wrap items-center gap-2 py-2.5">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">
                     {s.nome}
@@ -143,16 +183,28 @@ export function ShowSubstitutes({
                     {s.contato || "sem contato"}
                   </p>
                 </div>
-                <a href={waLink(s)} target="_blank" rel="noreferrer">
+                <a href={waLink(s)} target="_blank" rel="noreferrer" className="shrink-0">
                   <Button size="sm" variant="outline">
-                    <Send className="size-4" /> Convidar
+                    <Send className="size-4" /> Chamar
                   </Button>
                 </a>
+                {admin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => enviarCadastro(s)}
+                    disabled={pending}
+                    title="Gerar convite pra ele criar conta no app"
+                  >
+                    <Mail className="size-4" /> Cadastro
+                  </Button>
+                )}
                 {admin && (
                   <button
                     onClick={() => remover(s.id)}
                     disabled={pending}
-                    className="text-muted-foreground hover:text-destructive"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
                     title="Remover sub"
                   >
                     <Trash2 className="size-4" />
