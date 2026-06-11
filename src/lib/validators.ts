@@ -49,8 +49,21 @@ export function pixValido(input: string): boolean {
   return false;
 }
 
+/**
+ * Remove o código de país +55 quando o número claramente veio com ele —
+ * típico de telefone copiado do WhatsApp (ex.: +55 31 99999-8888).
+ * 13 díg = 55 + DDD + celular(9); 12 díg = 55 + DDD + fixo(8).
+ * Não mexe em números de 10-11 díg, então DDD 55 local continua funcionando.
+ */
+export function stripBRCountryCode(digits: string): string {
+  if ((digits.length === 13 || digits.length === 12) && digits.startsWith("55")) {
+    return digits.slice(2);
+  }
+  return digits;
+}
+
 export function maskPhone(value: string): string {
-  const d = onlyDigits(value).slice(0, 11);
+  const d = stripBRCountryCode(onlyDigits(value)).slice(0, 11);
   if (d.length <= 2) return d.length ? `(${d}` : "";
   if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
   if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
