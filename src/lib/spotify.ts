@@ -19,12 +19,16 @@ const API_BASE = "https://api.spotify.com/v1";
 const SCOPES = [
   "playlist-read-private",
   "playlist-read-collaborative",
-  // escrita: criar/editar playlists PÚBLICAS na conta conectada (exportar)
+  // escrita: criar/editar playlists na conta conectada (exportar)
   "playlist-modify-public",
+  "playlist-modify-private",
 ];
 
-/** Escopo que habilita exportar (criar playlist). */
-const EXPORT_SCOPE = "playlist-modify-public";
+/** Escopo que habilita exportar (criar playlist).
+ *  Criamos a playlist como PRIVADA (public:false) — em Development Mode o
+ *  Spotify bloqueia criar playlist PÚBLICA via API (403 Forbidden). Privada
+ *  ainda é acessível por link compartilhado. Por isso exige modify-private. */
+const EXPORT_SCOPE = "playlist-modify-private";
 
 export class SpotifyConfigError extends Error {}
 export class SpotifyNotConnectedError extends Error {}
@@ -116,7 +120,9 @@ export type ExportResult =
   | { ok: true; url: string; count: number }
   | { ok: false; error: string; needsReconnect?: boolean };
 
-/** Cria uma playlist PÚBLICA na conta conectada e adiciona as faixas. */
+/** Cria uma playlist (privada, mas link-compartilhável) na conta conectada e
+ *  adiciona as faixas. Privada porque o dev mode do Spotify barra criar
+ *  pública via API. */
 export async function exportTracksToPlaylist(opts: {
   name: string;
   description?: string;
@@ -157,7 +163,7 @@ export async function exportTracksToPlaylist(opts: {
   const createRes = await fetch(`${API_BASE}/users/${me.id}/playlists`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ name, description: description ?? "", public: true }),
+    body: JSON.stringify({ name, description: description ?? "", public: false }),
   });
   if (!createRes.ok) {
     const body = await createRes.text().catch(() => "");
