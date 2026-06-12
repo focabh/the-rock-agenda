@@ -29,6 +29,17 @@ const EXPORT_SCOPE = "playlist-modify-public";
 export class SpotifyConfigError extends Error {}
 export class SpotifyNotConnectedError extends Error {}
 
+/** Extrai a mensagem de erro do corpo JSON do Spotify, como `: <msg>` (ou ""). */
+function spotifyDetail(body: string): string {
+  try {
+    const msg = (JSON.parse(body) as { error?: { message?: string } })?.error
+      ?.message;
+    return msg ? `: ${msg}` : "";
+  } catch {
+    return "";
+  }
+}
+
 function getClientCreds() {
   const id = process.env.SPOTIFY_CLIENT_ID;
   const secret = process.env.SPOTIFY_CLIENT_SECRET;
@@ -49,7 +60,10 @@ export function buildAuthorizeUrl(state: string): string {
     redirect_uri: redirectUri,
     scope: SCOPES.join(" "),
     state,
-    show_dialog: "false",
+    // true: sempre mostra o consentimento. Garante que, ao reconectar, o
+    // usuário veja e conceda a permissão de escrita (playlist-modify-public),
+    // mesmo que o app já tivesse sido autorizado antes só com leitura.
+    show_dialog: "true",
   });
   return `${AUTH_URL}?${params}`;
 }
@@ -112,14 +126,28 @@ export async function exportTracksToPlaylist(opts: {
   if (trackIds.length === 0) {
     return { ok: false, error: "Nenhuma música com faixa do Spotify pra exportar." };
   }
+  // Guard cedo: se a conexão salva claramente não tem escopo de escrita,
+  // nem tenta a API — manda reconectar direto.
+  const [auth] = await db.select().from(spotifyAuth).limit(1);
+  if (auth?.scope && !auth.scope.includes(EXPORT_SCOPE)) {
+    return {
+      ok: false,
+      needsReconnect: true,
+      error:
+        "A conexão atual do Spotify é só de leitura (sem permissão pra criar playlist). Clique em Reconectar e aceite as permissões.",
+    };
+  }
+
   const token = await getValidAccessToken();
   if (!token) return { ok: false, error: "Spotify não conectado.", needsReconnect: true };
 
   const meRes = await fetch(`${API_BASE}/me`, { headers: { Authorization: `Bearer ${token}` } });
   if (!meRes.ok) {
+    const body = await meRes.text().catch(() => "");
+    console.error("Spotify /me falhou:", meRes.status, body);
     return {
       ok: false,
-      error: `Spotify recusou (${meRes.status}). Tente reconectar.`,
+      error: `Spotify recusou ao ler sua conta (${meRes.status}${spotifyDetail(body)}). Tente reconectar.`,
       needsReconnect: meRes.status === 401 || meRes.status === 403,
     };
   }
@@ -132,12 +160,18 @@ export async function exportTracksToPlaylist(opts: {
     body: JSON.stringify({ name, description: description ?? "", public: true }),
   });
   if (!createRes.ok) {
+    const body = await createRes.text().catch(() => "");
+    // Loga o corpo completo no servidor pra diagnóstico (Vercel logs).
+    console.error("Spotify criar playlist falhou:", createRes.status, body);
+    const detail = spotifyDetail(body);
     const insufficient = createRes.status === 401 || createRes.status === 403;
     return {
       ok: false,
       error: insufficient
-        ? "O Spotify não autorizou criar a playlist. Reconecte o Spotify (pra dar a permissão de escrita) — e, se persistir, sua conta precisa estar no allowlist do app no Spotify Dashboard."
-        : `Não consegui criar a playlist (${createRes.status}).`,
+        ? `O Spotify recusou criar a playlist (${createRes.status}${detail}). ` +
+          `Se a mensagem fala de "scope", clique em Reconectar e aceite as permissões. ` +
+          `Se fala "not registered"/Developer Dashboard, a conta precisa estar no allowlist do app (Dashboard › User Management).`
+        : `Não consegui criar a playlist (${createRes.status}${detail}).`,
       needsReconnect: insufficient,
     };
   }

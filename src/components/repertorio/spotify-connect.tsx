@@ -2,7 +2,7 @@
 
 import { useEffect, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { Music, Plug, Unplug, Loader2 } from "lucide-react";
+import { Music, Plug, Unplug, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -66,6 +66,15 @@ export function SpotifyConnect({
             <span className="opacity-75">({ownerName})</span>
           )}
         </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => startTransition(() => connectSpotifyAction())}
+          disabled={pending}
+          title="Reconectar (renova as permissões, ex.: criar playlist)"
+        >
+          <RefreshCw className="size-4" />
+        </Button>
         <Button
           variant="ghost"
           size="sm"

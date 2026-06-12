@@ -5,6 +5,7 @@ import { Loader2, ListPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
+  connectSpotifyAction,
   exportRepertorioToSpotifyAction,
   exportSetlistToSpotifyAction,
 } from "@/app/(app)/repertorio/spotify-actions";
@@ -34,8 +35,17 @@ export function SpotifyExportButton({
       if (r.ok) {
         toast.success(`Playlist criada (${r.count} faixa(s))! Abrindo no Spotify…`);
         window.open(r.url, "_blank");
+      } else if (r.needsReconnect) {
+        // Falha por permissão/escopo → oferece reconectar com 1 clique.
+        toast.error(r.error, {
+          duration: 12000,
+          action: {
+            label: "Reconectar",
+            onClick: () => connectSpotifyAction(),
+          },
+        });
       } else {
-        toast.error(r.error);
+        toast.error(r.error, { duration: 10000 });
       }
     } catch {
       toast.error("Falha ao exportar pro Spotify.");
