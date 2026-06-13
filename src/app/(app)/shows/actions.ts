@@ -9,7 +9,7 @@ import { shows, venues } from "@/db/schema";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin } from "@/lib/auth";
 import { parseBRDateTime, formatDataBR } from "@/lib/formatters";
-import { sendPushToAll } from "@/lib/push";
+import { notifyEventChange } from "@/lib/event-push";
 
 const SHOW_STATUSES = ["planejado", "confirmado", "concluido", "cancelado"] as const;
 const PAGAMENTO_STATUSES = ["pendente", "parcial", "pago", "atrasado"] as const;
@@ -65,7 +65,7 @@ export async function createShowAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const parsed = parseForm(showSchema, formData);
   if (!parsed.ok) return parsed.state;
   const nivel = parsed.data.lembreteNivel ?? "off";
@@ -85,13 +85,19 @@ export async function createShowAction(
       .from(venues)
       .where(eq(venues.id, row.casaId))
       .limit(1);
-    await sendPushToAll({
-      title: `Novo show: ${casa?.nome ?? "show"}`,
-      body: `${formatDataBR(row.data, true)}${
-        row.termino ? ` até ${row.termino}` : ""
-      } — confirme sua presença!`,
-      url: `/shows/${row.id}`,
-      tag: `show-${row.id}`,
+    await notifyEventChange({
+      kind: "show",
+      eventId: row.id,
+      eventDate: row.data,
+      exceptUserId: actor.id,
+      payload: {
+        title: `Novo show: ${casa?.nome ?? "show"}`,
+        body: `${formatDataBR(row.data, true)}${
+          row.termino ? ` até ${row.termino}` : ""
+        } — confirme sua presença!`,
+        url: `/shows/${row.id}`,
+        tag: `show-${row.id}`,
+      },
     });
   } catch (e) {
     console.error("push (novo show) falhou:", e);
@@ -107,10 +113,64 @@ export async function updateShowAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const parsed = parseForm(showSchema, formData);
   if (!parsed.ok) return parsed.state;
-  await db.update(shows).set(toPersist(parsed.data)).where(eq(shows.id, id));
+
+  const [before] = await db
+    .select()
+    .from(shows)
+    .where(eq(shows.id, id))
+    .limit(1);
+  const next = toPersist(parsed.data);
+  await db.update(shows).set(next).where(eq(shows.id, id));
+
+  // Avisa só quando muda algo RELEVANTE (data, horário, casa, status).
+  try {
+    if (before) {
+      const cancelou =
+        next.status === "cancelado" && before.status !== "cancelado";
+      const relevante =
+        cancelou ||
+        before.data.getTime() !== next.data.getTime() ||
+        before.termino !== next.termino ||
+        before.passagemSom !== next.passagemSom ||
+        before.casaId !== next.casaId ||
+        before.status !== next.status;
+      if (relevante) {
+        const [casa] = await db
+          .select({ nome: venues.nome })
+          .from(venues)
+          .where(eq(venues.id, next.casaId))
+          .limit(1);
+        const nomeCasa = casa?.nome ?? "show";
+        await notifyEventChange({
+          kind: "show",
+          eventId: id,
+          eventDate: next.data,
+          exceptUserId: actor.id,
+          payload: cancelou
+            ? {
+                title: `Show cancelado: ${nomeCasa}`,
+                body: `${formatDataBR(next.data, true)} foi cancelado.`,
+                url: `/shows/${id}`,
+                tag: `show-${id}`,
+              }
+            : {
+                title: `Show atualizado: ${nomeCasa}`,
+                body: `${formatDataBR(next.data, true)}${
+                  next.termino ? ` até ${next.termino}` : ""
+                } — confira os detalhes.`,
+                url: `/shows/${id}`,
+                tag: `show-${id}`,
+              },
+        });
+      }
+    }
+  } catch (e) {
+    console.error("push (show atualizado) falhou:", e);
+  }
+
   revalidatePath("/shows");
   revalidatePath(`/shows/${id}`);
   revalidatePath("/");
@@ -119,6 +179,7 @@ export async function updateShowAction(
 
 export async function deleteShowAction(id: string) {
   await requireAdmin();
+  // Apagar NÃO dispara push (só cancelar via status). Decisão do usuário.
   await db.delete(shows).where(eq(shows.id, id));
   revalidatePath("/shows");
   revalidatePath("/");
@@ -128,8 +189,39 @@ export async function updateShowStatusAction(
   id: string,
   status: typeof SHOW_STATUSES[number]
 ) {
-  await requireAdmin();
+  const actor = await requireAdmin();
+  const [before] = await db
+    .select()
+    .from(shows)
+    .where(eq(shows.id, id))
+    .limit(1);
   await db.update(shows).set({ status }).where(eq(shows.id, id));
+
+  // Push só quando o show passa a CANCELADO (não em outras mudanças de status).
+  if (status === "cancelado" && before && before.status !== "cancelado") {
+    try {
+      const [casa] = await db
+        .select({ nome: venues.nome })
+        .from(venues)
+        .where(eq(venues.id, before.casaId))
+        .limit(1);
+      await notifyEventChange({
+        kind: "show",
+        eventId: id,
+        eventDate: before.data,
+        exceptUserId: actor.id,
+        payload: {
+          title: `Show cancelado: ${casa?.nome ?? "show"}`,
+          body: `${formatDataBR(before.data, true)} foi cancelado.`,
+          url: `/shows/${id}`,
+          tag: `show-${id}`,
+        },
+      });
+    } catch (e) {
+      console.error("push (show cancelado) falhou:", e);
+    }
+  }
+
   revalidatePath("/shows");
   revalidatePath(`/shows/${id}`);
   revalidatePath("/");

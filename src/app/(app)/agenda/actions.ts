@@ -13,7 +13,7 @@ import {
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireSuperuser, requireCurrentUser } from "@/lib/auth";
 import { formatDataBR } from "@/lib/formatters";
-import { sendPushToAll } from "@/lib/push";
+import { notifyEventChange } from "@/lib/event-push";
 import {
   detectConflicts,
   announceUnavailabilityConflict,
@@ -150,7 +150,7 @@ export async function createRehearsalAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireSuperuser();
+  const actor = await requireSuperuser();
   const parsed = parseForm(rehearsalSchema, formData);
   if (!parsed.ok) return parsed.state;
 
@@ -179,13 +179,19 @@ export async function createRehearsalAction(
 
   // Avisa a banda automaticamente sobre o novo ensaio (não bloqueia se falhar).
   try {
-    await sendPushToAll({
-      title: "Novo ensaio",
-      body: `${formatDataBR(row.data)}${row.inicio ? ` às ${row.inicio}` : ""}${
-        row.local ? ` • ${row.local}` : ""
-      } — confirme presença!`,
-      url: `/ensaios/${row.id}`,
-      tag: `ensaio-${row.id}`,
+    await notifyEventChange({
+      kind: "rehearsal",
+      eventId: row.id,
+      eventDate: row.data,
+      exceptUserId: actor.id,
+      payload: {
+        title: "Novo ensaio",
+        body: `${formatDataBR(row.data)}${row.inicio ? ` às ${row.inicio}` : ""}${
+          row.local ? ` • ${row.local}` : ""
+        } — confirme presença!`,
+        url: `/ensaios/${row.id}`,
+        tag: `ensaio-${row.id}`,
+      },
     });
   } catch (e) {
     console.error("push (novo ensaio) falhou:", e);
@@ -200,9 +206,15 @@ export async function updateRehearsalAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireSuperuser();
+  const actor = await requireSuperuser();
   const parsed = parseForm(rehearsalSchema, formData);
   if (!parsed.ok) return parsed.state;
+
+  const [before] = await db
+    .select()
+    .from(rehearsals)
+    .where(eq(rehearsals.id, id))
+    .limit(1);
 
   await db
     .update(rehearsals)
@@ -223,12 +235,57 @@ export async function updateRehearsalAction(
       lembreteNivel: parsed.data.lembreteNivel ?? "off",
     })
     .where(eq(rehearsals.id, id));
+
+  // Avisa só quando muda algo RELEVANTE (data, horário, local, status).
+  try {
+    if (before) {
+      const next = parsed.data;
+      const cancelou =
+        next.status === "cancelado" && before.status !== "cancelado";
+      const relevante =
+        cancelou ||
+        before.data.getTime() !== next.data.getTime() ||
+        before.inicio !== next.inicio ||
+        before.termino !== next.termino ||
+        (before.local ?? null) !== (next.local ?? null) ||
+        before.status !== next.status;
+      if (relevante) {
+        await notifyEventChange({
+          kind: "rehearsal",
+          eventId: id,
+          eventDate: next.data,
+          exceptUserId: actor.id,
+          payload: cancelou
+            ? {
+                title: "Ensaio cancelado",
+                body: `${formatDataBR(next.data)}${
+                  next.inicio ? ` às ${next.inicio}` : ""
+                } foi cancelado.`,
+                url: `/ensaios/${id}`,
+                tag: `ensaio-${id}`,
+              }
+            : {
+                title: "Ensaio atualizado",
+                body: `${formatDataBR(next.data)}${
+                  next.inicio ? ` às ${next.inicio}` : ""
+                }${next.local ? ` • ${next.local}` : ""} — confira os detalhes.`,
+                url: `/ensaios/${id}`,
+                tag: `ensaio-${id}`,
+              },
+        });
+      }
+    }
+  } catch (e) {
+    console.error("push (ensaio atualizado) falhou:", e);
+  }
+
   revalidateRehearsalPaths();
   return null;
 }
 
 export async function deleteRehearsalAction(id: string) {
   await requireSuperuser();
+  // Apagar NÃO dispara push (só cancelar via status). Decisão do usuário.
   await db.delete(rehearsals).where(eq(rehearsals.id, id));
   revalidateRehearsalPaths();
 }
