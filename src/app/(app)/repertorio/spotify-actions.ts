@@ -12,8 +12,10 @@ import {
   buildAuthorizeUrl,
   disconnectSpotify,
   exportTracksToPlaylist,
+  spotifyDiagnose,
   SpotifyConfigError,
   type ExportResult,
+  type SpotifyDiagnosis,
 } from "@/lib/spotify";
 
 const STATE_COOKIE = "spotify_oauth_state";
@@ -45,6 +47,12 @@ export async function disconnectSpotifyAction() {
   await requireSuperuser();
   await disconnectSpotify();
   revalidatePath("/repertorio");
+}
+
+/** Diagnóstico do export: por que o 403 acontece (escopo, conta, erro real). */
+export async function diagnoseSpotifyAction(): Promise<SpotifyDiagnosis> {
+  await requireSuperuser();
+  return spotifyDiagnose();
 }
 
 /** Exporta TODO o repertório (músicas com faixa do Spotify) → playlist pública

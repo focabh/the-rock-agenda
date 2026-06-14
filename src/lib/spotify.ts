@@ -22,6 +22,10 @@ const SCOPES = [
   // escrita: criar/editar playlists na conta conectada (exportar)
   "playlist-modify-public",
   "playlist-modify-private",
+  // leitura da conta: deixa o diagnóstico mostrar o EMAIL exato (pra liberar no
+  // User Management) e o produto (grátis/premium). Não afeta o export.
+  "user-read-private",
+  "user-read-email",
 ];
 
 /** Escopo que habilita exportar (criar playlist).
@@ -113,6 +117,169 @@ export async function isSpotifyConnected(): Promise<{
     connected: !!auth,
     ownerName: auth?.ownerDisplayName ?? null,
     canExport: !!auth?.scope && auth.scope.includes(EXPORT_SCOPE),
+  };
+}
+
+export type SpotifyDiagnosis = {
+  configured: boolean;
+  connected: boolean;
+  savedScope: string | null;
+  hasExportScope: boolean;
+  account?: {
+    id: string;
+    displayName: string | null;
+    email: string | null;
+    product: string | null; // "premium" | "free" | ...
+    country: string | null;
+  };
+  createTest?: { ok: boolean; status: number; detail: string };
+  verdict: string;
+};
+
+/**
+ * Diagnóstico de ponta a ponta do export: mostra o escopo salvo, os dados REAIS
+ * da conta conectada (email exato, produto) e TENTA criar uma playlist de teste,
+ * devolvendo o erro real do Spotify. A playlist de teste é removida (unfollow)
+ * em seguida. Serve pra parar de adivinhar por que o 403 acontece.
+ */
+export async function spotifyDiagnose(): Promise<SpotifyDiagnosis> {
+  try {
+    getClientCreds();
+  } catch {
+    return {
+      configured: false,
+      connected: false,
+      savedScope: null,
+      hasExportScope: false,
+      verdict:
+        "Spotify não configurado (faltam SPOTIFY_CLIENT_ID/SECRET/REDIRECT_URI).",
+    };
+  }
+
+  const [auth] = await db.select().from(spotifyAuth).limit(1);
+  const savedScope = auth?.scope ?? null;
+  const hasExportScope = !!savedScope && savedScope.includes(EXPORT_SCOPE);
+  if (!auth) {
+    return {
+      configured: true,
+      connected: false,
+      savedScope: null,
+      hasExportScope: false,
+      verdict: "Spotify não conectado. Clique em Conectar.",
+    };
+  }
+
+  const token = await getValidAccessToken();
+  if (!token) {
+    return {
+      configured: true,
+      connected: true,
+      savedScope,
+      hasExportScope,
+      verdict: "Não consegui renovar o token de acesso. Reconecte o Spotify.",
+    };
+  }
+
+  // Dados reais da conta
+  const meRes = await fetch(`${API_BASE}/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const meBody = await meRes.text().catch(() => "");
+  if (!meRes.ok) {
+    return {
+      configured: true,
+      connected: true,
+      savedScope,
+      hasExportScope,
+      verdict: `Falha ao ler a conta (/me ${meRes.status}${spotifyDetail(
+        meBody
+      )}). Reconecte.`,
+    };
+  }
+  const me = JSON.parse(meBody) as {
+    id: string;
+    display_name?: string;
+    email?: string;
+    product?: string;
+    country?: string;
+  };
+  const account = {
+    id: me.id,
+    displayName: me.display_name ?? null,
+    email: me.email ?? null,
+    product: me.product ?? null,
+    country: me.country ?? null,
+  };
+
+  // Tenta criar uma playlist de teste (mesma chamada do export) pra capturar o erro real.
+  const createRes = await fetch(`${API_BASE}/users/${me.id}/playlists`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: "The Rock — teste de diagnóstico (pode apagar)",
+      description: "Teste do StageBoss. Pode remover.",
+      public: false,
+    }),
+  });
+  const createBody = await createRes.text().catch(() => "");
+  const createTest = {
+    ok: createRes.ok,
+    status: createRes.status,
+    detail: spotifyDetail(createBody) || createBody.slice(0, 200),
+  };
+
+  // Limpa o teste: no Spotify "apagar" playlist = deixar de seguir.
+  if (createRes.ok) {
+    try {
+      const pl = JSON.parse(createBody) as { id?: string };
+      if (pl.id) {
+        await fetch(`${API_BASE}/playlists/${pl.id}/followers`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch {
+      // ignora — só limpeza
+    }
+  }
+
+  // Veredito
+  const emailRef = account.email
+    ? `"${account.email}"`
+    : `(id ${account.id} — reconecte pra ver o email exato)`;
+  let verdict: string;
+  if (createTest.ok) {
+    verdict = "✅ Criar playlist FUNCIONA agora. Tente exportar de novo.";
+  } else if (createTest.status === 401) {
+    verdict = "Token inválido/expirado — reconecte o Spotify.";
+  } else if (createTest.status === 403) {
+    verdict =
+      `❌ 403 ao criar playlist. A conta ${emailRef} NÃO está liberada no app. ` +
+      `Vá em developer.spotify.com → app → User Management e adicione ESTE email exato` +
+      (account.email ? "" : " (reconecte primeiro pra descobri-lo)") +
+      `. Produto: ${account.product ?? "?"}.`;
+  } else {
+    verdict = `Falhou ao criar a playlist (${createTest.status}${
+      createTest.detail ? `: ${createTest.detail}` : ""
+    }).`;
+  }
+  if (!hasExportScope) {
+    verdict =
+      `⚠️ O token salvo NÃO tem o escopo de escrita (${EXPORT_SCOPE}) — reconecte e aceite as permissões. ` +
+      verdict;
+  }
+
+  return {
+    configured: true,
+    connected: true,
+    savedScope,
+    hasExportScope,
+    account,
+    createTest,
+    verdict,
   };
 }
 
