@@ -14,7 +14,7 @@ import { adminMaterialPorPosicao, getBrand, getCurrentUser, isAdmin, isSuperuser
 import { BAND } from "@/lib/band";
 import { isSpotifyConnected } from "@/lib/spotify";
 import { asc, desc, eq } from "drizzle-orm";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Printer } from "lucide-react";
 
 export default async function RepertorioPage() {
   const user = await getCurrentUser();
@@ -73,6 +73,15 @@ export default async function RepertorioPage() {
             >
               <ExternalLink className="size-4" />
               Playlist Spotify
+            </Button>
+            <Button
+              variant="outline"
+              render={
+                <a href="/repertorio/imprimir" target="_blank" rel="noreferrer" />
+              }
+            >
+              <Printer className="size-4" />
+              Imprimir
             </Button>
             <SyncLyricsButton />
             {admin && (
