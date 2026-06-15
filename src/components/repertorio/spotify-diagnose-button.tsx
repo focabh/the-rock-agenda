@@ -21,18 +21,22 @@ export function SpotifyDiagnoseButton() {
       // Detalhe completo no console pra depuração profunda.
       console.info("[Spotify diagnóstico]", d);
       const ok = d.createTest?.ok;
-      toast[ok ? "success" : "error"](d.verdict, {
-        duration: 30000,
-        description: d.account?.email
+      const partes = [
+        d.account?.email
           ? `Conta: ${d.account.email} · ${d.account.product ?? "?"}`
-          : undefined,
-        action: d.account?.email
-          ? {
-              label: "Copiar email",
-              onClick: () =>
-                navigator.clipboard?.writeText(d.account!.email!),
-            }
-          : undefined,
+          : null,
+        d.createTest && !d.createTest.ok
+          ? `Spotify ${d.createTest.status}: ${d.createTest.detail || "(sem corpo)"}`
+          : null,
+      ].filter(Boolean);
+      toast[ok ? "success" : "error"](d.verdict, {
+        duration: 60000,
+        description: partes.length ? partes.join(" — ") : undefined,
+        action: {
+          label: "Copiar tudo",
+          onClick: () =>
+            navigator.clipboard?.writeText(JSON.stringify(d, null, 2)),
+        },
       });
     } catch {
       toast.error("Falha ao rodar o diagnóstico do Spotify.");

@@ -250,26 +250,26 @@ export async function spotifyDiagnose(): Promise<SpotifyDiagnosis> {
   const emailRef = account.email
     ? `"${account.email}"`
     : `(id ${account.id} — reconecte pra ver o email exato)`;
+  const erroCru = createTest.detail || "(sem corpo)";
   let verdict: string;
   if (createTest.ok) {
     verdict = "✅ Criar playlist FUNCIONA agora. Tente exportar de novo.";
   } else if (createTest.status === 401) {
-    verdict = "Token inválido/expirado — reconecte o Spotify.";
+    verdict = `Token inválido/expirado (401) — reconecte o Spotify. Erro: ${erroCru}`;
+  } else if (createTest.status === 403 && !hasExportScope) {
+    verdict =
+      `⚠️ 403: o token NÃO tem o escopo de escrita (${EXPORT_SCOPE}). ` +
+      `Reconecte e aceite as permissões. Erro: ${erroCru}`;
   } else if (createTest.status === 403) {
+    // Conta certa + allowlist + escopo OK e ainda 403 = restrição do Spotify.
     verdict =
-      `❌ 403 ao criar playlist. A conta ${emailRef} NÃO está liberada no app. ` +
-      `Vá em developer.spotify.com → app → User Management e adicione ESTE email exato` +
-      (account.email ? "" : " (reconecte primeiro pra descobri-lo)") +
-      `. Produto: ${account.product ?? "?"}.`;
+      `❌ 403 ao criar playlist com a conta ${emailRef} (${
+        account.product ?? "?"
+      }), com escopo de escrita OK. ` +
+      `Se a conta já está no User Management do app certo, isso é restrição do ` +
+      `Development Mode do Spotify na API de escrita. Erro literal do Spotify: ${erroCru}`;
   } else {
-    verdict = `Falhou ao criar a playlist (${createTest.status}${
-      createTest.detail ? `: ${createTest.detail}` : ""
-    }).`;
-  }
-  if (!hasExportScope) {
-    verdict =
-      `⚠️ O token salvo NÃO tem o escopo de escrita (${EXPORT_SCOPE}) — reconecte e aceite as permissões. ` +
-      verdict;
+    verdict = `Falhou ao criar a playlist (${createTest.status}): ${erroCru}`;
   }
 
   return {
