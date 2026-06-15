@@ -30,6 +30,14 @@ export function LoginForm() {
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Entrando..." : "Entrar"}
       </Button>
+      <p className="text-center text-sm">
+        <Link
+          href="/recuperar"
+          className="text-muted-foreground hover:text-primary hover:underline"
+        >
+          Esqueci a senha
+        </Link>
+      </p>
       <p className="text-center text-sm text-muted-foreground">
         Não tem conta?{" "}
         <Link href="/cadastro" className="text-primary hover:underline">

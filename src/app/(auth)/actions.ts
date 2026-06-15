@@ -14,7 +14,12 @@ import {
 import { parseForm } from "@/lib/form";
 import { getValidInvite, samePhone } from "@/lib/invites";
 import { sendPushToAdmins } from "@/lib/push";
-import { pixValido, telefoneValido } from "@/lib/validators";
+import { pixValido, stripBRCountryCode, telefoneValido } from "@/lib/validators";
+
+/** Dígitos do telefone, sem máscara e sem o 55 do país (compara local com local). */
+function phoneDigits(p: string): string {
+  return stripBRCountryCode(p.replace(/\D/g, ""));
+}
 
 export async function loginAction(_prev: { error?: string } | null, formData: FormData) {
   const ident = String(formData.get("username") ?? "").trim().toLowerCase();
@@ -54,6 +59,62 @@ export async function logoutAction() {
   const session = await getSession();
   session.destroy();
   redirect("/login");
+}
+
+const resetSchema = z.object({
+  ident: z.string().trim().min(1, "Informe seu usuário ou email"),
+  telefone: z
+    .string()
+    .trim()
+    .refine(telefoneValido, "Telefone inválido — use DDD + número"),
+  password: z.string().min(6, "A senha precisa ter ao menos 6 caracteres").max(100),
+});
+
+export type ResetState = {
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+  success?: boolean;
+} | null;
+
+/**
+ * Redefinição de senha self-service, sem email/admin: a pessoa prova quem é com
+ * o TELEFONE cadastrado na conta (âncora de identidade que o app já usa) e
+ * define a nova senha na hora.
+ */
+export async function resetPasswordAction(
+  _prev: ResetState,
+  formData: FormData
+): Promise<ResetState> {
+  const parsed = parseForm(resetSchema, formData);
+  if (!parsed.ok) return parsed.state;
+  const ident = parsed.data.ident.toLowerCase();
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(or(eq(users.username, ident), sql`lower(${users.email}) = ${ident}`))
+    .limit(1);
+  if (!user) {
+    return { error: "Não encontrei essa conta. Confira o usuário ou email." };
+  }
+
+  const stored = phoneDigits(user.telefone ?? "");
+  if (!stored) {
+    return {
+      error:
+        "Essa conta não tem telefone cadastrado, então não dá pra redefinir por aqui. Peça ao Foca pra resetar.",
+    };
+  }
+  if (stored !== phoneDigits(parsed.data.telefone)) {
+    return {
+      error:
+        "O telefone não confere com o cadastrado nessa conta. Use o mesmo número do seu cadastro.",
+    };
+  }
+
+  const passwordHash = await hashPassword(parsed.data.password);
+  await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+  return { success: true };
 }
 
 const registerSchema = z.object({
