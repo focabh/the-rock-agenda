@@ -3,8 +3,8 @@
 import {
   importFromSpotifyAction,
   importPastedToRepertorioAction,
-  type SpotifyImportResult,
 } from "@/app/(app)/repertorio/actions";
+import type { SpotifyImportResult } from "@/lib/spotify-sync";
 import {
   importPastedToSetlistAction,
   importPlaylistToSetlistAction,

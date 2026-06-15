@@ -11,13 +11,15 @@ import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin, requireCurrentUser } from "@/lib/auth";
 import { sendPushToAll } from "@/lib/push";
 import {
-  SpotifyConfigError,
-  extractPlaylistId,
   extractTrackId,
-  fetchPlaylistTracks,
   fetchTrack,
   fetchTracksPopularity,
 } from "@/lib/spotify";
+import {
+  importPlaylistToRepertorio,
+  syncRepertorioFromConfiguredPlaylist,
+  type SpotifyImportResult,
+} from "@/lib/spotify-sync";
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { fetchLyricsFull } from "@/lib/lyrics";
 import { fetchBpm } from "@/lib/bpm";
@@ -240,72 +242,22 @@ export async function syncSpotifyPopularityAction(): Promise<{
   return { ok: true, updated, total: withId.length };
 }
 
-export type SpotifyImportResult = {
-  ok: boolean;
-  error?: string;
-  added?: number;
-  existing?: number;
-  total?: number;
-};
-
+/** Importa/sincroniza uma playlist do Spotify (colada) pro repertório. */
 export async function importFromSpotifyAction(
   playlistUrl: string
 ): Promise<SpotifyImportResult> {
   await requireAdmin();
-  const playlistId = extractPlaylistId(playlistUrl);
-  if (!playlistId) {
-    return { ok: false, error: "URL ou ID do Spotify inválido." };
-  }
+  const r = await importPlaylistToRepertorio(playlistUrl);
+  if (r.ok) revalidatePath("/repertorio");
+  return r;
+}
 
-  try {
-    const tracks = await fetchPlaylistTracks(playlistId);
-    const all = await db.select().from(songs);
-    const byKey = new Map(
-      all.map((s) => [
-        `${s.titulo.toLowerCase()}|${s.artista.toLowerCase()}`,
-        s,
-      ])
-    );
-
-    let added = 0;
-    let existing = 0;
-    for (const t of tracks) {
-      const key = `${t.titulo.toLowerCase()}|${t.artista.toLowerCase()}`;
-      const found = byKey.get(key);
-      if (found) {
-        existing++;
-        // Backfill: música já existia sem ID/duração do Spotify → preenche agora.
-        const patch: Record<string, string | number> = {};
-        if (!found.spotifyTrackId && t.spotifyId) patch.spotifyTrackId = t.spotifyId;
-        if (!found.duracaoSeg && t.duracaoSeg) patch.duracaoSeg = t.duracaoSeg;
-        if (Object.keys(patch).length)
-          await db.update(songs).set(patch).where(eq(songs.id, found.id));
-        continue;
-      }
-      const [created] = await db
-        .insert(songs)
-        .values({
-          titulo: t.titulo,
-          artista: t.artista,
-          status: "aprendendo",
-          spotifyTrackId: t.spotifyId || null,
-          duracaoSeg: t.duracaoSeg || null,
-        })
-        .returning();
-      byKey.set(key, created);
-      added++;
-    }
-    revalidatePath("/repertorio");
-    return { ok: true, added, existing, total: tracks.length };
-  } catch (err) {
-    const message =
-      err instanceof SpotifyConfigError
-        ? err.message
-        : err instanceof Error
-          ? err.message
-          : "Erro desconhecido ao importar.";
-    return { ok: false, error: message };
-  }
+/** Sincroniza o repertório com a playlist CONFIGURADA do Spotify (Conta › Listas). */
+export async function syncRepertorioFromSpotifyAction(): Promise<SpotifyImportResult> {
+  await requireAdmin();
+  const r = await syncRepertorioFromConfiguredPlaylist();
+  if (r.ok) revalidatePath("/repertorio");
+  return r;
 }
 
 export type AddSongFromSpotifyResult =
