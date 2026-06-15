@@ -7,16 +7,19 @@ import { asc, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { songs, setlists } from "@/db/schema";
 import { requireSuperuser } from "@/lib/auth";
-import { formatDataBR } from "@/lib/formatters";
 import {
   buildAuthorizeUrl,
   disconnectSpotify,
-  exportTracksToPlaylist,
   spotifyDiagnose,
   SpotifyConfigError,
-  type ExportResult,
   type SpotifyDiagnosis,
 } from "@/lib/spotify";
+
+const TRACK_URL = (id: string) => `https://open.spotify.com/track/${id}`;
+
+export type SpotifyLinksResult =
+  | { ok: true; links: string[]; count: number }
+  | { ok: false; error: string };
 
 const STATE_COOKIE = "spotify_oauth_state";
 
@@ -55,52 +58,47 @@ export async function diagnoseSpotifyAction(): Promise<SpotifyDiagnosis> {
   return spotifyDiagnose();
 }
 
-/** Exporta TODO o repertório (músicas com faixa do Spotify) → playlist pública
- *  "The Rock - <data de hoje>". */
-export async function exportRepertorioToSpotifyAction(): Promise<ExportResult> {
+/**
+ * Links das faixas de TODO o repertório (músicas com faixa do Spotify), em ordem
+ * alfabética. O Spotify bloqueou criar playlist via API em Development Mode
+ * (restrição deles desde mai/2025), então a UI copia esses links pra colar num
+ * importador (Soundiiz/TuneMyMusic) que cria a playlist. Ver spotify-export-button.
+ */
+export async function repertorioSpotifyLinksAction(): Promise<SpotifyLinksResult> {
   await requireSuperuser();
   const rows = await db
     .select({ id: songs.spotifyTrackId })
     .from(songs)
     .where(isNotNull(songs.spotifyTrackId))
     .orderBy(asc(songs.titulo));
-  const trackIds = rows.map((r) => r.id).filter((x): x is string => !!x);
-  return exportTracksToPlaylist({
-    name: `The Rock - ${formatDataBR(new Date())}`,
-    description: "Repertório da banda The Rock — exportado pelo StageBoss.",
-    trackIds,
-  });
+  const links = rows
+    .map((r) => r.id)
+    .filter((x): x is string => !!x)
+    .map(TRACK_URL);
+  if (links.length === 0) {
+    return { ok: false, error: "Nenhuma música com faixa do Spotify no repertório." };
+  }
+  return { ok: true, links, count: links.length };
 }
 
-/** Exporta um setlist (show ou ensaio) → playlist pública. Nome = nome do show
- *  (casa · data) ou "The Rock — Ensaio · data". */
-export async function exportSetlistToSpotifyAction(
+/** Links das faixas de um setlist (show ou ensaio), na ordem do setlist. */
+export async function setlistSpotifyLinksAction(
   setlistId: string
-): Promise<ExportResult> {
+): Promise<SpotifyLinksResult> {
   await requireSuperuser();
   const sl = await db.query.setlists.findFirst({
     where: eq(setlists.id, setlistId),
-    with: {
-      items: { with: { song: true } },
-      show: { with: { casa: true } },
-      rehearsal: true,
-    },
+    with: { items: { with: { song: true } } },
   });
   if (!sl) return { ok: false, error: "Setlist não encontrado." };
 
-  const trackIds = [...sl.items]
+  const links = [...sl.items]
     .sort((a, b) => a.ordem - b.ordem)
     .map((i) => i.song.spotifyTrackId)
-    .filter((x): x is string => !!x);
-
-  let name: string;
-  if (sl.show) name = `${sl.show.casa.nome} — ${formatDataBR(sl.show.data)}`;
-  else if (sl.rehearsal) name = `The Rock — Ensaio · ${formatDataBR(sl.rehearsal.data)}`;
-  else name = `The Rock — ${sl.nome}`;
-
-  return exportTracksToPlaylist({
-    name,
-    description: `Setlist "${sl.nome}" — The Rock (via StageBoss).`,
-    trackIds,
-  });
+    .filter((x): x is string => !!x)
+    .map(TRACK_URL);
+  if (links.length === 0) {
+    return { ok: false, error: "Nenhuma faixa do Spotify neste setlist." };
+  }
+  return { ok: true, links, count: links.length };
 }

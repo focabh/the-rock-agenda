@@ -499,7 +499,7 @@ export function SetlistTab({
                 />
               )}
               {superuser && selected && localItems.some((i) => i.song.spotifyTrackId) && (
-                <SpotifyExportButton mode="setlist" setlistId={selected.id} label="Exportar Spotify" />
+                <SpotifyExportButton mode="setlist" setlistId={selected.id} label="Copiar Spotify" />
               )}
             </div>
           </div>

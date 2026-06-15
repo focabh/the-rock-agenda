@@ -93,8 +93,8 @@ export default async function RepertorioPage() {
                     ownerName={spotify.ownerName ?? null}
                   />
                 )}
-                {superuser && spotify.connected && (
-                  <SpotifyExportButton mode="repertorio" label="Exportar repertório" />
+                {superuser && (
+                  <SpotifyExportButton mode="repertorio" label="Copiar pro Spotify" />
                 )}
                 {superuser && spotify.connected && <SpotifyDiagnoseButton />}
                 <EnrichSongsButton />
