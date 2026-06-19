@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { FileText, Loader2, Pencil, ExternalLink } from "lucide-react";
+import { FileText, Loader2, Pencil, ExternalLink, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import {
   getOrFetchLyricsAction,
   saveLyricsAction,
+  refetchLyricsAction,
 } from "@/app/(app)/repertorio/actions";
 
 /** Letra inline na página de detalhe da música (mesma fonte/edição do modal). */
@@ -24,10 +25,12 @@ export function LyricsPanel({
   const [loaded, setLoaded] = useState(false);
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [found, setFound] = useState(false);
+  const [manual, setManual] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [loading, startLoad] = useTransition();
   const [saving, startSave] = useTransition();
+  const [refetching, startRefetch] = useTransition();
 
   useEffect(() => {
     startLoad(async () => {
@@ -35,6 +38,7 @@ export function LyricsPanel({
       if (r.ok) {
         setLyrics(r.lyrics);
         setFound(r.found);
+        setManual(!!r.manual);
       }
       setLoaded(true);
     });
@@ -49,8 +53,29 @@ export function LyricsPanel({
       }
       setLyrics(r.lyrics);
       setFound(r.found);
+      setManual(!!r.manual);
       setEditing(false);
-      toast.success("Letra salva.");
+      toast.success("Letra salva — não será mais sobrescrita automaticamente.");
+    });
+  }
+
+  function handleRefetch() {
+    if (
+      !window.confirm(
+        "Isso substitui a letra atual pela do LRCLIB e desfaz sua edição manual. Continuar?"
+      )
+    )
+      return;
+    startRefetch(async () => {
+      const r = await refetchLyricsAction(songId);
+      if (!r.ok) {
+        toast.error(r.error ?? "Erro ao re-buscar a letra.");
+        return;
+      }
+      setLyrics(r.lyrics);
+      setFound(r.found);
+      setManual(!!r.manual);
+      toast.success("Letra re-buscada do LRCLIB.");
     });
   }
 
@@ -76,6 +101,22 @@ export function LyricsPanel({
             >
               <ExternalLink className="size-4" />
               Spotify
+            </Button>
+          )}
+          {admin && loaded && !editing && manual && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefetch}
+              disabled={refetching}
+              title="Substituir pela letra do LRCLIB (desfaz a edição manual)"
+            >
+              {refetching ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
+              Re-buscar
             </Button>
           )}
           {admin && loaded && !editing && (
@@ -121,9 +162,17 @@ export function LyricsPanel({
             </div>
           </div>
         ) : found && lyrics ? (
-          <pre className="whitespace-pre-wrap font-sans text-[15px] leading-relaxed">
-            {lyrics}
-          </pre>
+          <>
+            <pre className="whitespace-pre-wrap font-sans text-[15px] leading-relaxed">
+              {lyrics}
+            </pre>
+            {manual && (
+              <p className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <Pencil className="size-3" /> Editada à mão — não será sobrescrita
+                automaticamente.
+              </p>
+            )}
+          </>
         ) : (
           <div className="py-6 text-center text-muted-foreground">
             <p>Letra não encontrada automaticamente.</p>

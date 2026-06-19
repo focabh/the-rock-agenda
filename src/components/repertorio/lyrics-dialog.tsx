@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { FileText, Loader2, Pencil, ExternalLink, Megaphone } from "lucide-react";
+import { FileText, Loader2, Pencil, ExternalLink, Megaphone, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -18,6 +18,7 @@ import { useOffline } from "@/lib/offline/store";
 import {
   getOrFetchLyricsAction,
   saveLyricsAction,
+  refetchLyricsAction,
 } from "@/app/(app)/repertorio/actions";
 
 export function LyricsDialog({
@@ -37,10 +38,12 @@ export function LyricsDialog({
   const [loaded, setLoaded] = useState(false);
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [found, setFound] = useState(false);
+  const [manual, setManual] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [loading, startLoad] = useTransition();
   const [saving, startSave] = useTransition();
+  const [refetching, startRefetch] = useTransition();
 
   // Local-first: a letra cacheada no snapshot offline. Se já tiver, usa na hora
   // (instantâneo e funciona sem internet); senão cai pra rede (quando online).
@@ -74,6 +77,7 @@ export function LyricsDialog({
       }
       setLyrics(r.lyrics);
       setFound(r.found);
+      setManual(!!r.manual);
       setLoaded(true);
     });
   }, [open, loaded, songId, cachedLyrics, online]);
@@ -110,8 +114,29 @@ export function LyricsDialog({
       }
       setLyrics(r.lyrics);
       setFound(r.found);
+      setManual(!!r.manual);
       setEditing(false);
-      toast.success("Letra salva.");
+      toast.success("Letra salva — não será mais sobrescrita automaticamente.");
+    });
+  }
+
+  function handleRefetch() {
+    if (
+      !window.confirm(
+        "Isso substitui a letra atual pela do LRCLIB e desfaz sua edição manual. Continuar?"
+      )
+    )
+      return;
+    startRefetch(async () => {
+      const r = await refetchLyricsAction(songId);
+      if (!r.ok) {
+        toast.error(r.error ?? "Erro ao re-buscar a letra.");
+        return;
+      }
+      setLyrics(r.lyrics);
+      setFound(r.found);
+      setManual(!!r.manual);
+      toast.success("Letra re-buscada do LRCLIB.");
     });
   }
 
@@ -182,7 +207,10 @@ export function LyricsDialog({
             <Footer
               spotifyTrackId={spotifyTrackId}
               admin={admin}
+              manual={manual}
+              refetching={refetching}
               onEdit={startEdit}
+              onRefetch={handleRefetch}
             />
           </>
         ) : (
@@ -211,19 +239,47 @@ export function LyricsDialog({
 function Footer({
   spotifyTrackId,
   admin,
+  manual,
+  refetching,
   onEdit,
+  onRefetch,
 }: {
   spotifyTrackId: string | null;
   admin: boolean;
+  manual: boolean;
+  refetching: boolean;
   onEdit: () => void;
+  onRefetch: () => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-2 pt-1">
       <p className="text-xs text-muted-foreground">
-        Letra via LRCLIB — pode ter pequenos erros.
+        {manual ? (
+          <span className="inline-flex items-center gap-1 font-medium text-foreground">
+            <Pencil className="size-3" /> Editada à mão — não será sobrescrita.
+          </span>
+        ) : (
+          "Letra via LRCLIB — pode ter pequenos erros."
+        )}
       </p>
       <div className="flex items-center gap-2">
         {spotifyTrackId && <SpotifyLink spotifyTrackId={spotifyTrackId} small />}
+        {admin && manual && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRefetch}
+            disabled={refetching}
+            title="Substituir pela letra do LRCLIB (desfaz a edição manual)"
+          >
+            {refetching ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            Re-buscar
+          </Button>
+        )}
         {admin && (
           <Button variant="ghost" size="sm" onClick={onEdit}>
             <Pencil className="size-4" />

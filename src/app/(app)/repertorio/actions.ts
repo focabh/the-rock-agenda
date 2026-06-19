@@ -495,7 +495,10 @@ export async function syncAllLyricsAction(): Promise<SyncLyricsResult> {
   const all = await db.select().from(songs);
 
   // Pendente = falta letra simples OU a sincronizada (que alimenta o Inteliprompter).
-  const pending = all.filter((s) => !s.lyrics?.trim() || !s.syncedLyrics?.trim());
+  // Letra editada à mão NÃO entra (não sobrescrevemos correção manual).
+  const pending = all.filter(
+    (s) => !s.lyricsManual && (!s.lyrics?.trim() || !s.syncedLyrics?.trim())
+  );
   const alreadyHad = all.length - pending.length;
 
   let fetched = 0;
@@ -531,6 +534,8 @@ export type LyricsResult = {
   ok: boolean;
   lyrics: string | null;
   found: boolean;
+  /** Letra editada à mão (protegida da busca automática). */
+  manual?: boolean;
   error?: string;
 };
 
@@ -544,6 +549,17 @@ export async function getOrFetchLyricsAction(
   await requireCurrentUser();
   const [song] = await db.select().from(songs).where(eq(songs.id, songId)).limit(1);
   if (!song) return { ok: false, lyrics: null, found: false, error: "Música não encontrada." };
+
+  // Editada à mão → é a fonte da verdade. NÃO busca nada (não re-introduz a
+  // letra sincronizada antiga por cima da correção).
+  if (song.lyricsManual) {
+    return {
+      ok: true,
+      lyrics: song.lyrics,
+      found: !!song.lyrics?.trim(),
+      manual: true,
+    };
+  }
 
   // Já tem letra simples no cache → devolve, mas tenta completar a sincronizada
   // e a duração em segundo plano (sem bloquear).
@@ -570,17 +586,58 @@ export async function getOrFetchLyricsAction(
   return { ok: true, lyrics: null, found: false };
 }
 
-/** Admin corrige/cola a letra manualmente (ou limpa, passando string vazia). */
+/**
+ * Admin corrige/cola a letra manualmente (ou limpa, passando string vazia).
+ * Com texto: marca `lyricsManual` (a busca automática não sobrescreve mais) e
+ * zera a `syncedLyrics` — a edição vira a versão usada em todo lugar (inclusive
+ * o teleprompter, que passa a rolar por velocidade na letra corrigida).
+ * Limpando: volta a permitir a busca automática.
+ */
 export async function saveLyricsAction(
   songId: string,
   lyrics: string
 ): Promise<LyricsResult> {
   await requireAdmin();
   const value = lyrics.trim() || null;
-  await db.update(songs).set({ lyrics: value }).where(eq(songs.id, songId));
+  await db
+    .update(songs)
+    .set({ lyrics: value, lyricsManual: !!value, syncedLyrics: null })
+    .where(eq(songs.id, songId));
   revalidatePath("/repertorio");
   revalidatePath(`/repertorio/${songId}`);
-  return { ok: true, lyrics: value, found: !!value };
+  return { ok: true, lyrics: value, found: !!value, manual: !!value };
+}
+
+/**
+ * Re-busca a letra no LRCLIB e SUBSTITUI a atual (overwrite EXPLÍCITO). Remove o
+ * flag de manual e repõe a sincronizada. Usado pelo botão "Re-buscar do LRCLIB".
+ */
+export async function refetchLyricsAction(songId: string): Promise<LyricsResult> {
+  await requireAdmin();
+  const [song] = await db.select().from(songs).where(eq(songs.id, songId)).limit(1);
+  if (!song) return { ok: false, lyrics: null, found: false, error: "Música não encontrada." };
+  const hit = await fetchLyricsFull(song.titulo, song.artista);
+  if (!hit.plain && !hit.synced) {
+    return {
+      ok: false,
+      lyrics: song.lyrics,
+      found: !!song.lyrics?.trim(),
+      manual: song.lyricsManual,
+      error: "Não encontrei letra no LRCLIB pra essa música.",
+    };
+  }
+  await db
+    .update(songs)
+    .set({
+      lyrics: hit.plain ?? null,
+      syncedLyrics: hit.synced ?? null,
+      lyricsManual: false,
+      ...(hit.durationSec && !song.duracaoSeg ? { duracaoSeg: hit.durationSec } : {}),
+    })
+    .where(eq(songs.id, songId));
+  revalidatePath("/repertorio");
+  revalidatePath(`/repertorio/${songId}`);
+  return { ok: true, lyrics: hit.plain ?? null, found: !!hit.plain, manual: false };
 }
 
 export async function setMemberReadinessAction(

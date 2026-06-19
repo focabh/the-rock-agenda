@@ -260,6 +260,11 @@ export const songs = sqliteTable("songs", {
   // Letra SINCRONIZADA (LRC, com timestamps por linha) — alimenta o
   // Inteliprompter (rolagem no tempo real da música). Cache do LRCLIB.
   syncedLyrics: text("synced_lyrics"),
+  // Letra EDITADA À MÃO: quando true, a busca automática (LRCLIB/sync) NÃO
+  // sobrescreve a letra. Só o "Re-buscar do LRCLIB" (explícito) substitui.
+  lyricsManual: integer("lyrics_manual", { mode: "boolean" })
+    .notNull()
+    .default(false),
   // Marcações de palco (intro/solo/"entra vocal") — JSON [{t:segundos,label}].
   // Sugeridas automaticamente pelos vãos da letra sincronizada e editáveis.
   cues: text("cues"),
