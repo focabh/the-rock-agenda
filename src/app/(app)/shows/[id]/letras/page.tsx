@@ -38,6 +38,7 @@ export default async function LetrasPage({
     syncedLyrics: it.song.syncedLyrics,
     cues: it.song.cues,
     bpm: it.song.bpm,
+    vozPedal: it.song.vozPedal,
   }));
 
   const [user, brand] = await Promise.all([getCurrentUser(), getBrand()]);

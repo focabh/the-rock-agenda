@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SongForm } from "@/components/repertorio/song-form";
 import { ReadinessSection } from "@/components/repertorio/readiness-section";
 import { LyricsPanel } from "@/components/repertorio/lyrics-panel";
+import { VozPedalEditor } from "@/components/repertorio/voz-pedal-editor";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { updateSongAction } from "../actions";
 
@@ -57,6 +58,8 @@ export default async function EditarSongPage({
             status: r.status,
           }))}
         />
+
+        <VozPedalEditor songId={id} initial={song.vozPedal} />
 
         <LyricsPanel
           songId={id}

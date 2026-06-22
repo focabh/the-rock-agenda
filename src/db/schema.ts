@@ -294,6 +294,9 @@ export const songs = sqliteTable("songs", {
     .notNull()
     .default(false),
   tom: text("tom"), // tonalidade musical (ex.: "Em", "A") — muda por música
+  // Config do pedal de voz (ex.: Flamma FV-02) por música — JSON
+  // {mode,reverb,level}. Mostrado no setlist/teleprompter/modo-show. Null = sem.
+  vozPedal: text("voz_pedal"),
   // Afinação dropada (Drop D/C etc.)? Agrupa as dropadas p/ minimizar reafinação.
   dropada: integer("dropada", { mode: "boolean" }).notNull().default(false),
   // Popularidade Spotify (0–100), atualizada sob demanda. Desempata o setlist.

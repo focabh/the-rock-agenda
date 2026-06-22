@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { OfflineDownloadButton } from "@/components/shared/offline-download-button";
 import { Teleprompter } from "@/components/shared/teleprompter";
+import { VozPedalBadge } from "@/components/shared/voz-pedal-badge";
 import { LyricsText } from "@/components/shared/lyrics-text";
 import { EmptyState } from "@/components/shared/empty-state";
 import { computeStageCues, CUE_EMOJI, CUE_LABEL } from "@/lib/stage-cues";
@@ -86,6 +87,7 @@ export default async function ModoShowPage({
     syncedLyrics: it.song.syncedLyrics,
     cues: it.song.cues,
     bpm: it.song.bpm,
+    vozPedal: it.song.vozPedal,
   }));
 
   // Outros shows pra alternar (da lista enxuta).
@@ -176,6 +178,7 @@ export default async function ModoShowPage({
                       {it.song.dropada && (
                         <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">DROP</span>
                       )}
+                      <VozPedalBadge raw={it.song.vozPedal} />
                       {it.tom && (
                         <span className="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.tom}</span>
                       )}
@@ -222,7 +225,10 @@ export default async function ModoShowPage({
                         <span className="font-mono text-muted-foreground">{i + 1}.</span>
                         <h4 className="font-bold">{it.song.titulo}</h4>
                         <span className="text-sm text-muted-foreground">{it.song.artista}</span>
-                        {it.tom && <span className="ml-auto rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.tom}</span>}
+                        <span className="ml-auto flex items-center gap-2">
+                          <VozPedalBadge raw={it.song.vozPedal} />
+                          {it.tom && <span className="rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.tom}</span>}
+                        </span>
                       </div>
                       {it.song.lyrics?.trim() ? (
                         <LyricsText text={it.song.lyrics} tone="light" className="text-sm leading-relaxed" />

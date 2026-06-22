@@ -21,6 +21,7 @@ import {
 import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
+import { VozPedalBadge } from "@/components/shared/voz-pedal-badge";
 import { parseLrc, parseCues, buildTimeline, activeLineIndex, decideEntryWarning, type AlertMode } from "@/lib/lrc";
 import { prepareAudioContext } from "@/lib/audio-unlock";
 
@@ -34,6 +35,7 @@ type Song = {
   syncedLyrics?: string | null;
   cues?: string | null;
   bpm?: number | null;
+  vozPedal?: string | null;
 };
 
 // Tamanhos responsivos: já começam grandes no celular.
@@ -549,9 +551,12 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
               showControls ? "opacity-100" : "opacity-0"
             }`}
           >
-            <span className="pointer-events-auto truncate text-sm font-semibold text-amber-400">
-              {songs[current] ? `${songs[current].n}. ${songs[current].titulo}` : ""}
-              {songs[current]?.tom ? ` · ${songs[current].tom}` : ""}
+            <span className="pointer-events-auto flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-semibold text-amber-400">
+                {songs[current] ? `${songs[current].n}. ${songs[current].titulo}` : ""}
+                {songs[current]?.tom ? ` · ${songs[current].tom}` : ""}
+              </span>
+              <VozPedalBadge raw={songs[current]?.vozPedal} />
             </span>
             <button
               onClick={close}

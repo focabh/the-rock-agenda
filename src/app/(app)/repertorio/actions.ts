@@ -21,6 +21,11 @@ import {
   type SpotifyImportResult,
 } from "@/lib/spotify-sync";
 import { parseTracksFromText } from "@/lib/parse-tracks";
+import {
+  normalizeTitle,
+  parseVozPedalTable,
+  type VozPedal,
+} from "@/lib/voz-pedal";
 import { fetchLyricsFull } from "@/lib/lyrics";
 import { fetchBpm } from "@/lib/bpm";
 import { enrichSongsWithAI } from "@/lib/song-ai";
@@ -692,6 +697,70 @@ export async function setMemberReadinessAction(
       console.error("push (progresso de música) falhou:", e);
     }
   }
+}
+
+/** Salva a config do pedal de voz de uma música (ou limpa, passando null).
+ *  Colaborativo: qualquer músico logado pode ajustar (é a config do vocal). */
+export async function setSongVozPedalAction(
+  id: string,
+  pedal: VozPedal | null
+): Promise<{ ok: boolean }> {
+  await requireCurrentUser();
+  let value: string | null = null;
+  if (pedal && String(pedal.mode ?? "").trim()) {
+    const clean: VozPedal = {
+      mode: String(pedal.mode).trim().toUpperCase().slice(0, 8),
+      reverb: String(pedal.reverb ?? "").trim().toUpperCase().slice(0, 8),
+      level: Math.max(0, Math.min(100, Math.round(Number(pedal.level) || 0))),
+    };
+    value = JSON.stringify(clean);
+  }
+  await db.update(songs).set({ vozPedal: value }).where(eq(songs.id, id));
+  revalidatePath("/repertorio");
+  revalidatePath(`/repertorio/${id}`);
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { ok: true };
+}
+
+export type VozPedalImportResult = {
+  ok: boolean;
+  applied: number;
+  notMatched: string[];
+  error?: string;
+};
+
+/** Importa uma tabela colada (Música | Mode | Reverb | Level) casando por
+ *  título normalizado. Só atualiza o pedal — não toca em mais nada. */
+export async function importVozPedalTableAction(
+  text: string
+): Promise<VozPedalImportResult> {
+  await requireCurrentUser();
+  const rows = parseVozPedalTable(text);
+  if (rows.length === 0) {
+    return { ok: false, applied: 0, notMatched: [], error: "Nenhuma linha válida na tabela." };
+  }
+  const all = await db.select({ id: songs.id, titulo: songs.titulo }).from(songs);
+  const byNorm = new Map(all.map((s) => [normalizeTitle(s.titulo), s.id]));
+
+  let applied = 0;
+  const notMatched: string[] = [];
+  for (const r of rows) {
+    const id = byNorm.get(normalizeTitle(r.titulo));
+    if (!id) {
+      notMatched.push(r.titulo);
+      continue;
+    }
+    await db
+      .update(songs)
+      .set({ vozPedal: JSON.stringify(r.pedal) })
+      .where(eq(songs.id, id));
+    applied++;
+  }
+  revalidatePath("/repertorio");
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { ok: true, applied, notMatched };
 }
 
 export async function toggleFavoritaAction(id: string, favorita: boolean) {

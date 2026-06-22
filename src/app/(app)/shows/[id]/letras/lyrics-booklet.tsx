@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { CUE_EMOJI, CUE_LABEL, type StageCue } from "@/lib/stage-cues";
 import { Teleprompter } from "@/components/shared/teleprompter";
 import { LyricsText } from "@/components/shared/lyrics-text";
+import { VozPedalBadge } from "@/components/shared/voz-pedal-badge";
 import { refineStageCuesAction } from "@/app/(app)/shows/[id]/actions-setlist";
 
 type BookletSong = {
@@ -40,6 +41,7 @@ type BookletSong = {
   syncedLyrics?: string | null;
   cues?: string | null;
   bpm?: number | null;
+  vozPedal?: string | null;
 };
 
 const SIZES = ["text-base", "text-lg", "text-xl", "text-2xl", "text-3xl"];
@@ -263,11 +265,14 @@ export function LyricsBooklet({
                   <span className="font-mono text-gray-400">{s.n}.</span>
                   <h2 className="text-lg font-bold">{s.titulo}</h2>
                   <span className="text-sm text-gray-600">{s.artista}</span>
-                  {s.tom && (
-                    <span className="ml-auto rounded border border-gray-400 px-1.5 py-0.5 font-mono text-sm">
-                      {s.tom}
-                    </span>
-                  )}
+                  <span className="ml-auto flex items-center gap-2">
+                    <VozPedalBadge raw={s.vozPedal} tone="light" />
+                    {s.tom && (
+                      <span className="rounded border border-gray-400 px-1.5 py-0.5 font-mono text-sm">
+                        {s.tom}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 {s.lyrics ? (
                   <LyricsText text={s.lyrics} tone="light" className={`leading-relaxed ${SIZES[sizeIdx]}`} />
