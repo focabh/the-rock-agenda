@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { songs, type Song } from "@/db/schema";
 import { formatDuracao } from "@/lib/formatters";
 import { PrintTrigger } from "./print-trigger";
+import { VozPedalBadge } from "@/components/shared/voz-pedal-badge";
 
 // Ordem e rótulos dos status na folha impressa.
 const GRUPOS: { status: Song["status"]; label: string }[] = [
@@ -45,22 +46,28 @@ export default async function ImprimirRepertorioPage({
   const totalSeg = visiveis.reduce((acc, s) => acc + (s.duracaoSeg ?? 0), 0);
 
   return (
-    <div className="min-h-screen bg-white text-black p-8 print:p-12">
+    <div className="min-h-screen bg-white text-black p-8 print:p-0">
       <PrintTrigger />
       <div className="max-w-2xl mx-auto">
-        <header className="mb-8 flex items-end justify-between border-b-2 border-black pb-3">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight uppercase">
-              The Rock
-            </h1>
-            <p className="text-sm">Repertório da banda</p>
-          </div>
-          <div className="text-right text-sm">
-            <p>
-              {visiveis.length}{" "}
-              {visiveis.length === 1 ? "música" : "músicas"}
-            </p>
-            {totalSeg > 0 && <p>~ {formatDuracao(totalSeg)}</p>}
+        <header className="mb-6 border-b-4 border-black pb-3">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-gray-500">
+                Repertório
+              </p>
+              <h1 className="text-4xl font-black uppercase leading-none tracking-tight">
+                The Rock
+              </h1>
+            </div>
+            <div className="text-right text-sm leading-tight">
+              <p className="font-bold">
+                {visiveis.length}{" "}
+                {visiveis.length === 1 ? "música" : "músicas"}
+              </p>
+              {totalSeg > 0 && (
+                <p className="text-gray-600">~ {formatDuracao(totalSeg)}</p>
+              )}
+            </div>
           </div>
         </header>
 
@@ -90,6 +97,7 @@ export default async function ImprimirRepertorioPage({
                   <span className="text-sm text-gray-600 flex-1">
                     {song.artista}
                   </span>
+                  <VozPedalBadge raw={song.vozPedal} tone="light" />
                   {song.dropada && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 border border-gray-600 rounded bg-gray-200">
                       DROP
@@ -123,8 +131,8 @@ export default async function ImprimirRepertorioPage({
         )}
 
         <p className="mt-8 pt-3 border-t border-gray-300 text-xs text-gray-400">
-          ★ favorita · DROP = afinação dropada · números à direita = BPM e
-          duração
+          ★ favorita · DROP = afinação dropada · 🎚 = pedal de voz · números à
+          direita = BPM e duração
         </p>
       </div>
 
