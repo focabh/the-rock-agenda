@@ -10,6 +10,7 @@ import {
   ArrowLeftRight,
   Check,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -52,18 +53,24 @@ export function SetlistSuggestDialog({
   const [sugestoes, setSugestoes] = useState<SetlistSuggestion[]>([]);
   const [totalSeg, setTotalSeg] = useState(0);
   const [targetMin, setTargetMin] = useState("");
+  const [via, setVia] = useState<"ia" | "heuristica" | null>(null);
   const [done, setDone] = useState<Set<number>>(new Set());
 
-  function run(target?: number) {
+  function run(target?: number, useAI = false) {
     start(async () => {
-      const r = await suggestSetlistAction(setlistId, target);
+      const r = await suggestSetlistAction(setlistId, target, useAI);
       if (!r.ok) {
-        toast.error(r.error ?? "Não consegui sugerir.");
+        toast.error(
+          r.needsKey
+            ? "IA não configurada (ANTHROPIC_API_KEY)."
+            : (r.error ?? "Não consegui sugerir.")
+        );
         return;
       }
       setSugestoes(r.suggestions);
       setTotalSeg(r.totalSeg);
       setTargetMin(String(r.targetMin));
+      setVia(r.via ?? null);
       setDone(new Set());
     });
   }
@@ -145,7 +152,17 @@ export function SetlistSuggestDialog({
             ) : (
               <RefreshCw className="size-4" />
             )}
-            Recalcular
+            Básica
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => run(target, true)}
+            disabled={loading || target <= 0}
+            title="Usa IA (Haiku) pra considerar o gosto do público e o perfil da casa"
+          >
+            <Sparkles className="size-4" />
+            Com IA
           </Button>
           <span className="ml-auto self-center text-xs text-muted-foreground">
             Atual: ~{formatDuracao(totalSeg)}
@@ -156,6 +173,7 @@ export function SetlistSuggestDialog({
                 {totalMin - target} min vs alvo
               </>
             )}
+            {via === "ia" && <span className="ml-1 text-sky-400">· via IA</span>}
           </span>
         </div>
 

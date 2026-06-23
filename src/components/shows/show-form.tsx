@@ -305,6 +305,18 @@ export function ShowForm({
             <FieldError state={state} name="observacoes" />
           </div>
 
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="publicoPerfil">Gosto do público</Label>
+            <Textarea
+              id="publicoPerfil"
+              name="publicoPerfil"
+              rows={2}
+              defaultValue={show?.publicoPerfil ?? ""}
+              placeholder="Ex.: curte anos 80/90, pop rock e flashback; nada muito pesado. (a IA usa isso pra gerar/sugerir o setlist — essencial em evento particular)"
+            />
+            <FieldError state={state} name="publicoPerfil" />
+          </div>
+
           <div className="sm:col-span-2 flex items-center justify-end gap-2 pt-2">
             {state?.error && !state.fieldErrors && (
               <p className="mr-auto text-sm text-destructive">{state.error}</p>

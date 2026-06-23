@@ -33,6 +33,8 @@ export type SetlistAIInput = {
   setlistAnterior: string[];
   regras: string;
   perfilDesejado: string;
+  /** Gosto do público desse evento (show.publicoPerfil) — manda em festa privada. */
+  publicoGosto: string;
   memoriaAberturas: string[];
   memoriaFechamentos: string[];
   prefs: {
@@ -84,6 +86,7 @@ CONTEXTO:
 - Casa: ${i.casaNome} — ${i.casaPerfil || "sem perfil"}. Características: ${i.casaTags.join(", ") || "—"}.
 - Última vez nesta casa (NÃO repita abre/fecha nem a ordem): ${i.setlistAnterior.join(", ") || "nenhuma"}.
 - Perfil desejado do show: ${i.perfilDesejado || "equilibrado"}.
+- O QUE O PÚBLICO CURTE (priorize músicas que casem com isso): ${i.publicoGosto || "não informado"}.
 - Preferências do usuário: ${prefs.join("; ") || "nenhuma específica"}.
 
 MEMÓRIA DA BANDA (aprendida dos setlists já salvos — respeite esses padrões quando fizer sentido):
@@ -236,6 +239,117 @@ Se estiver bem montado, "alertas":[] e veredito "forte" ou "ok". Máx 6 alertas.
     ? parsed.alertas.filter((x) => typeof x === "string").slice(0, 6)
     : [];
   return { veredito, alertas };
+}
+
+// ---- Sugestões de AJUSTE por IA: remover/adicionar/trocar pensando no PÚBLICO ----
+
+export type AISuggestSong = {
+  id: string;
+  titulo: string;
+  artista: string;
+  duracaoSeg: number | null;
+  energia: number | null;
+  status: string;
+  finalBoss: boolean;
+};
+
+export type AISetlistSuggestion =
+  | { kind: "remove"; songId: string; reason: string }
+  | { kind: "add"; songId: string; reason: string }
+  | { kind: "swap"; removeSongId: string; addSongId: string; reason: string };
+
+export async function suggestSetlistChangesAI(input: {
+  set: AISuggestSong[];
+  pool: AISuggestSong[];
+  targetMin: number;
+  publicoPerfil: string;
+  casaTags: string[];
+  privado: boolean;
+}): Promise<AISetlistSuggestion[]> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new NoApiKeyError("IA não configurada.");
+
+  const fmt = (s: AISuggestSong) => ({
+    id: s.id,
+    titulo: s.titulo,
+    artista: s.artista,
+    duracaoSeg: s.duracaoSeg ?? 210,
+    energia: s.energia ?? 2,
+    status: s.status,
+    finalBoss: s.finalBoss,
+  });
+
+  const prompt = `Você é diretor musical de banda cover de rock (The Rock — covers de rock alternativo 90/2000, BH). Sugira AJUSTES no setlist pra (1) bater o tempo-alvo e (2) AGRADAR ESTE PÚBLICO. NÃO reordene — só diga o que remover, adicionar e trocar.
+
+CONTEXTO DO EVENTO:
+- ${input.privado ? "Evento PARTICULAR (festa privada) — o gosto do público manda mais que 'padrão de bar'." : "Show em casa/bar."}
+- Duração-alvo: ${input.targetMin} min (conte ~10s de transição por música).
+- O QUE O PÚBLICO CURTE: ${input.publicoPerfil || "não informado"}.
+- Perfil/tags da casa: ${input.casaTags.join(", ") || "—"}.
+
+SETLIST ATUAL (use SOMENTE estes id pra remover):
+${JSON.stringify(input.set.map(fmt))}
+
+REPERTÓRIO DISPONÍVEL fora do setlist (use SOMENTE estes id pra adicionar):
+${JSON.stringify(input.pool.map(fmt))}
+
+REGRAS: nunca invente id; prefira músicas status "pronta"; não remova finalBoss; foque no que casa com o gosto do público; se faltar/sobrar tempo, ajuste a quantidade.
+
+Responda SOMENTE com JSON:
+{"suggestions":[
+  {"kind":"remove","songId":"<id do setlist>","reason":"curto e acionável"},
+  {"kind":"add","songId":"<id do pool>","reason":"..."},
+  {"kind":"swap","removeSongId":"<id do setlist>","addSongId":"<id do pool>","reason":"..."}
+]}
+Máx 8. Se já está ótimo pro tempo e pro público, devolva {"suggestions":[]}.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!res.ok)
+    throw new Error(`Anthropic falhou (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+  const text = (data.content ?? [])
+    .filter((b) => b.type === "text" && b.text)
+    .map((b) => b.text as string)
+    .join("\n");
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("IA não devolveu JSON.");
+  const parsed = JSON.parse(m[0]) as { suggestions?: unknown };
+  const setIds = new Set(input.set.map((s) => s.id));
+  const poolIds = new Set(input.pool.map((s) => s.id));
+  const raw = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+  const out: AISetlistSuggestion[] = [];
+  for (const r of raw as Record<string, string>[]) {
+    if (!r || typeof r.reason !== "string") continue;
+    if (r.kind === "remove" && setIds.has(r.songId))
+      out.push({ kind: "remove", songId: r.songId, reason: r.reason });
+    else if (r.kind === "add" && poolIds.has(r.songId))
+      out.push({ kind: "add", songId: r.songId, reason: r.reason });
+    else if (
+      r.kind === "swap" &&
+      setIds.has(r.removeSongId) &&
+      poolIds.has(r.addSongId)
+    )
+      out.push({
+        kind: "swap",
+        removeSongId: r.removeSongId,
+        addSongId: r.addSongId,
+        reason: r.reason,
+      });
+    if (out.length >= 8) break;
+  }
+  return out;
 }
 
 // ---- Crítica de setlist de ENSAIO: foco em como as PRIORITÁRIAS se encaixam ----

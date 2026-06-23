@@ -34,7 +34,9 @@ import {
   generateSetlistAI,
   critiqueSetlist,
   critiqueEnsaioSetlist,
+  suggestSetlistChangesAI,
   type SetlistCritique,
+  type AISuggestSong,
 } from "@/lib/setlist-ai";
 import { formatHoraBR } from "@/lib/formatters";
 
@@ -78,6 +80,8 @@ export type SetlistSuggestion = {
 export type SuggestResult = {
   ok: boolean;
   error?: string;
+  needsKey?: boolean;
+  via?: "ia" | "heuristica";
   suggestions: SetlistSuggestion[];
   totalSeg: number;
   targetMin: number;
@@ -85,16 +89,18 @@ export type SuggestResult = {
 
 /**
  * Sugere ajustes no setlist (remover/adicionar/trocar) pra bater o tempo-alvo.
- * NÃO aplica nada — a UI oferece "aplicar" por sugestão. Serve show e ensaio.
+ * `useAI` = considera também o gosto do público (show.publicoPerfil) + tags da
+ * casa via Haiku. NÃO aplica nada — a UI oferece "aplicar" por sugestão.
  */
 export async function suggestSetlistAction(
   setlistId: string,
-  targetMin?: number
+  targetMin?: number,
+  useAI = false
 ): Promise<SuggestResult> {
   await requireCurrentUser();
   const sl = await db.query.setlists.findFirst({
     where: eq(setlists.id, setlistId),
-    with: { items: { with: { song: true } }, show: true },
+    with: { items: { with: { song: true } }, show: { with: { casa: true } } },
   });
   if (!sl) {
     return { ok: false, error: "Setlist não encontrado.", suggestions: [], totalSeg: 0, targetMin: targetMin ?? 60 };
@@ -136,6 +142,52 @@ export async function suggestSetlistAction(
         ? sl.show.duracaoMin
         : Math.max(1, Math.round(totalSeg / 60));
 
+  const tituloBySong = new Map(allSongs.map((s) => [s.id, s.titulo]));
+
+  // ---- IA: considera o gosto do público + tags da casa ----
+  if (useAI) {
+    const toAI = (s: SuggestSong): AISuggestSong => ({
+      id: s.songId,
+      titulo: s.titulo,
+      artista: s.artista,
+      duracaoSeg: s.duracaoSeg,
+      energia: s.energia,
+      status: s.status,
+      finalBoss: !!s.finalBoss,
+    });
+    try {
+      const aiRaw = await suggestSetlistChangesAI({
+        set: setSongs.map(toAI),
+        pool: pool.map(toAI),
+        targetMin: effMin,
+        publicoPerfil: sl.show?.publicoPerfil ?? "",
+        casaTags: parseTags(sl.show?.casa?.caracteristicas),
+        privado: !!sl.show?.privado,
+      });
+      const suggestions: SetlistSuggestion[] = aiRaw.map((s) => {
+        if (s.kind === "remove")
+          return { kind: "remove", reason: s.reason, removeItemId: itemBySong.get(s.songId), removeTitulo: tituloBySong.get(s.songId) };
+        if (s.kind === "add")
+          return { kind: "add", reason: s.reason, addSongId: s.songId, addTitulo: tituloBySong.get(s.songId) };
+        return {
+          kind: "swap",
+          reason: s.reason,
+          removeItemId: itemBySong.get(s.removeSongId),
+          removeTitulo: tituloBySong.get(s.removeSongId),
+          addSongId: s.addSongId,
+          addTitulo: tituloBySong.get(s.addSongId),
+        };
+      });
+      return { ok: true, via: "ia", suggestions, totalSeg, targetMin: effMin };
+    } catch (e) {
+      if (e instanceof NoApiKeyError) {
+        return { ok: false, needsKey: true, error: "IA não configurada.", suggestions: [], totalSeg, targetMin: effMin };
+      }
+      return { ok: false, error: "A IA falhou. Tente a sugestão básica.", suggestions: [], totalSeg, targetMin: effMin };
+    }
+  }
+
+  // ---- Heurística (básica): só tempo + prontidão ----
   const raw = suggestSetlistChanges(setSongs, pool, effMin * 60);
   const suggestions: SetlistSuggestion[] = raw.map((s) => {
     if (s.kind === "remove") {
@@ -154,7 +206,7 @@ export async function suggestSetlistAction(
     };
   });
 
-  return { ok: true, suggestions, totalSeg, targetMin: effMin };
+  return { ok: true, via: "heuristica", suggestions, totalSeg, targetMin: effMin };
 }
 
 // ---------------- PREFERÊNCIAS FIXAS DA BANDA (memória explícita) ----------------
@@ -511,6 +563,7 @@ export async function generateSetlistAction(
         setlistAnterior,
         regras,
         perfilDesejado: opts.perfilDesejado ?? "equilibrado",
+        publicoGosto: show.publicoPerfil ?? "",
         memoriaAberturas: memAberturas,
         memoriaFechamentos: memFechamentos,
         prefs: {

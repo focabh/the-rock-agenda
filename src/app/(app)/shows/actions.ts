@@ -48,6 +48,7 @@ const showSchema = z.object({
   valorIngresso: z.string().max(60).optional(),
   linkVendas: z.string().max(500).optional(),
   observacoes: z.string().max(2000).optional(),
+  publicoPerfil: z.string().max(500).optional(),
   status: z.enum(SHOW_STATUSES),
 });
 

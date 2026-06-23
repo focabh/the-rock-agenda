@@ -388,6 +388,10 @@ export const shows = sqliteTable("shows", {
   valorIngresso: text("valor_ingresso"), // ex.: "R$ 20" ou "Gratuito" (flyer)
   linkVendas: text("link_vendas"), // link de venda de ingressos (vira QR no flyer)
   observacoes: text("observacoes"),
+  // Gosto/perfil do público desse evento (texto livre, ex.: "curte anos 80, pop
+  // rock, nada pesado"). Alimenta a IA de gerar/sugerir setlist — essencial em
+  // evento particular (sem perfil de casa).
+  publicoPerfil: text("publico_perfil"),
   status: text("status", {
     enum: ["planejado", "confirmado", "concluido", "cancelado"],
   })
