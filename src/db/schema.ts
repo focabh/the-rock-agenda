@@ -88,6 +88,9 @@ export const appSettings = sqliteTable("app_settings", {
   spotifyListRepertorio: text("spotify_list_repertorio"),
   spotifyListSetlist: text("spotify_list_setlist"), // shows
   spotifyListEnsaio: text("spotify_list_ensaio"),
+  // Pedal de voz ativo do vocalista (id do PEDAL_MODELS, ex.: "boss-ve-22").
+  // Define os presets usados nas sugestões/exibição.
+  vozPedalModelo: text("voz_pedal_modelo"),
   // Opacidade dos blocos/cards (60–100). <100 = efeito vidro deixando o fundo
   // vazar. Só tem efeito visível quando há fundo do app.
   surfaceOpacity: integer("surface_opacity").notNull().default(100),

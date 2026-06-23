@@ -24,10 +24,14 @@ export function VozPedalBadge({
 }) {
   const p = config ?? parseVozPedal(raw ?? null);
   if (!p) return null;
-  const off = p.mode.toUpperCase() === "OFF";
-  const title = off
-    ? "Pedal de voz desligado"
-    : `Pedal de voz — Mode ${p.mode} · ${REVERB_LABELS[p.reverb] ?? p.reverb} · ${p.level}%`;
+  const off =
+    (p.mode ?? "").toUpperCase() === "OFF" ||
+    (p.nome ?? "").toLowerCase() === "seco";
+  const title = p.nome
+    ? `Pedal de voz — preset "${p.nome}"${p.slot ? ` (${p.slot})` : ""}`
+    : (p.mode ?? "").toUpperCase() === "OFF"
+      ? "Pedal de voz desligado"
+      : `Pedal de voz — Mode ${p.mode} · ${REVERB_LABELS[p.reverb ?? ""] ?? p.reverb} · ${p.level}%`;
   const palette =
     tone === "light"
       ? "border border-gray-300 bg-gray-100 text-gray-700"

@@ -242,6 +242,18 @@ export async function setSpotifyListsAction(
   return { ok: true };
 }
 
+/** Define o pedal de voz ativo do vocalista (id do PEDAL_MODELS ou "" = nenhum). */
+export async function setVozPedalModeloAction(modelo: string): Promise<{ ok: boolean }> {
+  await requireSuperuser();
+  const val = modelo.trim() || null;
+  const [row] = await db.select().from(appSettings).limit(1);
+  if (row) await db.update(appSettings).set({ vozPedalModelo: val }).where(eq(appSettings.id, row.id));
+  else await db.insert(appSettings).values({ vozPedalModelo: val });
+  revalidatePath("/", "layout");
+  revalidatePath("/repertorio");
+  return { ok: true };
+}
+
 /** Opacidade dos blocos/cards (60–100). <100 = efeito vidro. */
 export async function setSurfaceOpacityAction(value: number): Promise<{ ok: boolean }> {
   await requireSuperuser();

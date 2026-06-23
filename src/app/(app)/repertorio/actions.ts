@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { songs, songMemberReadiness, members } from "@/db/schema";
+import { songs, songMemberReadiness, members, appSettings } from "@/db/schema";
 import { and } from "drizzle-orm";
 import { parseForm, type ActionState } from "@/lib/form";
 import { requireAdmin, requireCurrentUser } from "@/lib/auth";
@@ -26,6 +26,12 @@ import {
   parseVozPedalTable,
   type VozPedal,
 } from "@/lib/voz-pedal";
+import {
+  getPedalModel,
+  getPreset,
+  DEFAULT_PEDAL_MODEL,
+} from "@/lib/voz-pedais";
+import { assignVozPresetsAI } from "@/lib/voz-presets-ai";
 import { fetchLyricsFull } from "@/lib/lyrics";
 import { fetchBpm } from "@/lib/bpm";
 import { enrichSongsWithAI } from "@/lib/song-ai";
@@ -761,6 +767,83 @@ export async function importVozPedalTableAction(
   revalidatePath("/shows", "layout");
   revalidatePath("/ensaios", "layout");
   return { ok: true, applied, notMatched };
+}
+
+async function getVozPedalModelo(): Promise<string> {
+  const [s] = await db.select({ m: appSettings.vozPedalModelo }).from(appSettings).limit(1);
+  return s?.m ?? DEFAULT_PEDAL_MODEL;
+}
+
+/** Define o preset do pedal de voz de uma música (ou limpa, null). Grava
+ *  denormalizado ({preset,nome,slot}) pra exibir sem precisar resolver depois. */
+export async function setSongVozPedalPresetAction(
+  songId: string,
+  presetId: string | null
+): Promise<{ ok: boolean }> {
+  await requireCurrentUser();
+  let value: string | null = null;
+  if (presetId) {
+    const modelo = await getVozPedalModelo();
+    const preset = getPreset(modelo, presetId);
+    if (preset)
+      value = JSON.stringify({ preset: preset.id, nome: preset.nome, slot: preset.slot });
+  }
+  await db.update(songs).set({ vozPedal: value }).where(eq(songs.id, songId));
+  revalidatePath("/repertorio");
+  revalidatePath(`/repertorio/${songId}`);
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { ok: true };
+}
+
+export type PresetSuggestResult = {
+  ok: boolean;
+  needsKey?: boolean;
+  error?: string;
+  applied?: number;
+  modeloNome?: string;
+};
+
+/** IA mapeia TODO o repertório pros presets do pedal ativo (1 chamada). Maioria
+ *  vira "universal"; só foge quando a música pede. Grava denormalizado. */
+export async function sugerirPresetsPedalAction(): Promise<PresetSuggestResult> {
+  await requireCurrentUser();
+  const modelo = await getVozPedalModelo();
+  const model = getPedalModel(modelo);
+  if (!model) return { ok: false, error: "Nenhum pedal de voz configurado." };
+
+  const rows = await db
+    .select({ id: songs.id, titulo: songs.titulo, artista: songs.artista, energia: songs.energia, status: songs.status })
+    .from(songs);
+  const elig = rows.filter((r) => r.status !== "aposentada");
+  if (elig.length === 0) return { ok: false, error: "Sem músicas no repertório." };
+
+  const universal = model.presets.find((p) => p.universal) ?? model.presets[0];
+  try {
+    const map = await assignVozPresetsAI({
+      songs: elig.map((r) => ({ id: r.id, titulo: r.titulo, artista: r.artista, energia: r.energia })),
+      presets: model.presets,
+      modeloNome: model.nome,
+    });
+    let applied = 0;
+    for (const r of elig) {
+      const pid = map[r.id] ?? universal?.id;
+      const preset = model.presets.find((p) => p.id === pid) ?? universal;
+      if (!preset) continue;
+      await db
+        .update(songs)
+        .set({ vozPedal: JSON.stringify({ preset: preset.id, nome: preset.nome, slot: preset.slot }) })
+        .where(eq(songs.id, r.id));
+      applied++;
+    }
+    revalidatePath("/repertorio");
+    revalidatePath("/shows", "layout");
+    revalidatePath("/ensaios", "layout");
+    return { ok: true, applied, modeloNome: model.nome };
+  } catch (e) {
+    if (e instanceof NoApiKeyError) return { ok: false, needsKey: true, error: "IA não configurada." };
+    return { ok: false, error: "A IA falhou ao sugerir os presets." };
+  }
 }
 
 export async function toggleFavoritaAction(id: string, favorita: boolean) {

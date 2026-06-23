@@ -4,9 +4,14 @@
  */
 
 export type VozPedal = {
-  mode: string; // "OFF" | "1".."9"
-  reverb: string; // código do pedal: "RM" | "HL" | "PL" ...
-  level: number; // 0–100 (%)
+  // Formato PRESET (atual): preset nomeado + slot no pedal (ex.: "Balada","mem 2").
+  preset?: string; // id do preset
+  nome?: string;
+  slot?: string;
+  // Formato CRU (legado Flamma): Mode/Reverb/Level.
+  mode?: string; // "OFF" | "1".."9"
+  reverb?: string; // "RM" | "HL" | "PL" ...
+  level?: number; // 0–100 (%)
 };
 
 /** Rótulos prováveis dos reverbs do Flamma FV-02 (só pra tooltip). */
@@ -24,13 +29,21 @@ export function parseVozPedal(raw: string | null | undefined): VozPedal | null {
   try {
     const o = JSON.parse(raw) as Partial<VozPedal>;
     if (o == null || typeof o !== "object") return null;
+    // Formato preset (novo)
+    if (o.nome) {
+      return {
+        preset: o.preset ? String(o.preset) : undefined,
+        nome: String(o.nome),
+        slot: o.slot ? String(o.slot) : undefined,
+      };
+    }
+    // Formato cru (legado)
     const mode = String(o.mode ?? "").trim();
-    const reverb = String(o.reverb ?? "").trim().toUpperCase();
-    const level = Number(o.level ?? 0);
     if (!mode) return null;
+    const level = Number(o.level ?? 0);
     return {
       mode: mode.toUpperCase(),
-      reverb,
+      reverb: String(o.reverb ?? "").trim().toUpperCase(),
       level: Number.isFinite(level) ? Math.max(0, Math.min(100, Math.round(level))) : 0,
     };
   } catch {
@@ -38,13 +51,14 @@ export function parseVozPedal(raw: string | null | undefined): VozPedal | null {
   }
 }
 
-/** Texto curto pra exibir: "Mode 1 · RM · 15%" ou "Pedal OFF". */
+/** Texto curto: preset → "Balada · mem 2"; cru → "Mode 1 · RM · 15%" / "Pedal OFF". */
 export function formatVozPedal(p: VozPedal | null): string {
   if (!p) return "";
-  if (p.mode.toUpperCase() === "OFF") return "Pedal OFF";
+  if (p.nome) return p.slot ? `${p.nome} · ${p.slot}` : p.nome;
+  if ((p.mode ?? "").toUpperCase() === "OFF") return "Pedal OFF";
   const parts = [`Mode ${p.mode}`];
   if (p.reverb) parts.push(p.reverb);
-  parts.push(`${p.level}%`);
+  parts.push(`${p.level ?? 0}%`);
   return parts.join(" · ");
 }
 

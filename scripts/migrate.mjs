@@ -29,6 +29,7 @@ await addCol("songs", "synced_lyrics", "TEXT");
 await addCol("songs", "lyrics_manual", "INTEGER NOT NULL DEFAULT 0");
 await addCol("songs", "voz_pedal", "TEXT");
 await addCol("shows", "publico_perfil", "TEXT");
+await addCol("app_settings", "voz_pedal_modelo", "TEXT");
 await addCol("songs", "cues", "TEXT");
 await addCol("app_settings", "app_background_url", "TEXT");
 await addCol("app_settings", "whatsapp_grupo_musicos", "TEXT");

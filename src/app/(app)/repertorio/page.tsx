@@ -8,6 +8,7 @@ import { SpotifyConnect } from "@/components/repertorio/spotify-connect";
 import { SpotifyExportButton } from "@/components/repertorio/spotify-export-button";
 import { SpotifyDiagnoseButton } from "@/components/repertorio/spotify-diagnose-button";
 import { SpotifySyncButton } from "@/components/repertorio/spotify-sync-button";
+import { VozPresetsButton } from "@/components/repertorio/voz-presets-button";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
@@ -99,6 +100,7 @@ export default async function RepertorioPage() {
                 )}
                 {superuser && spotify.connected && <SpotifyDiagnoseButton />}
                 <SpotifySyncButton hasPlaylist={!!brand?.spotifyListRepertorio} />
+                <VozPresetsButton />
                 <EnrichSongsButton />
                 <SpotifyPopularityButton />
                 <BpmFetchButton />

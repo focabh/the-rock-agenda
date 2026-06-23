@@ -12,6 +12,9 @@ import { UpdateAppButton } from "@/components/conta/update-app-button";
 import { NotifyCard } from "@/components/conta/notify-card";
 import { SpotifyListsCard } from "@/components/conta/spotify-lists-card";
 import { BackupCard } from "@/components/conta/backup-card";
+import { VozPedalConfig } from "@/components/conta/voz-pedal-config";
+import { db } from "@/db";
+import { appSettings } from "@/db/schema";
 import {
   adminMaterialPorPosicao,
   getAvailablePositions,
@@ -32,6 +35,11 @@ export default async function ContaPage() {
     adminMaterialPorPosicao(),
     getBrand(),
   ]);
+  const [vpRow] = await db
+    .select({ m: appSettings.vozPedalModelo })
+    .from(appSettings)
+    .limit(1);
+  const vozPedalModelo = vpRow?.m ?? null;
 
   const member = user?.member
     ? {
@@ -80,6 +88,7 @@ export default async function ContaPage() {
             ensaio={brand.spotifyListEnsaio ?? ""}
           />
         )}
+        {superuser && <VozPedalConfig initial={vozPedalModelo} />}
         {superuser && <LogoUploader currentLogo={logo} />}
         {superuser && (
           <BackgroundCard
