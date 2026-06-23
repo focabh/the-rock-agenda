@@ -23,6 +23,11 @@ import {
 import { parseTracksFromText } from "@/lib/parse-tracks";
 import { parseTags } from "@/lib/venue-tags";
 import { generateSetlist, type GenOptions } from "@/lib/setlist-generator";
+import {
+  suggestSetlistChanges,
+  setlistTotalSeg,
+  type SuggestSong,
+} from "@/lib/setlist-suggest";
 import { arrangeSetlist } from "@/lib/setlist-arrange";
 import { fitToTarget, SONG_DEFAULT_SEG } from "@/lib/setlist-fit";
 import {
@@ -58,6 +63,99 @@ const SUGESTOES_APRENDER = [
   "Should I Stay or Should I Go — The Clash",
   "Seven Nation Army — The White Stripes",
 ];
+
+// ---------------- SUGESTÕES DE AJUSTE (não-destrutivo) ----------------
+
+export type SetlistSuggestion = {
+  kind: "remove" | "add" | "swap";
+  reason: string;
+  removeItemId?: string;
+  removeTitulo?: string;
+  addSongId?: string;
+  addTitulo?: string;
+};
+
+export type SuggestResult = {
+  ok: boolean;
+  error?: string;
+  suggestions: SetlistSuggestion[];
+  totalSeg: number;
+  targetMin: number;
+};
+
+/**
+ * Sugere ajustes no setlist (remover/adicionar/trocar) pra bater o tempo-alvo.
+ * NÃO aplica nada — a UI oferece "aplicar" por sugestão. Serve show e ensaio.
+ */
+export async function suggestSetlistAction(
+  setlistId: string,
+  targetMin?: number
+): Promise<SuggestResult> {
+  await requireCurrentUser();
+  const sl = await db.query.setlists.findFirst({
+    where: eq(setlists.id, setlistId),
+    with: { items: { with: { song: true } }, show: true },
+  });
+  if (!sl) {
+    return { ok: false, error: "Setlist não encontrado.", suggestions: [], totalSeg: 0, targetMin: targetMin ?? 60 };
+  }
+
+  const items = [...sl.items].sort((a, b) => a.ordem - b.ordem);
+  const setSongs: SuggestSong[] = items.map((it) => ({
+    songId: it.song.id,
+    titulo: it.song.titulo,
+    artista: it.song.artista,
+    duracaoSeg: it.duracaoSeg ?? it.song.duracaoSeg,
+    status: it.song.status,
+    energia: it.song.energia,
+    favorita: it.song.favorita,
+    finalBoss: it.song.finalBoss,
+  }));
+  const itemBySong = new Map(items.map((it) => [it.song.id, it.id]));
+  const inSet = new Set(items.map((it) => it.song.id));
+
+  const allSongs = await db.select().from(songs);
+  const pool: SuggestSong[] = allSongs
+    .filter((s) => !inSet.has(s.id))
+    .map((s) => ({
+      songId: s.id,
+      titulo: s.titulo,
+      artista: s.artista,
+      duracaoSeg: s.duracaoSeg,
+      status: s.status,
+      energia: s.energia,
+      favorita: s.favorita,
+      finalBoss: s.finalBoss,
+    }));
+
+  const totalSeg = setlistTotalSeg(setSongs);
+  const effMin =
+    targetMin && targetMin > 0
+      ? targetMin
+      : sl.show?.duracaoMin && sl.show.duracaoMin > 0
+        ? sl.show.duracaoMin
+        : Math.max(1, Math.round(totalSeg / 60));
+
+  const raw = suggestSetlistChanges(setSongs, pool, effMin * 60);
+  const suggestions: SetlistSuggestion[] = raw.map((s) => {
+    if (s.kind === "remove") {
+      return { kind: "remove", reason: s.reason, removeItemId: itemBySong.get(s.songId), removeTitulo: s.titulo };
+    }
+    if (s.kind === "add") {
+      return { kind: "add", reason: s.reason, addSongId: s.songId, addTitulo: s.titulo };
+    }
+    return {
+      kind: "swap",
+      reason: s.reason,
+      removeItemId: itemBySong.get(s.removeSongId),
+      removeTitulo: s.removeTitulo,
+      addSongId: s.addSongId,
+      addTitulo: s.addTitulo,
+    };
+  });
+
+  return { ok: true, suggestions, totalSeg, targetMin: effMin };
+}
 
 // ---------------- PREFERÊNCIAS FIXAS DA BANDA (memória explícita) ----------------
 

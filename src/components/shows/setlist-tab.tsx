@@ -30,6 +30,7 @@ import { SpotifyExportButton } from "@/components/repertorio/spotify-export-butt
 import { SetlistGenerateDialog } from "@/components/shows/setlist-generate-dialog";
 import { SetlistShare } from "@/components/shows/setlist-share";
 import { SetlistCritiqueDialog } from "@/components/shows/setlist-critique-dialog";
+import { SetlistSuggestDialog } from "@/components/shows/setlist-suggest-dialog";
 import { EnsaioGenerateDialog } from "@/components/ensaios/ensaio-generate-dialog";
 import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
 import { CuesDialog } from "@/components/repertorio/cues-dialog";
@@ -420,6 +421,9 @@ export function SetlistTab({
               {isEnsaio && selected && localItems.length > 0 && (
                 <SetlistCritiqueDialog rehearsalId={rehearsalId} setlistId={selected.id} canEdit={canEdit} />
               )}
+              {isEnsaio && selected && localItems.length > 0 && (
+                <SetlistSuggestDialog rehearsalId={rehearsalId} setlistId={selected.id} canEdit={canEdit} />
+              )}
               {isEnsaio && canEdit && selected && (
                 <SpotifyImportDialog
                   mode="setlist"
@@ -462,6 +466,9 @@ export function SetlistTab({
               )}
               {!isEnsaio && selected && localItems.length > 0 && (
                 <SetlistCritiqueDialog showId={showId!} setlistId={selected.id} canEdit={canEdit} />
+              )}
+              {!isEnsaio && selected && localItems.length > 0 && (
+                <SetlistSuggestDialog showId={showId!} setlistId={selected.id} canEdit={canEdit} />
               )}
               {!isEnsaio && canEdit && selected && (
                 <SpotifyImportDialog
