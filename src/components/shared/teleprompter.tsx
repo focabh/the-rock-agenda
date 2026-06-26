@@ -111,6 +111,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const hideTimer = useRef<number | undefined>(undefined);
   const speeds = useRef<Record<string, number>>({});
   const scrollTick = useRef(false);
+  // Enquanto o USUÁRIO rola (wheel/touch), não deixamos o auto-scroll brigar e
+  // tratamos a rolagem como "seek" (a música pula pro ponto onde ele parou).
+  const userSeekUntil = useRef(0);
 
   playingRef.current = playing;
 
@@ -177,6 +180,12 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     last.current = 0;
     const step = (ts: number) => {
       if (!active) return;
+      // Usuário rolando → não empurra (deixa ele posicionar; "scroll = posição").
+      if (performance.now() < userSeekUntil.current) {
+        last.current = ts;
+        raf.current = requestAnimationFrame(step);
+        return;
+      }
       if (last.current) {
         const el = scrollRef.current;
         if (el) {
@@ -247,10 +256,13 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       if (idx !== lastIdx) {
         lastIdx = idx;
         setActiveIdx(idx);
-        // Na introdução (idx -1) já centraliza a 1ª linha (a que vai entrar).
-        const q = idx >= 0 ? idx : 0;
-        const target = scrollRef.current?.querySelector(`[data-tl="${current}-${q}"]`) as HTMLElement | null;
-        target?.scrollIntoView({ block: "center", behavior: "smooth" });
+        // NÃO rola enquanto o usuário está rolando (senão briga e "volta pro topo").
+        if (performance.now() >= userSeekUntil.current) {
+          // Na introdução (idx -1) já centraliza a 1ª linha (a que vai entrar).
+          const q = idx >= 0 ? idx : 0;
+          const target = scrollRef.current?.querySelector(`[data-tl="${current}-${q}"]`) as HTMLElement | null;
+          target?.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
       }
       id = requestAnimationFrame(tick);
     };
@@ -387,7 +399,15 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     }, 3500);
   }, [showList]);
 
-  // Detecta a música atual pela rolagem + aplica a velocidade memorizada dela.
+  // Marca que a rolagem é do USUÁRIO (wheel/touch) — só esses eventos disparam,
+  // a rolagem programática (scrollIntoView) não. Abre a janela de "seek".
+  function markUserScroll() {
+    userSeekUntil.current = performance.now() + 1400;
+    bumpControls();
+  }
+
+  // Detecta a música atual pela rolagem + (se for rolagem do usuário em modo
+  // sincronizado) faz SEEK: a música pula pro ponto onde ele rolou.
   function onScroll() {
     if (scrollTick.current) return;
     scrollTick.current = true;
@@ -404,6 +424,33 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       if (idx !== current) {
         setCurrent(idx);
         applyForIndex(idx); // override do usuário ou calibração automática
+        return;
+      }
+      // Seek por rolagem (só em sync, e só quando o USUÁRIO rolou): acha a linha
+      // mais próxima do centro e re-baseia o relógio no tempo dela.
+      if (
+        syncedCurrent &&
+        performance.now() < userSeekUntil.current &&
+        timelines[current]?.length
+      ) {
+        const center = el.scrollTop + el.clientHeight / 2;
+        let bestJ = -1;
+        let bestDist = Infinity;
+        el.querySelectorAll<HTMLElement>(`[data-tl^="${current}-"]`).forEach((node) => {
+          const c = node.offsetTop + node.offsetHeight / 2;
+          const d = Math.abs(c - center);
+          if (d < bestDist) {
+            bestDist = d;
+            bestJ = Number(node.dataset.tl?.split("-")[1] ?? -1);
+          }
+        });
+        const ln = bestJ >= 0 ? timelines[current][bestJ] : null;
+        if (ln) {
+          clock.current.base = Math.max(0, ln.t);
+          if (clock.current.startedAt != null) clock.current.startedAt = performance.now();
+          setActiveIdx(bestJ);
+          setSongSec(Math.floor(ln.t));
+        }
       }
     });
   }
@@ -607,6 +654,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
           <div
             ref={scrollRef}
             onScroll={onScroll}
+            onWheel={markUserScroll}
+            onTouchMove={markUserScroll}
             onPointerDown={() => bumpControls()}
             className="flex-1 overflow-y-auto px-6 text-center"
           >
@@ -858,7 +907,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                 <Type className="size-6" />
               </button>
 
-              <button onClick={() => jumpTo(current - 1)} disabled={current === 0} className={`size-12 ${ctrlBtn}`} title="Faixa anterior">
+              <button onClick={() => { setPlaying(true); jumpTo(current - 1); }} disabled={current === 0} className={`size-12 ${ctrlBtn}`} title="Faixa anterior (já começa)">
                 <SkipBack className="size-6 fill-current" />
               </button>
               <button
@@ -871,7 +920,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
               >
                 {playing ? <Pause className="size-7 fill-current" /> : <Play className="size-7 fill-current" />}
               </button>
-              <button onClick={() => jumpTo(current + 1)} disabled={current >= songs.length - 1} className={`size-12 ${ctrlBtn}`} title="Próxima faixa">
+              <button onClick={() => { setPlaying(true); jumpTo(current + 1); }} disabled={current >= songs.length - 1} className={`size-12 ${ctrlBtn}`} title="Próxima faixa (já começa)">
                 <SkipForward className="size-6 fill-current" />
               </button>
 
