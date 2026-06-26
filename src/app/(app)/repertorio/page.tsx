@@ -3,6 +3,7 @@ import { SyncLyricsButton } from "@/components/repertorio/sync-lyrics-button";
 import { EnrichSongsButton } from "@/components/repertorio/enrich-songs-button";
 import { SpotifyPopularityButton } from "@/components/repertorio/spotify-popularity-button";
 import { BpmFetchButton } from "@/components/repertorio/bpm-fetch-button";
+import { TomFetchButton } from "@/components/repertorio/tom-fetch-button";
 import { AddSongMenu } from "@/components/repertorio/add-song-menu";
 import { SpotifyConnect } from "@/components/repertorio/spotify-connect";
 import { SpotifyExportButton } from "@/components/repertorio/spotify-export-button";
@@ -104,6 +105,7 @@ export default async function RepertorioPage() {
                 <EnrichSongsButton />
                 <SpotifyPopularityButton />
                 <BpmFetchButton />
+                <TomFetchButton />
                 <AddSongMenu defaultUrl={brand?.spotifyListRepertorio} />
               </>
             )}

@@ -139,6 +139,32 @@ async function fetchFromSongBpm(
   }
 }
 
+/** Tonalidade (tom) via API oficial GetSongBPM — campo `key_of` (ex.: "Em",
+ *  "Fm", "A"). É o tom da GRAVAÇÃO original; a banda ajusta se transpõe. Sem
+ *  artista (cover), busca só pelo título (versão original). */
+export async function fetchKey(
+  titulo: string,
+  artista?: string | null
+): Promise<string | null> {
+  const apiKey = process.env.GETSONGBPM_API_KEY;
+  if (!apiKey || !titulo) return null;
+  const tit = limparTitulo(titulo) || titulo;
+  const lookup = artista ? `song:${tit} artist:${artista}` : `song:${tit}`;
+  try {
+    const r = await fetch(
+      `https://api.getsong.co/search/?api_key=${apiKey}&type=both&lookup=${encodeURIComponent(lookup)}`,
+      { headers: { "User-Agent": "StageBoss/1.0 (+band app)" }, next: { revalidate: 86400 } }
+    );
+    if (!r.ok) return null;
+    const data = (await r.json()) as { search?: { key_of?: string }[] };
+    const arr = Array.isArray(data?.search) ? data.search : [];
+    const k = arr.map((x) => x?.key_of).find((v) => typeof v === "string" && v.trim());
+    return k ? k.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * BPM de uma música: tenta a API oficial; se não achar, cai pro songbpm.com.
  * Passe o spotifyTrackId (quando houver) pra casar a versão exata no fallback.
