@@ -66,6 +66,20 @@ const SUGESTOES_APRENDER = [
   "Seven Nation Army — The White Stripes",
 ];
 
+/** Tom (transposição) de UM item do setlist. Colaborativo: qualquer músico
+ *  logado pode ajustar (não precisa ser admin). Vale show e ensaio (por itemId). */
+export async function setSetlistItemTomAction(
+  itemId: string,
+  tom: string | null
+): Promise<{ ok: boolean }> {
+  await requireCurrentUser();
+  const v = (tom ?? "").trim().slice(0, 12) || null;
+  await db.update(setlistItems).set({ tom: v }).where(eq(setlistItems.id, itemId));
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { ok: true };
+}
+
 // ---------------- SUGESTÕES DE AJUSTE (não-destrutivo) ----------------
 
 export type SetlistSuggestion = {

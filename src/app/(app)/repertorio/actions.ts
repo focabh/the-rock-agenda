@@ -846,6 +846,22 @@ export async function sugerirPresetsPedalAction(): Promise<PresetSuggestResult> 
   }
 }
 
+/** Salva o TOM (transposição) de uma música. Colaborativo: QUALQUER músico
+ *  logado pode ajustar (igual BPM). Reflete no repertório e nos setlists. */
+export async function setSongTomAction(
+  id: string,
+  tom: string | null
+): Promise<{ ok: boolean; tom: string | null }> {
+  await requireCurrentUser();
+  const v = (tom ?? "").trim().slice(0, 12) || null;
+  await db.update(songs).set({ tom: v }).where(eq(songs.id, id));
+  revalidatePath("/repertorio");
+  revalidatePath(`/repertorio/${id}`);
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { ok: true, tom: v };
+}
+
 export async function toggleFavoritaAction(id: string, favorita: boolean) {
   await requireAdmin();
   await db.update(songs).set({ favorita }).where(eq(songs.id, id));

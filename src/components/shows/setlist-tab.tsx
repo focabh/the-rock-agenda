@@ -86,6 +86,7 @@ import {
   updateSetlistAction,
   deleteSetlistAction,
   setSetlistOficialAction,
+  setSetlistItemTomAction,
 } from "@/app/(app)/shows/[id]/actions-setlist";
 import {
   addSongToEnsaioSetlistAction,
@@ -169,10 +170,10 @@ export function SetlistTab({
     isEnsaio
       ? runOrQueue(KIND.reorderEnsaioSetlistItems, [rehearsalId!, ids])
       : runOrQueue(KIND.reorderSetlistItems, [showId!, ids]);
+  // Tom é colaborativo (QUALQUER músico ajusta), então usa a ação própria de
+  // músico (não passa pelo runOrQueue admin). Vale show e ensaio (por itemId).
   const aTom = (itemId: string, tom: string | null) =>
-    isEnsaio
-      ? runOrQueue(KIND.updateEnsaioSetlistItem, [rehearsalId!, itemId, { tom }])
-      : runOrQueue(KIND.updateSetlistItem, [showId!, itemId, { tom }]);
+    setSetlistItemTomAction(itemId, tom);
   const aPrioridade = (itemId: string, prioridade: boolean) =>
     runOrQueue(KIND.updateEnsaioSetlistItem, [rehearsalId!, itemId, { prioridade }]);
   // DROP é propriedade da MÚSICA (songs.dropada): marcar/desmarcar aqui reflete
@@ -867,10 +868,9 @@ function SortableSetlistItem({
             defaultValue={item.tom ?? item.song.tom ?? ""}
             placeholder="tom"
             inputMode="numeric"
-            title="Tom (transposição: 0, -1, -2…). Vazio usa o do repertório."
-            disabled={!canEdit}
+            title="Tom (transposição: 0, -1, -2…). Qualquer músico pode ajustar. Vazio usa o do repertório."
             className="h-7 w-14 shrink-0 px-1 text-center text-xs font-mono"
-            onBlur={(e) => canEdit && startTransition(() => onTom(e.target.value || null))}
+            onBlur={(e) => startTransition(() => onTom(e.target.value || null))}
           />
           {canEdit && (
             <Button variant="ghost" size="icon" title="Remover" className="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => startTransition(() => onRemove())}>

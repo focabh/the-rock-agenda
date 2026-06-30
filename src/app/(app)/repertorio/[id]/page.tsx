@@ -9,6 +9,7 @@ import { SongForm } from "@/components/repertorio/song-form";
 import { ReadinessSection } from "@/components/repertorio/readiness-section";
 import { LyricsPanel } from "@/components/repertorio/lyrics-panel";
 import { VozPedalEditor } from "@/components/repertorio/voz-pedal-editor";
+import { SongTomEditor } from "@/components/repertorio/song-tom-editor";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { updateSongAction } from "../actions";
 
@@ -54,6 +55,8 @@ export default async function EditarSongPage({
             submitLabel="Salvar alterações"
           />
         )}
+        <SongTomEditor songId={id} initial={song.tom} />
+
         <ReadinessSection
           songId={id}
           members={playableMembers}
