@@ -59,12 +59,15 @@ export function LyricsBooklet({
   cues = [],
   setlistId,
   canRefine = false,
+  equipamentoVocal,
 }: {
   backHref: string;
   docxHref: string;
   titulo: string;
   subtitulo: string;
   songs: BookletSong[];
+  /** Equipamento vocal do show (referência pro vocalista). */
+  equipamentoVocal?: string | null;
   /** Roteiro de palco (momentos de fala) — heurística grátis, calculado no server. */
   cues?: StageCue[];
   /** Necessário pro "Refinar com IA". */
@@ -224,6 +227,11 @@ export function LyricsBooklet({
             {titulo} — {subtitulo} · {songs.length}{" "}
             {songs.length === 1 ? "música" : "músicas"}
           </p>
+          {equipamentoVocal && (
+            <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-amber-800">
+              <Mic className="size-3.5" /> Equipamento vocal: {equipamentoVocal}
+            </p>
+          )}
         </header>
 
         {/* Resumo do roteiro — aparece de cara, sem precisar rolar. */}

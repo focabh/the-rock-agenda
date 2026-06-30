@@ -49,6 +49,7 @@ const showSchema = z.object({
   linkVendas: z.string().max(500).optional(),
   observacoes: z.string().max(2000).optional(),
   publicoPerfil: z.string().max(500).optional(),
+  equipamentoVocal: z.string().max(120).optional(),
   status: z.enum(SHOW_STATUSES),
 });
 

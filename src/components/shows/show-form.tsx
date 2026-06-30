@@ -17,6 +17,7 @@ import {
 import type { ActionState } from "@/lib/form";
 import type { Show, Venue } from "@/db/schema";
 import { toBRDatetimeLocal } from "@/lib/formatters";
+import { VOCAL_EQUIPMENT } from "@/lib/vocal-cues";
 
 const selectCls =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -315,6 +316,26 @@ export function ShowForm({
               placeholder="Ex.: curte anos 80/90, pop rock e flashback; nada muito pesado. (a IA usa isso pra gerar/sugerir o setlist — essencial em evento particular)"
             />
             <FieldError state={state} name="publicoPerfil" />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="equipamentoVocal">Equipamento vocal</Label>
+            <Input
+              id="equipamentoVocal"
+              name="equipamentoVocal"
+              list="equipamento-vocal-opts"
+              defaultValue={show?.equipamentoVocal ?? ""}
+              placeholder="Ex.: Boss VE-22 (pode escolher da lista ou digitar)"
+            />
+            <datalist id="equipamento-vocal-opts">
+              {VOCAL_EQUIPMENT.map((e) => (
+                <option key={e} value={e} />
+              ))}
+            </datalist>
+            <p className="text-xs text-muted-foreground">
+              Só referência pro vocalista neste show. (Futuro: alvo dos Vocal Cues via MIDI.)
+            </p>
+            <FieldError state={state} name="equipamentoVocal" />
           </div>
 
           <div className="sm:col-span-2 flex items-center justify-end gap-2 pt-2">

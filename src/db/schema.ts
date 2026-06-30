@@ -405,6 +405,10 @@ export const shows = sqliteTable("shows", {
   // rock, nada pesado"). Alimenta a IA de gerar/sugerir setlist — essencial em
   // evento particular (sem perfil de casa).
   publicoPerfil: text("publico_perfil"),
+  // Stage Master — equipamento vocal usado neste show (texto livre/seleção:
+  // Boss VE-22, TC Helicon VoiceLive Play, etc.). Só referência por ora;
+  // futuro: alvo dos Vocal Cues via MIDI.
+  equipamentoVocal: text("equipamento_vocal"),
   status: text("status", {
     enum: ["planejado", "confirmado", "concluido", "cancelado"],
   })

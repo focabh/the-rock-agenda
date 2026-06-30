@@ -63,6 +63,7 @@ export default async function LetrasPage({
       cues={cues}
       setlistId={setlist?.id}
       canRefine={isAdmin(user)}
+      equipamentoVocal={show.equipamentoVocal}
     />
   );
 }

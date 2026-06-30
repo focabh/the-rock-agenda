@@ -10,6 +10,16 @@ export type VocalLineCue = {
 
 export type VocalCues = VocalLineCue[];
 
+/** Equipamentos vocais comuns (sugestões — o campo é texto livre). */
+export const VOCAL_EQUIPMENT = [
+  "Boss VE-22",
+  "TC Helicon VoiceLive Play",
+  "Boss VE-20",
+  "Flamma FV02",
+  "Zoom V3",
+  "Headrush VX5",
+] as const;
+
 /** Lê o JSON de vocalCues com tolerância a lixo. */
 export function parseVocalCues(raw: string | null | undefined): VocalCues {
   if (!raw) return [];

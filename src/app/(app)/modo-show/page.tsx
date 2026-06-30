@@ -136,6 +136,12 @@ export default async function ModoShowPage({
                   {[show.endereco, show.cidade].filter(Boolean).join(", ")}
                 </span>
               )}
+              {show.equipamentoVocal && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Mic className="size-4" />
+                  {show.equipamentoVocal}
+                </span>
+              )}
             </div>
             {outros.length > 0 && (
               <form className="pt-1">

@@ -10,6 +10,7 @@ import {
   Timer,
   Beer,
   UserPlus,
+  Mic,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -155,6 +156,13 @@ export function ShowResumo({
                 <UserPlus className="size-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Acompanhantes:</span>
                 <span>{show.acompanhantes}</span>
+              </p>
+            )}
+            {show.equipamentoVocal && (
+              <p className="flex items-center gap-2">
+                <Mic className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Equip. vocal:</span>
+                <span>{show.equipamentoVocal}</span>
               </p>
             )}
             {show.contatoNome && (
