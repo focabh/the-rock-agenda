@@ -190,13 +190,18 @@ export function SongForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tom">Tom (tonalidade)</Label>
+            <Label htmlFor="tom">Tom (transposição)</Label>
             <Input
               id="tom"
               name="tom"
+              inputMode="numeric"
               defaultValue={song?.tom ?? ""}
-              placeholder="Ex.: Em, A, F#m"
+              placeholder="Ex.: 0, -1, -2, -3"
             />
+            <p className="text-xs text-muted-foreground">
+              Quanto a banda baixa/sobe em relação ao original (0 = original, -2 =
+              dois semitons abaixo). Aparece grandão na impressão.
+            </p>
           </div>
 
           <div className="space-y-2">

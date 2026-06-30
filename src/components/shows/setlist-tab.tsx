@@ -865,8 +865,9 @@ function SortableSetlistItem({
 
           <Input
             defaultValue={item.tom ?? item.song.tom ?? ""}
-            placeholder="Tom"
-            title="Tom (tonalidade)"
+            placeholder="tom"
+            inputMode="numeric"
+            title="Tom (transposição: 0, -1, -2…). Vazio usa o do repertório."
             disabled={!canEdit}
             className="h-7 w-14 shrink-0 px-1 text-center text-xs font-mono"
             onBlur={(e) => canEdit && startTransition(() => onTom(e.target.value || null))}

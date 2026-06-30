@@ -33,7 +33,7 @@ import {
 } from "@/lib/voz-pedais";
 import { assignVozPresetsAI } from "@/lib/voz-presets-ai";
 import { fetchLyricsFull } from "@/lib/lyrics";
-import { fetchBpm, fetchKey } from "@/lib/bpm";
+import { fetchBpm } from "@/lib/bpm";
 import { enrichSongsWithAI } from "@/lib/song-ai";
 import { NoApiKeyError } from "@/lib/venue-ai";
 import { isNull } from "drizzle-orm";
@@ -913,66 +913,6 @@ export async function fetchBpmOriginalAction(ids: string[]): Promise<{ atualizad
   }
   await Promise.all(Array.from({ length: Math.min(5, rows.length) }, worker));
   revalidatePath("/repertorio");
-  return { atualizadas, faltando };
-}
-
-/** Busca o TOM (GetSongBPM) das músicas que ainda não têm. Devolve as que NÃO
- *  achou (provável cover) pra oferecer "puxar da original". */
-export async function fetchTomAllAction(): Promise<{ atualizadas: number; faltando: BpmMiss[] }> {
-  await requireAdmin();
-  const rows = await db
-    .select({ id: songs.id, titulo: songs.titulo, artista: songs.artista, tom: songs.tom })
-    .from(songs);
-  const pend = rows.filter((r) => !r.tom?.trim());
-  const faltando: BpmMiss[] = [];
-  let atualizadas = 0;
-  let i = 0;
-  async function worker() {
-    while (i < pend.length) {
-      const s = pend[i++];
-      const k = await fetchKey(s.titulo, s.artista);
-      if (k) {
-        await db.update(songs).set({ tom: k }).where(eq(songs.id, s.id));
-        atualizadas++;
-      } else {
-        faltando.push({ id: s.id, titulo: s.titulo, artista: s.artista });
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(5, pend.length) }, worker));
-  revalidatePath("/repertorio");
-  revalidatePath("/shows", "layout");
-  revalidatePath("/ensaios", "layout");
-  return { atualizadas, faltando };
-}
-
-/** "Puxar da original": tenta o tom só pelo título (ignora o artista do cover). */
-export async function fetchTomOriginalAction(ids: string[]): Promise<{ atualizadas: number; faltando: BpmMiss[] }> {
-  await requireAdmin();
-  if (!ids?.length) return { atualizadas: 0, faltando: [] };
-  const rows = await db
-    .select({ id: songs.id, titulo: songs.titulo, artista: songs.artista })
-    .from(songs)
-    .where(inArray(songs.id, ids));
-  const faltando: BpmMiss[] = [];
-  let atualizadas = 0;
-  let i = 0;
-  async function worker() {
-    while (i < rows.length) {
-      const s = rows[i++];
-      const k = await fetchKey(s.titulo, null);
-      if (k) {
-        await db.update(songs).set({ tom: k }).where(eq(songs.id, s.id));
-        atualizadas++;
-      } else {
-        faltando.push({ id: s.id, titulo: s.titulo, artista: s.artista });
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(5, rows.length) }, worker));
-  revalidatePath("/repertorio");
-  revalidatePath("/shows", "layout");
-  revalidatePath("/ensaios", "layout");
   return { atualizadas, faltando };
 }
 
