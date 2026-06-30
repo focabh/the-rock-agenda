@@ -114,6 +114,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   // Enquanto o USUÁRIO rola (wheel/touch), não deixamos o auto-scroll brigar e
   // tratamos a rolagem como "seek" (a música pula pro ponto onde ele parou).
   const userSeekUntil = useRef(0);
+  // Quando a troca de música veio de uma ROLAGEM (scrub p/ outra faixa), o efeito
+  // de troca NÃO zera o relógio — a posição já foi setada pelo onScroll.
+  const scrubbedCurrent = useRef(false);
 
   playingRef.current = playing;
 
@@ -222,7 +225,13 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   }, [playing]);
 
   // Ao trocar de música (ou abrir), zera o relógio e aplica o ritmo salvo dela.
+  // EXCETO quando a troca veio de uma rolagem (scrub) — aí a posição já foi
+  // setada pelo onScroll e NÃO pode ser zerada (senão "volta pro início").
   useEffect(() => {
+    if (scrubbedCurrent.current) {
+      scrubbedCurrent.current = false;
+      return;
+    }
     clock.current.base = 0;
     clock.current.startedAt = playingRef.current ? performance.now() : null;
     setActiveIdx(-1);
@@ -415,40 +424,69 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       scrollTick.current = false;
       const el = scrollRef.current;
       if (!el) return;
-      const y = el.scrollTop + el.clientHeight * 0.35;
-      let idx = 0;
-      for (let i = 0; i < sectionRefs.current.length; i++) {
-        const sec = sectionRefs.current[i];
-        if (sec && sec.offsetTop <= y) idx = i;
-      }
-      if (idx !== current) {
-        setCurrent(idx);
-        applyForIndex(idx); // override do usuário ou calibração automática
-        return;
-      }
-      // Seek por rolagem (só em sync, e só quando o USUÁRIO rolou): acha a linha
-      // mais próxima do centro e re-baseia o relógio no tempo dela.
-      if (
-        syncedCurrent &&
-        performance.now() < userSeekUntil.current &&
-        timelines[current]?.length
-      ) {
-        const center = el.scrollTop + el.clientHeight / 2;
+      // Coordenadas de VIEWPORT (getBoundingClientRect) — robusto, não depende de
+      // offsetParent (offsetTop dava posição errada → seek na linha errada).
+      const rect = el.getBoundingClientRect();
+      const refY = rect.top + rect.height * 0.42; // ponto de referência (perto do centro)
+
+      const centerY = rect.top + rect.height / 2;
+      const userScrolling = performance.now() < userSeekUntil.current;
+      // Linha (de uma música qualquer) mais próxima do centro da tela.
+      const nearestLine = (songIdx: number): number => {
         let bestJ = -1;
         let bestDist = Infinity;
-        el.querySelectorAll<HTMLElement>(`[data-tl^="${current}-"]`).forEach((node) => {
-          const c = node.offsetTop + node.offsetHeight / 2;
-          const d = Math.abs(c - center);
+        el.querySelectorAll<HTMLElement>(`[data-tl^="${songIdx}-"]`).forEach((node) => {
+          const r = node.getBoundingClientRect();
+          const c = r.top + r.height / 2;
+          const d = Math.abs(c - centerY);
           if (d < bestDist) {
             bestDist = d;
             bestJ = Number(node.dataset.tl?.split("-")[1] ?? -1);
           }
         });
-        const ln = bestJ >= 0 ? timelines[current][bestJ] : null;
+        return bestJ;
+      };
+
+      // 1) Qual música está nesse ponto.
+      let idx = 0;
+      for (let i = 0; i < sectionRefs.current.length; i++) {
+        const sec = sectionRefs.current[i];
+        if (sec && sec.getBoundingClientRect().top <= refY) idx = i;
+      }
+
+      // 2) Trocou de música.
+      if (idx !== current) {
+        const syncedTarget = auto && (timelines[idx]?.length ?? 0) > 0;
+        // Scrub do usuário pra OUTRA música sincronizada → continua DAQUELE ponto
+        // (não reinicia a música nova do zero).
+        if (userScrolling && syncedTarget) {
+          const j = nearestLine(idx);
+          const ln = j >= 0 ? timelines[idx][j] : null;
+          scrubbedCurrent.current = true;
+          setCurrent(idx);
+          clock.current.base = ln ? Math.max(0, ln.t) : 0;
+          clock.current.startedAt = playingRef.current ? performance.now() : null;
+          setActiveIdx(j >= 0 ? j : -1);
+          setSongSec(ln ? Math.floor(ln.t) : 0);
+          const k = songs[idx] ? songKey(songs[idx]) : null;
+          rateRef.current = (k && ratesMem.current[k]) || 1;
+          setRateView(rateRef.current);
+        } else {
+          setCurrent(idx);
+          applyForIndex(idx);
+        }
+        return;
+      }
+
+      // 3) Seek DENTRO da música atual (sync + rolagem do usuário): re-baseia o
+      //    relógio na linha mais próxima do centro → "continua de onde rolou".
+      if (syncedCurrent && userScrolling && timelines[current]?.length) {
+        const j = nearestLine(current);
+        const ln = j >= 0 ? timelines[current][j] : null;
         if (ln) {
           clock.current.base = Math.max(0, ln.t);
           if (clock.current.startedAt != null) clock.current.startedAt = performance.now();
-          setActiveIdx(bestJ);
+          setActiveIdx(j);
           setSongSec(Math.floor(ln.t));
         }
       }
