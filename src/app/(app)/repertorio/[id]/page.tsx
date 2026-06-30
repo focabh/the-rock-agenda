@@ -1,14 +1,12 @@
 import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { songs, members, songMemberReadiness, appSettings } from "@/db/schema";
-import { getPedalModel, DEFAULT_PEDAL_MODEL } from "@/lib/voz-pedais";
-import { parseVozPedal } from "@/lib/voz-pedal";
+import { songs, members, songMemberReadiness } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
 import { SongForm } from "@/components/repertorio/song-form";
 import { ReadinessSection } from "@/components/repertorio/readiness-section";
 import { LyricsPanel } from "@/components/repertorio/lyrics-panel";
-import { VozPedalEditor } from "@/components/repertorio/voz-pedal-editor";
+import { VocalCuesEditor } from "@/components/repertorio/vocal-cues-editor";
 import { SongTomEditor } from "@/components/repertorio/song-tom-editor";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { updateSongAction } from "../actions";
@@ -40,10 +38,6 @@ export default async function EditarSongPage({
 
   const action = updateSongAction.bind(null, id);
 
-  const [settings] = await db.select({ m: appSettings.vozPedalModelo }).from(appSettings).limit(1);
-  const pedalModel = getPedalModel(settings?.m ?? DEFAULT_PEDAL_MODEL);
-  const presetAtual = parseVozPedal(song.vozPedal)?.preset ?? null;
-
   return (
     <div>
       <PageHeader title={song.titulo} description={song.artista} />
@@ -68,11 +62,11 @@ export default async function EditarSongPage({
           }))}
         />
 
-        <VozPedalEditor
+        <VocalCuesEditor
           songId={id}
-          modeloNome={pedalModel?.nome ?? ""}
-          presets={pedalModel?.presets ?? []}
-          initialPresetId={presetAtual}
+          lyrics={song.lyrics}
+          initialCue={song.vozCueInicial}
+          vocalCuesRaw={song.vocalCues}
         />
 
         <LyricsPanel

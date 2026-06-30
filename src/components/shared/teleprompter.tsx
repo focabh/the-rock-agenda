@@ -17,12 +17,13 @@ import {
   Type,
   Sparkles,
   RotateCcw,
+  Mic,
 } from "lucide-react";
 import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
-import { VozPedalBadge } from "@/components/shared/voz-pedal-badge";
 import { parseLrc, parseCues, buildTimeline, activeLineIndex, decideEntryWarning, type AlertMode } from "@/lib/lrc";
+import { parseVocalCues, cuesByLineText, normalizeLine } from "@/lib/vocal-cues";
 import { prepareAudioContext } from "@/lib/audio-unlock";
 
 type Song = {
@@ -36,6 +37,8 @@ type Song = {
   cues?: string | null;
   bpm?: number | null;
   vozPedal?: string | null;
+  vozCueInicial?: string | null;
+  vocalCues?: string | null;
 };
 
 // Tamanhos responsivos: já começam grandes no celular.
@@ -51,6 +54,7 @@ const SPEED_KEY = "teleprompter-speeds-v1"; // overrides do usuário, por músic
 const RATE_KEY = "teleprompter-rates-v1"; // ritmo do sync por música (1 = igual à gravação)
 const AUTO_KEY = "teleprompter-auto-v1";
 const ALERT_KEY = "teleprompter-alert-mode-v1"; // ensaio | show | limpo
+const CUES_KEY = "teleprompter-vocal-cues-v1"; // mostrar Vocal Cues (Stage Master)
 const RATE_MIN = 0.5;
 const RATE_MAX = 1.8;
 const RATE_STEP = 0.05;
@@ -83,6 +87,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   // Pulso pra moldura piscar no tempo (visual, ajuda quem está de in-ear).
   const [metroPulse, setMetroPulse] = useState<{ on: boolean; acc: boolean }>({ on: false, acc: false });
   const [activeIdx, setActiveIdx] = useState(-1); // linha ativa (modo sincronizado)
+  const [showCues, setShowCues] = useState(true); // Stage Master: mostrar Vocal Cues
+  const [cueNow, setCueNow] = useState<string[]>([]); // cue da linha atual (notificação discreta)
   const [rateView, setRateView] = useState(1); // ritmo do sync (1 = igual à gravação)
   const [songSec, setSongSec] = useState(0); // cronômetro do tempo-música (modo sync)
   const rateRef = useRef(1); // fonte de verdade do ritmo pro relógio
@@ -95,6 +101,11 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   );
   // Sincronizado quando: AUTO ligado E a música atual tem timeline (letra sincronizada).
   const syncedCurrent = auto && (timelines[current]?.length ?? 0) > 0;
+  // Stage Master: mapa texto-da-linha → Vocal Cues da música atual.
+  const cueMap = useMemo(
+    () => cuesByLineText(parseVocalCues(songs[current]?.vocalCues)),
+    [songs, current]
+  );
   // Relógio do modo sincronizado: base acumulada + início do segmento tocando.
   const clock = useRef<{ base: number; startedAt: number | null }>({ base: 0, startedAt: null });
   // Tempo da MÚSICA (segundos) = base + tempo real decorrido × ritmo.
@@ -144,7 +155,26 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     } catch {
       /* ignora */
     }
+    try {
+      const c = localStorage.getItem(CUES_KEY);
+      if (c !== null) setShowCues(c === "1");
+    } catch {
+      /* ignora */
+    }
   }, []);
+
+  function toggleCues() {
+    setShowCues((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(CUES_KEY, next ? "1" : "0");
+      } catch {
+        /* ignora */
+      }
+      return next;
+    });
+    bumpControls();
+  }
 
   function changeAlertMode(m: AlertMode) {
     setAlertMode(m);
@@ -281,6 +311,28 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       cancelAnimationFrame(id);
     };
   }, [open, playing, syncedCurrent, current, timelines]);
+
+  // Stage Master: quando a linha ativa tiver Vocal Cue, mostra a notificação
+  // discreta por alguns segundos e some (não interpreta nada — só exibe o texto).
+  useEffect(() => {
+    if (!showCues || !syncedCurrent || activeIdx < 0) {
+      setCueNow([]);
+      return;
+    }
+    const ln = timelines[current]?.[activeIdx];
+    if (!ln || ln.cue) {
+      setCueNow([]);
+      return;
+    }
+    const cues = cueMap.get(normalizeLine(ln.text));
+    if (!cues?.length) {
+      setCueNow([]);
+      return;
+    }
+    setCueNow(cues);
+    const t = window.setTimeout(() => setCueNow([]), 5000);
+    return () => clearTimeout(t);
+  }, [activeIdx, current, showCues, syncedCurrent, cueMap, timelines]);
 
   // Metrônomo automático: clica no BPM da música atual enquanto toca. Reinicia
   // sozinho a cada troca de faixa. Discreto (volume baixo) e desligável.
@@ -641,7 +693,12 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                 {songs[current] ? `${songs[current].n}. ${songs[current].titulo}` : ""}
                 {songs[current]?.tom ? ` · ${songs[current].tom}` : ""}
               </span>
-              <VozPedalBadge raw={songs[current]?.vozPedal} />
+              {showCues && songs[current]?.vozCueInicial && (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-300 ring-1 ring-inset ring-amber-500/30">
+                  <Mic className="size-3" />
+                  {songs[current]?.vozCueInicial}
+                </span>
+              )}
             </span>
             <button
               onClick={close}
@@ -688,6 +745,20 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             </div>
           )}
 
+          {/* Stage Master: Vocal Cue da linha atual — notificação discreta */}
+          {showCues && cueNow.length > 0 && (
+            <div className="pointer-events-none absolute inset-x-0 top-24 z-10 flex flex-wrap justify-center gap-1.5 px-4">
+              {cueNow.map((c, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/95 px-3 py-1 text-sm font-bold text-black shadow-lg ring-1 ring-black/10"
+                >
+                  <Mic className="size-3.5" /> {c}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Letras rolando — toque mostra/esconde controles */}
           <div
             ref={scrollRef}
@@ -713,6 +784,13 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     {s.n}. {s.titulo}
                     {s.tom ? ` · ${s.tom}` : ""}
                   </h2>
+                  {showCues && s.vozCueInicial?.trim() && (
+                    <div className="mb-5 flex justify-center">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-4 py-1.5 text-base font-bold text-amber-300 ring-1 ring-inset ring-amber-500/40">
+                        <Mic className="size-4" /> {s.vozCueInicial}
+                      </span>
+                    </div>
+                  )}
                   {auto && timelines[i].length > 0 ? (
                     // Modo sincronizado: linha a linha, a atual em destaque (estilo Spotify).
                     // Marcações (intro/solo) aparecem como selo 🎸.
@@ -721,6 +799,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                         const isCur = i === current;
                         const active = isCur && j === activeIdx;
                         const upcoming = isCur && activeIdx < 0 && j === 0; // 1ª entrada na intro
+                        const lineCues =
+                          showCues && isCur && !ln.cue ? cueMap.get(normalizeLine(ln.text)) : null;
                         if (ln.cue) {
                           return (
                             <p
@@ -752,6 +832,22 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                             }
                           >
                             {ln.text}
+                            {lineCues?.length ? (
+                              <span className="mt-1 flex flex-wrap justify-center gap-1.5">
+                                {lineCues.map((c, k) => (
+                                  <span
+                                    key={k}
+                                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.32em] font-bold uppercase tracking-wide ${
+                                      active
+                                        ? "bg-amber-400 text-black"
+                                        : "bg-amber-400/20 text-amber-300"
+                                    }`}
+                                  >
+                                    🎤 {c}
+                                  </span>
+                                ))}
+                              </span>
+                            ) : null}
                           </p>
                         );
                       })}
@@ -934,6 +1030,17 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                 <span className="font-mono">
                   {songs[current]?.bpm ? songs[current]?.bpm : "BPM"}
                 </span>
+              </button>
+              <button
+                onClick={toggleCues}
+                className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-bold ring-1 transition-colors ${
+                  showCues
+                    ? "bg-amber-400 text-black ring-amber-400"
+                    : "text-white/70 ring-white/25 hover:text-white"
+                }`}
+                title={`Vocal Cues (Stage Master): ${showCues ? "tocando — toque pra esconder" : "escondidos — toque pra mostrar"}`}
+              >
+                <Mic className="size-4" /> Cues
               </button>
               <button onClick={() => setShowList(true)} className={`size-11 ${ctrlBtn}`} title="Lista de músicas">
                 <ListMusic className="size-5" />

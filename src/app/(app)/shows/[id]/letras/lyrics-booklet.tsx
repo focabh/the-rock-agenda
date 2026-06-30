@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import { CUE_EMOJI, CUE_LABEL, type StageCue } from "@/lib/stage-cues";
 import { Teleprompter } from "@/components/shared/teleprompter";
 import { LyricsText } from "@/components/shared/lyrics-text";
-import { parseVozPedal } from "@/lib/voz-pedal";
+import { parseVocalCues } from "@/lib/vocal-cues";
 import { refineStageCuesAction } from "@/app/(app)/shows/[id]/actions-setlist";
 
 type BookletSong = {
@@ -42,6 +42,8 @@ type BookletSong = {
   cues?: string | null;
   bpm?: number | null;
   vozPedal?: string | null;
+  vozCueInicial?: string | null;
+  vocalCues?: string | null;
   dropada?: boolean;
   emenda?: boolean;
 };
@@ -333,10 +335,12 @@ export function LyricsBooklet({
                       ⟿ Emenda na próxima música
                     </div>
                   )}
-                  {parseVozPedal(s.vozPedal)?.nome && (
-                    <p className="mt-1.5 text-sm text-gray-600">
-                      Pedal de voz:{" "}
-                      <strong>{parseVozPedal(s.vozPedal)!.nome}</strong>
+                  {s.vozCueInicial?.trim() && (
+                    <p className="mt-1.5 text-base">
+                      <span className="mr-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-800">
+                        🎤 Vocal Cue
+                      </span>
+                      <strong>{s.vozCueInicial}</strong>
                     </p>
                   )}
                 </div>
@@ -348,6 +352,33 @@ export function LyricsBooklet({
                     repertório.
                   </p>
                 )}
+                {(() => {
+                  const vc = parseVocalCues(s.vocalCues);
+                  return vc.length > 0 ? (
+                    <div className="mt-3 break-inside-avoid rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-amber-800">
+                        🎤 Vocal Cues por linha
+                      </p>
+                      <ul className="space-y-1 text-sm">
+                        {vc.map((v, k) => (
+                          <li key={k} className="flex gap-2">
+                            <span className="flex-1 italic text-gray-600">“{v.snapshot}”</span>
+                            <span className="flex flex-wrap justify-end gap-1">
+                              {v.cues.map((c, ci) => (
+                                <strong
+                                  key={ci}
+                                  className="rounded bg-amber-200 px-1.5 py-0.5 text-amber-900"
+                                >
+                                  {c}
+                                </strong>
+                              ))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null;
+                })()}
                 {showCues && cuesBySlot.get(idx + 1) && (
                   <CueBlock list={cuesBySlot.get(idx + 1)!} />
                 )}

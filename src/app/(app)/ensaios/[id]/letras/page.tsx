@@ -35,6 +35,8 @@ export default async function EnsaioLetrasPage({
     cues: it.song.cues,
     bpm: it.song.bpm,
     vozPedal: it.song.vozPedal,
+    vozCueInicial: it.song.vozCueInicial,
+    vocalCues: it.song.vocalCues,
     dropada: it.song.dropada,
     emenda: it.emenda,
   }));

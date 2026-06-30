@@ -297,9 +297,15 @@ export const songs = sqliteTable("songs", {
     .notNull()
     .default(false),
   tom: text("tom"), // tonalidade musical (ex.: "Em", "A") — muda por música
-  // Config do pedal de voz (ex.: Flamma FV-02) por música — JSON
-  // {mode,reverb,level}. Mostrado no setlist/teleprompter/modo-show. Null = sem.
+  // (OBSOLETO) config do pedal por música — substituído pelos Vocal Cues.
   vozPedal: text("voz_pedal"),
+  // Stage Master — Vocal Cues (texto livre, nunca interpretado):
+  // vozCueInicial = cue mostrado no card inicial do teleprompter (ex.: "ARENA").
+  vozCueInicial: text("voz_cue_inicial"),
+  // vocalCues = cues/observações por LINHA da letra. JSON:
+  // [{line:number, snapshot:string, cues:string[]}]. (Arquitetura pronta pra
+  // MIDI no futuro: cada item poderá virar objeto {text, midi}.)
+  vocalCues: text("vocal_cues"),
   // Afinação dropada (Drop D/C etc.)? Agrupa as dropadas p/ minimizar reafinação.
   dropada: integer("dropada", { mode: "boolean" }).notNull().default(false),
   // Popularidade Spotify (0–100), atualizada sob demanda. Desempata o setlist.

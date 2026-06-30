@@ -862,6 +862,38 @@ export async function setSongTomAction(
   return { ok: true, tom: v };
 }
 
+/** Stage Master — salva o Vocal Cue inicial + os cues por linha de uma música.
+ *  Colaborativo (qualquer músico logado). Texto livre, nunca interpretado. */
+export async function setVocalCuesAction(
+  songId: string,
+  inicial: string | null,
+  perLine: { line: number; snapshot: string; cues: string[] }[]
+): Promise<{ ok: boolean }> {
+  await requireCurrentUser();
+  const ini = (inicial ?? "").trim().slice(0, 120) || null;
+  const clean = (Array.isArray(perLine) ? perLine : [])
+    .map((p) => ({
+      line: Math.max(0, Math.round(Number(p.line) || 0)),
+      snapshot: String(p.snapshot ?? "").slice(0, 200),
+      cues: (Array.isArray(p.cues) ? p.cues : [])
+        .map((c) => String(c).trim().slice(0, 80))
+        .filter(Boolean),
+    }))
+    .filter((p) => p.cues.length > 0);
+  await db
+    .update(songs)
+    .set({
+      vozCueInicial: ini,
+      vocalCues: clean.length ? JSON.stringify(clean) : null,
+    })
+    .where(eq(songs.id, songId));
+  revalidatePath("/repertorio");
+  revalidatePath(`/repertorio/${songId}`);
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { ok: true };
+}
+
 export async function toggleFavoritaAction(id: string, favorita: boolean) {
   await requireAdmin();
   await db.update(songs).set({ favorita }).where(eq(songs.id, id));

@@ -103,7 +103,6 @@ import {
 import { runOrQueue } from "@/lib/offline/mutations";
 import { KIND } from "@/lib/offline/actions-registry";
 import type { Song, SetlistItem, Setlist } from "@/db/schema";
-import { VozPedalBadge } from "@/components/shared/voz-pedal-badge";
 import { materialForPosicao, type PlayMaterial } from "@/lib/instrument-material";
 
 type Item = SetlistItem & { song: Song };
@@ -795,7 +794,11 @@ function SortableSetlistItem({
             <SongStatusBadge status={item.song.status} />
           </span>
 
-          <VozPedalBadge raw={item.song.vozPedal} />
+          {item.song.vozCueInicial && (
+            <span className="inline-flex shrink-0 items-center rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 ring-1 ring-inset ring-amber-500/30 dark:text-amber-300">
+              🎤 {item.song.vozCueInicial}
+            </span>
+          )}
 
           {(canEdit || dropada) && (
             <button
