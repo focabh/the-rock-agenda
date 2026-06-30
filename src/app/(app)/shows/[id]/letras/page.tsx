@@ -32,7 +32,7 @@ export default async function LetrasPage({
     n: i + 1,
     titulo: it.song.titulo,
     artista: it.song.artista,
-    tom: it.tom ?? it.song.tom ?? null,
+    tom: it.song.tom ?? null,
     lyrics: it.song.lyrics?.trim() || null,
     durationSeg: it.song.duracaoSeg,
     syncedLyrics: it.song.syncedLyrics,

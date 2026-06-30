@@ -57,7 +57,7 @@ export async function GET(
           new TextRun({ text: `${i + 1}. ${it.song.titulo}`, bold: true }),
           new TextRun({
             text: `  —  ${it.song.artista}${
-              (it.tom ?? it.song.tom) ? ` (${it.tom ?? it.song.tom})` : ""
+              (it.song.tom) ? ` (${it.song.tom})` : ""
             }`,
             italics: true,
           }),

@@ -32,7 +32,7 @@ export default async function ImprimirEnsaioSetlistPage({
   const items: PrintItem[] = ordered.map((it, idx) => ({
     n: idx + 1,
     titulo: it.song.titulo,
-    tom: it.tom ?? it.song.tom,
+    tom: it.song.tom,
     dropada: it.song.dropada,
     emenda: it.emenda,
   }));

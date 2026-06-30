@@ -86,8 +86,8 @@ import {
   updateSetlistAction,
   deleteSetlistAction,
   setSetlistOficialAction,
-  setSetlistItemTomAction,
 } from "@/app/(app)/shows/[id]/actions-setlist";
+import { setSongTomAction } from "@/app/(app)/repertorio/actions";
 import {
   addSongToEnsaioSetlistAction,
   removeEnsaioSetlistItemAction,
@@ -170,10 +170,10 @@ export function SetlistTab({
     isEnsaio
       ? runOrQueue(KIND.reorderEnsaioSetlistItems, [rehearsalId!, ids])
       : runOrQueue(KIND.reorderSetlistItems, [showId!, ids]);
-  // Tom é colaborativo (QUALQUER músico ajusta), então usa a ação própria de
-  // músico (não passa pelo runOrQueue admin). Vale show e ensaio (por itemId).
-  const aTom = (itemId: string, tom: string | null) =>
-    setSetlistItemTomAction(itemId, tom);
+  // Tom é UM valor por música (songs.tom) — editar aqui reflete no repertório e
+  // em todos os setlists (e vice-versa). Colaborativo (qualquer músico).
+  const aTom = (songId: string, tom: string | null) =>
+    setSongTomAction(songId, tom);
   const aPrioridade = (itemId: string, prioridade: boolean) =>
     runOrQueue(KIND.updateEnsaioSetlistItem, [rehearsalId!, itemId, { prioridade }]);
   // DROP é propriedade da MÚSICA (songs.dropada): marcar/desmarcar aqui reflete
@@ -229,7 +229,7 @@ export function SetlistTab({
   const prioridades = localItems.filter((i) => i.prioridade);
 
   // Resolvedores (consideram as edições otimistas) + alerta de emenda.
-  const tomOf = (it: Item) => (it.tom ?? it.song.tom ?? "").trim();
+  const tomOf = (it: Item) => (it.song.tom ?? "").trim();
   const dropOf = (it: Item) => dropOverride[it.song.id] ?? it.song.dropada;
   const emendaOf = (it: Item) => emendaOverride[it.id] ?? it.emenda;
   /** Se a música emenda na próxima e há mudança de tom/afinação no meio. */
@@ -502,7 +502,7 @@ export function SetlistTab({
                     n: idx + 1,
                     titulo: it.song.titulo,
                     artista: it.song.artista,
-                    tom: it.tom ?? it.song.tom ?? "",
+                    tom: it.song.tom ?? "",
                     dur: fmtMMSS(it.duracaoSeg ?? it.song.duracaoSeg ?? 0),
                   }))}
                 />
@@ -549,7 +549,7 @@ export function SetlistTab({
                         superuser={superuser}
                         play={play}
                         isEnsaio={isEnsaio}
-                        onTom={(tom) => aTom(item.id, tom)}
+                        onTom={(tom) => aTom(item.song.id, tom)}
                         onRemove={() => aRemove(item.id)}
                         onPrioridade={(v) => aPrioridade(item.id, v)}
                         dropada={dropOverride[item.song.id] ?? item.song.dropada}
@@ -865,12 +865,12 @@ function SortableSetlistItem({
           <MetronomeButton bpm={item.song.bpm} titulo={item.song.titulo} songId={item.song.id} />
 
           <Input
-            defaultValue={item.tom ?? item.song.tom ?? ""}
+            defaultValue={item.song.tom ?? ""}
             placeholder="tom"
             inputMode="numeric"
-            title="Tom (transposição: 0, -1, -2…). Qualquer músico pode ajustar. Vazio usa o do repertório."
-            className="h-7 w-14 shrink-0 px-1 text-center text-xs font-mono"
-            onBlur={(e) => startTransition(() => onTom(e.target.value || null))}
+            title="Tom (transposição: 0, -1, -2…). Qualquer músico edita — reflete no repertório e em todos os setlists."
+            className="h-8 w-14 shrink-0 rounded-md border-2 border-amber-400/40 bg-amber-500/10 px-1 text-center text-base font-black text-amber-300"
+            onBlur={(e) => startTransition(() => onTom(e.target.value.trim() || null))}
           />
           {canEdit && (
             <Button variant="ghost" size="icon" title="Remover" className="size-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => startTransition(() => onRemove())}>

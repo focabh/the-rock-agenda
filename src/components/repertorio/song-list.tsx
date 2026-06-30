@@ -54,6 +54,7 @@ import {
   bulkSetFavoritaAction,
   setSongDropAction,
   setSongPrioridadeAction,
+  setSongTomAction,
   verificarDropsAction,
 } from "@/app/(app)/repertorio/actions";
 
@@ -366,6 +367,20 @@ export function SongList({
             ENSAIAR
           </button>
         )}
+
+        {/* TOM (transposição) — destaque + editável por qualquer músico; grava
+            songs.tom, então reflete no repertório E nos setlists. */}
+        <input
+          defaultValue={s.tom ?? ""}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            if (v !== (s.tom ?? "")) startTransition(() => { void setSongTomAction(s.id, v || null); });
+          }}
+          placeholder="tom"
+          inputMode="numeric"
+          title="Tom (transposição: 0, -1, -2…). Qualquer músico edita — vale no repertório e nos setlists."
+          className="w-12 shrink-0 rounded-md border-2 border-amber-400/40 bg-amber-500/10 px-1 py-0.5 text-center text-sm font-black text-amber-200 placeholder:font-normal placeholder:text-muted-foreground/50"
+        />
 
         {(admin || s.dropada) && (
           <button

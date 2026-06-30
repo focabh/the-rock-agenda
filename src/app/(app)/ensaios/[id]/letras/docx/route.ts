@@ -38,7 +38,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         spacing: { after: 120 },
         children: [
           new TextRun({ text: `${i + 1}. ${it.song.titulo}`, bold: true }),
-          new TextRun({ text: `  —  ${it.song.artista}${(it.tom ?? it.song.tom) ? ` (${it.tom ?? it.song.tom})` : ""}`, italics: true }),
+          new TextRun({ text: `  —  ${it.song.artista}${(it.song.tom) ? ` (${it.song.tom})` : ""}`, italics: true }),
         ],
       })
     );

@@ -81,7 +81,7 @@ export default async function ModoShowPage({
     n: i + 1,
     titulo: it.song.titulo,
     artista: it.song.artista,
-    tom: it.tom ?? it.song.tom ?? null,
+    tom: it.song.tom ?? null,
     lyrics: it.song.lyrics ?? null,
     durationSeg: it.song.duracaoSeg,
     syncedLyrics: it.song.syncedLyrics,
@@ -179,8 +179,8 @@ export default async function ModoShowPage({
                         <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">DROP</span>
                       )}
                       <VozPedalBadge raw={it.song.vozPedal} />
-                      {(it.tom ?? it.song.tom) && (
-                        <span className="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.tom ?? it.song.tom}</span>
+                      {(it.song.tom) && (
+                        <span className="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.song.tom}</span>
                       )}
                     </li>
                   ))}
@@ -227,7 +227,7 @@ export default async function ModoShowPage({
                         <span className="text-sm text-muted-foreground">{it.song.artista}</span>
                         <span className="ml-auto flex items-center gap-2">
                           <VozPedalBadge raw={it.song.vozPedal} />
-                          {(it.tom ?? it.song.tom) && <span className="rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.tom ?? it.song.tom}</span>}
+                          {(it.song.tom) && <span className="rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.song.tom}</span>}
                         </span>
                       </div>
                       {it.song.lyrics?.trim() ? (
