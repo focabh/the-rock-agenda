@@ -15,14 +15,14 @@ const MAX_COMPROVANTE = 4_000_000;
 export async function markMemberPaidAction(
   showId: string,
   memberId: string,
-  comprovante: string
+  comprovante: string | null
 ) {
   await requireAdmin();
-  if (!comprovante || !comprovante.startsWith("data:")) {
-    return { error: "Anexe o comprovante de pagamento." };
-  }
-  if (comprovante.length > MAX_COMPROVANTE) {
-    return { error: "Comprovante muito grande. Use uma imagem menor." };
+  // Comprovante é OPCIONAL (às vezes paga em dinheiro). Se vier, valida.
+  if (comprovante) {
+    if (!comprovante.startsWith("data:")) return { error: "Comprovante inválido." };
+    if (comprovante.length > MAX_COMPROVANTE)
+      return { error: "Comprovante muito grande. Use um arquivo menor." };
   }
 
   const existing = await db

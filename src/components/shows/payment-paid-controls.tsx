@@ -185,7 +185,6 @@ export function MarkPaidDialog({
   }
 
   function submit() {
-    if (!dataUrl) return;
     startTransition(async () => {
       const r = await markMemberPaidAction(showId, memberId, dataUrl);
       if (r?.error) {
@@ -205,14 +204,14 @@ export function MarkPaidDialog({
         <DialogHeader>
           <DialogTitle>Registrar pagamento — {memberNome}</DialogTitle>
           <DialogDescription>
-            Anexe o comprovante (obrigatório). Foto ou PDF. O músico recebe um
-            aviso pra confirmar o recebimento.
+            Anexe o comprovante se quiser (opcional — foto ou PDF). O músico
+            recebe um aviso pra confirmar o recebimento.
           </DialogDescription>
         </DialogHeader>
 
         <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground hover:bg-muted/40">
           <Paperclip className="size-4" />
-          {busy ? "Processando..." : "Escolher comprovante"}
+          {busy ? "Processando..." : dataUrl ? "Trocar comprovante" : "Anexar comprovante (opcional)"}
           <input
             type="file"
             accept="image/*,application/pdf"
@@ -239,7 +238,7 @@ export function MarkPaidDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={!dataUrl || pending || busy}>
+          <Button onClick={submit} disabled={pending || busy}>
             {pending ? "Salvando..." : "Confirmar pagamento"}
           </Button>
         </div>

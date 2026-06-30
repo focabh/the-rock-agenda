@@ -66,7 +66,7 @@ const GROUPS: Group[] = [
     icon: Wallet,
     items: [
       { href: "/financeiro", label: "Visão geral" },
-      { href: "/pagamentos", label: "Cachês" },
+      { href: "/pagamentos", label: "Cachês / Pagamentos" },
       { href: "/gastos", label: "Gastos", adminOnly: true },
     ],
   },

@@ -39,8 +39,13 @@ export default async function PagamentosPage() {
 
   // Cachê a pagar a músico só depois que o show ACONTECEU (concluído). Show
   // futuro confirmado ainda não gera pagamento — é renda esperada (ver Financeiro).
+  // Inclui CONFIRMADOS além de concluídos — pra liberar o "Pagar" mesmo antes do
+  // show acontecer (adiantamento). O relatório YTD abaixo conta só concluído.
   const payableShows = await db.query.shows.findMany({
-    where: and(gt(shows.cacheCentavos, 0), eq(shows.status, "concluido")),
+    where: and(
+      gt(shows.cacheCentavos, 0),
+      inArray(shows.status, ["confirmado", "concluido"])
+    ),
     with: { casa: { columns: { nome: true } } },
     orderBy: (s, { desc }) => [desc(s.data)],
   });
@@ -189,8 +194,14 @@ export default async function PagamentosPage() {
   // Cachês a receber do contratante (só admin precisa)
   let contratanteItems: ContratanteItem[] = [];
   if (admin) {
+    // Inclui shows CONFIRMADOS além de concluídos — pra registrar recebimento
+    // adiantado (comum em evento particular: contratante paga antes).
     const pendingFromContratante = await db.query.shows.findMany({
-      where: and(eq(shows.status, "concluido"), ne(shows.pagamentoStatus, "pago")),
+      where: and(
+        inArray(shows.status, ["confirmado", "concluido"]),
+        gt(shows.cacheCentavos, 0),
+        ne(shows.pagamentoStatus, "pago")
+      ),
       with: { casa: { columns: { nome: true } } },
       orderBy: (s, { asc }) => [asc(s.data)],
     });
@@ -212,6 +223,8 @@ export default async function PagamentosPage() {
     const perMemberYTD = new Map<string, number>();
     const venueAgg = new Map<string, { sum: number; count: number }>();
     for (const s of payableShows) {
+      // Relatório = realizado: só shows concluídos (ignora confirmados futuros).
+      if (s.status !== "concluido") continue;
       const va = venueAgg.get(s.casa.nome) ?? { sum: 0, count: 0 };
       va.sum += s.cacheCentavos ?? 0;
       va.count++;
@@ -259,7 +272,7 @@ export default async function PagamentosPage() {
         title="Cachês"
         description={
           admin
-            ? "Cachês a pagar aos músicos, cachês a receber do contratante e reembolsos. Comprovante PIX obrigatório em todos."
+            ? "Cachês a pagar aos músicos, cachês a receber do contratante e reembolsos. Comprovante PIX é opcional."
             : "Seus cachês e reembolsos. Confirme o recebimento quando o admin marcar um pagamento."
         }
         actions={
