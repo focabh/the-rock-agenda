@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import { CUE_EMOJI, CUE_LABEL, type StageCue } from "@/lib/stage-cues";
 import { Teleprompter } from "@/components/shared/teleprompter";
 import { LyricsText } from "@/components/shared/lyrics-text";
-import { VozPedalBadge } from "@/components/shared/voz-pedal-badge";
+import { parseVozPedal } from "@/lib/voz-pedal";
 import { refineStageCuesAction } from "@/app/(app)/shows/[id]/actions-setlist";
 
 type BookletSong = {
@@ -42,6 +42,8 @@ type BookletSong = {
   cues?: string | null;
   bpm?: number | null;
   vozPedal?: string | null;
+  dropada?: boolean;
+  emenda?: boolean;
 };
 
 const SIZES = ["text-base", "text-lg", "text-xl", "text-2xl", "text-3xl"];
@@ -261,18 +263,40 @@ export function LyricsBooklet({
                 key={s.n}
                 className="break-inside-avoid print:break-before-page print:first:break-before-auto"
               >
-                <div className="mb-2 flex items-baseline gap-2 border-b border-gray-300 pb-1">
-                  <span className="font-mono text-gray-400">{s.n}.</span>
-                  <h2 className="text-lg font-bold">{s.titulo}</h2>
-                  <span className="text-sm text-gray-600">{s.artista}</span>
-                  <span className="ml-auto flex items-center gap-2">
-                    <VozPedalBadge raw={s.vozPedal} tone="light" />
-                    {s.tom && (
-                      <span className="rounded border border-gray-400 px-1.5 py-0.5 font-mono text-sm">
-                        {s.tom}
-                      </span>
-                    )}
-                  </span>
+                <div className="mb-2 border-b border-gray-300 pb-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-gray-400">{s.n}.</span>
+                    <h2 className="text-lg font-bold">{s.titulo}</h2>
+                    <span className="text-sm text-gray-600">{s.artista}</span>
+                    {/* Tom (grande), Drop e Emenda — logo após o título */}
+                    <span className="ml-auto flex items-center gap-2">
+                      {s.dropada && (
+                        <span className="rounded border-2 border-black px-1.5 py-0.5 text-[10px] font-black uppercase">
+                          Drop
+                        </span>
+                      )}
+                      {s.tom && (
+                        <span className="rounded-lg border-2 border-black px-2 py-0.5 text-xl font-black tabular-nums">
+                          {s.tom}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {(s.emenda || parseVozPedal(s.vozPedal)?.nome) && (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-xs text-gray-600">
+                      {s.emenda && (
+                        <span className="font-bold uppercase tracking-wide">
+                          ↳ emenda na próxima
+                        </span>
+                      )}
+                      {parseVozPedal(s.vozPedal)?.nome && (
+                        <span>
+                          Pedal de voz:{" "}
+                          <strong>{parseVozPedal(s.vozPedal)!.nome}</strong>
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {s.lyrics ? (
                   <LyricsText text={s.lyrics} tone="light" className={`leading-relaxed ${SIZES[sizeIdx]}`} />

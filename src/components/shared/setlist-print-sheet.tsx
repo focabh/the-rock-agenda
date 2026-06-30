@@ -1,5 +1,6 @@
 import { formatDuracao } from "@/lib/formatters";
 import { PrintTrigger } from "@/app/(app)/shows/[id]/imprimir-setlist/print-trigger";
+import { PrintBackButton } from "@/components/shared/print-back-button";
 
 export type PrintItem = {
   n: number;
@@ -34,6 +35,7 @@ export function SetlistPrintSheet({
   return (
     <div className="min-h-screen bg-white text-black p-8 print:p-0">
       <PrintTrigger />
+      <PrintBackButton />
       <div className="mx-auto max-w-2xl">
         {/* Cabeçalho */}
         <header className="mb-6 border-b-4 border-black pb-3">

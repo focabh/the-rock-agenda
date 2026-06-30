@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { songs, type Song } from "@/db/schema";
 import { formatDuracao } from "@/lib/formatters";
 import { PrintTrigger } from "./print-trigger";
+import { PrintBackButton } from "@/components/shared/print-back-button";
 
 // Ordem e rótulos dos status na folha impressa.
 const GRUPOS: { status: Song["status"]; label: string }[] = [
@@ -40,6 +41,7 @@ export default async function ImprimirRepertorioPage({
   return (
     <div className="min-h-screen bg-white text-black p-8 print:p-0">
       <PrintTrigger />
+      <PrintBackButton />
       <div className="max-w-2xl mx-auto">
         <header className="mb-6 border-b-4 border-black pb-3">
           <div className="flex items-end justify-between gap-3">

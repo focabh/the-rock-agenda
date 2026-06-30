@@ -35,6 +35,8 @@ export default async function EnsaioLetrasPage({
     cues: it.song.cues,
     bpm: it.song.bpm,
     vozPedal: it.song.vozPedal,
+    dropada: it.song.dropada,
+    emenda: it.emenda,
   }));
 
   const [user, brand] = await Promise.all([getCurrentUser(), getBrand()]);
