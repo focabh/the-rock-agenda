@@ -24,13 +24,6 @@ export default async function BandaPage() {
     `https://wa.me/55${tel.replace(/\D/g, "")}?text=${encodeURIComponent(
       'Opa! Ativa as notificações do StageBoss pra não perder show/ensaio: abre o app → Conta → "Ativar notificações". 🤘'
     )}`;
-  const totalMusicos = lista
-    .filter((m) => !m.isManager)
-    .reduce((sum, m) => sum + (m.percentualDivisao ?? 0), 0);
-  const comissaoManager = lista
-    .filter((m) => m.isManager)
-    .reduce((sum, m) => sum + (m.percentualDivisao ?? 0), 0);
-
   return (
     <div>
       <PageHeader
@@ -46,31 +39,6 @@ export default async function BandaPage() {
       />
 
       <div className="p-6 space-y-4">
-        {lista.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            Divisão entre músicos:{" "}
-            <span
-              className={
-                totalMusicos === 100
-                  ? "text-emerald-400 font-medium"
-                  : "text-amber-400 font-medium"
-              }
-            >
-              {totalMusicos.toFixed(1)}%
-            </span>
-            {totalMusicos !== 100 && (
-              <span className="text-amber-400/70"> (ideal: 100%)</span>
-            )}
-            {comissaoManager > 0 && (
-              <span className="ml-2">
-                + comissão do manager:{" "}
-                <span className="text-amber-300 font-medium">
-                  {comissaoManager.toFixed(1)}%
-                </span>
-              </span>
-            )}
-          </p>
-        )}
 
         {lista.length === 0 ? (
           <EmptyState
@@ -125,15 +93,6 @@ export default async function BandaPage() {
                           <BellOff className="size-3.5" />
                         </span>
                       )}
-                      {m.percentualDivisao !== null &&
-                        m.percentualDivisao > 0 && (
-                          <span
-                            className="font-mono text-xs text-muted-foreground"
-                            title={m.isManager ? "Comissão" : "Divisão do cachê"}
-                          >
-                            {m.percentualDivisao}%
-                          </span>
-                        )}
                       <ChevronRight className="size-4 text-muted-foreground" />
                     </div>
                   </CardContent>

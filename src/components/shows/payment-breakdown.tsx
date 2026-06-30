@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatBRL, parseBRLToCentavos } from "@/lib/formatters";
-import { computePaymentBreakdown, memberDefaultCentavos } from "@/lib/payment";
+import { computePaymentBreakdown } from "@/lib/payment";
 import {
   updateShowFinanceAction,
   setMemberPaymentAction,
@@ -68,32 +68,25 @@ export function PaymentBreakdown({
   // Override REAL do show (editável/resetável aqui), por músico.
   const showOverride = useMemo(() => new Map(overrides.map((o) => [o.memberId, o])), [overrides]);
 
-  // Valor efetivo por músico (centavos): override do show vence; senão, o
-  // pagamento PADRÃO do músico (perfil) — fixo ou % do cachê.
+  // Valor efetivo por músico (centavos): SÓ o override do show (editável aqui).
+  // Sem override → divisão IGUAL (resto após comissão / nº de participantes).
   const overrideMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const mem of confirmedMusicos) {
       const o = showOverride.get(mem.id);
       if (o) {
         m.set(mem.id, o.pct != null ? Math.round((cacheCentavos * o.pct) / 100) : o.valorCentavos);
-      } else {
-        const d = memberDefaultCentavos(mem, cacheCentavos);
-        if (d != null) m.set(mem.id, d);
       }
     }
     return m;
   }, [showOverride, confirmedMusicos, cacheCentavos]);
 
-  // Percentual efetivo (memberId -> pct) pra UI mostrar/editar "%".
+  // Percentual efetivo (memberId -> pct) pra UI mostrar/editar "%" — só override.
   const pctMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const mem of confirmedMusicos) {
       const o = showOverride.get(mem.id);
-      if (o) {
-        if (o.pct != null) m.set(mem.id, o.pct);
-      } else if (mem.pagamentoFixoCentavos == null && (mem.percentualDivisao ?? 0) > 0) {
-        m.set(mem.id, mem.percentualDivisao as number);
-      }
+      if (o?.pct != null) m.set(mem.id, o.pct);
     }
     return m;
   }, [showOverride, confirmedMusicos]);

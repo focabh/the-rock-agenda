@@ -85,14 +85,6 @@ function ReadOnlyMember({ member }: { member: typeof members.$inferSelect }) {
       <CardContent className="py-5 space-y-3 text-sm">
         <Row label="Função" value={member.funcao} />
         {member.telefone && <Row label="Telefone" value={member.telefone} />}
-        {member.pagamentoFixoCentavos != null ? (
-          <Row label="Pagamento padrão" value={`R$ ${(member.pagamentoFixoCentavos / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} por show`} />
-        ) : (
-          member.percentualDivisao != null &&
-          member.percentualDivisao > 0 && (
-            <Row label="Divisão" value={`${member.percentualDivisao}% do cachê`} />
-          )
-        )}
         {member.disponibilidade && (
           <Row label="Disponibilidade" value={member.disponibilidade} />
         )}

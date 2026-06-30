@@ -12,7 +12,7 @@ import {
   gastos,
   reembolsos,
 } from "@/db/schema";
-import { computePaymentBreakdown, memberDefaultCentavos } from "@/lib/payment";
+import { computePaymentBreakdown } from "@/lib/payment";
 
 export const MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
@@ -142,16 +142,10 @@ export async function loadFinanceReport(anoParam?: string): Promise<FinanceRepor
     );
     const subsShow = subsByShow.get(s.id) ?? [];
     if (confirmados.length === 0 && subsShow.length === 0) continue;
-    // Resolve overrides (valor fixo OU % do cachê deste show).
+    // SÓ override por show (editável no show). Sem override → divisão igual.
     const ovMap = new Map<string, number>();
     for (const o of overrideRowsByShow.get(s.id) ?? []) {
       ovMap.set(o.memberId, o.pct != null ? Math.round((c * o.pct) / 100) : o.valorCentavos);
-    }
-    // Sem override do show? Aplica o pagamento PADRÃO do músico (perfil), se houver.
-    for (const m of confirmados) {
-      if (ovMap.has(m.id)) continue;
-      const d = memberDefaultCentavos(m, c);
-      if (d != null) ovMap.set(m.id, d);
     }
     // Participantes da divisão = músicos confirmados + subs convidados.
     const participantes = [

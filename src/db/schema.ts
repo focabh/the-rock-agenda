@@ -131,9 +131,9 @@ export const members = sqliteTable("members", {
   pixBanco: text("pix_banco"), // banco/instituição da chave
   equipamentos: text("equipamentos"),
   disponibilidade: text("disponibilidade"),
-  // Pagamento PADRÃO do músico por show (opcional): % do cachê (percentualDivisao)
-  // OU valor fixo (pagamentoFixoCentavos). Vale como default quando o show não
-  // tem override próprio. Fixo vence o %; ambos vazios = divisão igualitária.
+  // OBSOLETO (jun/2026): o cachê é sempre dividido IGUAL entre os confirmados
+  // (após a comissão); ajuste por músico é só override POR SHOW. Colunas mantidas
+  // pra não quebrar migrações; NÃO são lidas em lugar nenhum.
   percentualDivisao: real("percentual_divisao").default(0),
   pagamentoFixoCentavos: integer("pagamento_fixo_centavos"),
   observacoes: text("observacoes"),

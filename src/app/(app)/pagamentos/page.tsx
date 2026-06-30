@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Wallet } from "lucide-react";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { formatDataBR } from "@/lib/formatters";
-import { computePaymentBreakdown, memberDefaultCentavos } from "@/lib/payment";
+import { computePaymentBreakdown } from "@/lib/payment";
 import { FinanceReport, type FinanceReportData } from "@/components/pagamentos/finance-report";
 import {
   PagamentosHub,
@@ -103,14 +103,10 @@ export default async function PagamentosPage() {
     const confirmados = playable.filter((m) =>
       (confirmedByShow.get(s.id) ?? new Set<string>()).has(m.id)
     );
+    // SÓ override por show (editável no show). Sem override → divisão igual.
     const ovMap = new Map<string, number>();
     for (const o of overrideRowsByShow.get(s.id) ?? [])
       ovMap.set(o.memberId, o.pct != null ? Math.round((c * o.pct) / 100) : o.valorCentavos);
-    for (const m of confirmados) {
-      if (ovMap.has(m.id)) continue;
-      const d = memberDefaultCentavos(m, c);
-      if (d != null) ovMap.set(m.id, d);
-    }
     const subsShow = subsByShow.get(s.id) ?? [];
     const participantes = [
       ...confirmados.map((m) => ({ id: m.id })),

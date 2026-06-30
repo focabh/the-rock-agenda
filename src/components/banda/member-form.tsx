@@ -34,18 +34,11 @@ export function MemberForm({
       : positions;
   const [state, formAction, pending] = useActionState(action, null);
   const [isManager, setIsManager] = useState(member?.isManager ?? false);
-  const [pct, setPct] = useState<string>(
-    member?.percentualDivisao != null ? String(member.percentualDivisao) : ""
-  );
-  const [fixo, setFixo] = useState<string>(
-    member?.pagamentoFixoCentavos != null ? String(member.pagamentoFixoCentavos / 100) : ""
-  );
   const [telefone, setTelefone] = useState(member?.telefone ?? "");
   const [clientErr, setClientErr] = useState<Record<string, string>>({});
 
   function onManagerToggle(checked: boolean) {
     setIsManager(checked);
-    if (checked && (pct === "" || pct === "0")) setPct("10");
   }
 
   function err(name: string) {
@@ -138,46 +131,6 @@ export function MemberForm({
             />
             <ErrLine name="telefone" />
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="percentualDivisao">
-              {isManager ? "Comissão (%)" : "Divisão do cachê (%)"}
-            </Label>
-            <Input
-              id="percentualDivisao"
-              name="percentualDivisao"
-              type="number"
-              min={0}
-              max={100}
-              step={0.5}
-              value={pct}
-              onChange={(e) => setPct(e.target.value)}
-              placeholder={isManager ? "10" : "25"}
-            />
-            <FieldError state={state} name="percentualDivisao" />
-          </div>
-
-          {!isManager && (
-            <div className="space-y-2">
-              <Label htmlFor="pagamentoFixo">Valor fixo por show (R$)</Label>
-              <Input
-                id="pagamentoFixo"
-                name="pagamentoFixo"
-                type="number"
-                min={0}
-                step={0.01}
-                value={fixo}
-                onChange={(e) => setFixo(e.target.value)}
-                placeholder="opcional"
-              />
-              <p className="text-xs text-muted-foreground">
-                Pagamento padrão deste músico em cada show. Se preenchido, vence o %.
-                Vazio = usa o % acima; ambos vazios = divisão igualitária. Dá pra
-                ajustar em cada show.
-              </p>
-              <FieldError state={state} name="pagamentoFixo" />
-            </div>
-          )}
 
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2 cursor-pointer">
