@@ -125,7 +125,7 @@ export async function suggestSetlistAction(
     songId: it.song.id,
     titulo: it.song.titulo,
     artista: it.song.artista,
-    duracaoSeg: it.duracaoSeg ?? it.song.duracaoSeg,
+    duracaoSeg: it.song.duracaoSeg,
     status: it.song.status,
     energia: it.song.energia,
     favorita: it.song.favorita,

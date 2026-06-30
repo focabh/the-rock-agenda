@@ -29,10 +29,7 @@ export default async function ImprimirSetlistPage({
   const setlist =
     (sl && show.setlists.find((s) => s.id === sl)) || show.setlists[0];
   const ordered = (setlist?.items ?? []).sort((a, b) => a.ordem - b.ordem);
-  const totalSeg = ordered.reduce(
-    (s, i) => s + (i.duracaoSeg ?? i.song.duracaoSeg ?? 0),
-    0
-  );
+  const totalSeg = ordered.reduce((s, i) => s + (i.song.duracaoSeg ?? 210), 0);
   const items: PrintItem[] = ordered.map((it, idx) => ({
     n: idx + 1,
     titulo: it.song.titulo,

@@ -225,7 +225,13 @@ export function SetlistTab({
       return s.titulo.toLowerCase().includes(t) || s.artista.toLowerCase().includes(t);
     });
 
-  const totalSeg = localItems.reduce((s, i) => s + (i.duracaoSeg ?? 0), 0);
+  // Tempo total = soma da duração das MÚSICAS (não existe duração por item; o
+  // campo do item é snapshot que envelhece). ~3min30 estimado quando a música
+  // não tem duração. Antes somava só o snapshot do item → contava errado.
+  const totalSeg = localItems.reduce(
+    (s, i) => s + (i.song.duracaoSeg ?? 210),
+    0
+  );
   const prioridades = localItems.filter((i) => i.prioridade);
 
   // Resolvedores (consideram as edições otimistas) + alerta de emenda.
@@ -503,7 +509,7 @@ export function SetlistTab({
                     titulo: it.song.titulo,
                     artista: it.song.artista,
                     tom: it.song.tom ?? "",
-                    dur: fmtMMSS(it.duracaoSeg ?? it.song.duracaoSeg ?? 0),
+                    dur: fmtMMSS(it.song.duracaoSeg ?? 0),
                   }))}
                 />
               )}
@@ -707,7 +713,7 @@ function SortableSetlistItem({
   const [, startTransition] = useTransition();
   const [playing, setPlaying] = useState(false);
   const style = { transform: CSS.Transform.toString(transform), transition };
-  const dur = item.duracaoSeg ?? item.song.duracaoSeg ?? 0;
+  const dur = item.song.duracaoSeg ?? 0;
   const trackId = item.song.spotifyTrackId;
 
   return (
