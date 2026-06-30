@@ -46,7 +46,7 @@ type BookletSong = {
   emenda?: boolean;
 };
 
-const SIZES = ["text-base", "text-lg", "text-xl", "text-2xl", "text-3xl"];
+const SIZES = ["text-lg", "text-xl", "text-2xl", "text-3xl", "text-4xl"];
 
 export function LyricsBooklet({
   backHref,
@@ -70,7 +70,7 @@ export function LyricsBooklet({
   /** Admin pode refinar com IA (custo). */
   canRefine?: boolean;
 }) {
-  const [sizeIdx, setSizeIdx] = useState(1); // text-lg
+  const [sizeIdx, setSizeIdx] = useState(2); // text-2xl (leitura grande)
   const [showCues, setShowCues] = useState(true);
   const [cueList, setCueList] = useState<StageCue[]>(cues);
   const [confirmAI, setConfirmAI] = useState(false);
@@ -256,46 +256,88 @@ export function LyricsBooklet({
             <p>Setlist vazia.</p>
           </div>
         ) : (
-          <div className="space-y-10">
-            {showCues && cuesBySlot.get(0) && <CueBlock list={cuesBySlot.get(0)!} />}
-            {songs.map((s, idx) => (
-              <section
-                key={s.n}
-                className="break-inside-avoid print:break-before-page print:first:break-before-auto"
-              >
-                <div className="mb-2 border-b border-gray-300 pb-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-gray-400">{s.n}.</span>
-                    <h2 className="text-lg font-bold">{s.titulo}</h2>
-                    <span className="text-sm text-gray-600">{s.artista}</span>
-                    {/* Tom (grande), Drop e Emenda — logo após o título */}
-                    <span className="ml-auto flex items-center gap-2">
+          <div className="space-y-12">
+            {/* ÍNDICE (página 1) — títulos clicáveis pra pular direto */}
+            <nav
+              id="indice"
+              className="scroll-mt-24 rounded-xl border-2 border-gray-300 p-4 break-inside-avoid print:break-after-page"
+            >
+              <h2 className="mb-3 text-lg font-black uppercase tracking-wide">
+                Índice ({songs.length})
+              </h2>
+              <ol className="space-y-0.5">
+                {songs.map((s) => (
+                  <li key={s.n}>
+                    <a
+                      href={`#m-${s.n}`}
+                      className="flex items-center gap-2 rounded-md px-1.5 py-1.5 hover:bg-gray-100"
+                    >
+                      <span className="w-7 shrink-0 text-right font-mono text-gray-400">
+                        {s.n}.
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-lg font-semibold">
+                        {s.titulo}
+                      </span>
+                      {s.emenda && (
+                        <span className="shrink-0 text-xs font-black uppercase tracking-wide">
+                          ⟿
+                        </span>
+                      )}
                       {s.dropada && (
-                        <span className="rounded border-2 border-black px-1.5 py-0.5 text-[10px] font-black uppercase">
+                        <span className="shrink-0 rounded border-2 border-black px-1 text-[10px] font-black uppercase">
                           Drop
                         </span>
                       )}
                       {s.tom && (
-                        <span className="rounded-lg border-2 border-black px-2 py-0.5 text-xl font-black tabular-nums">
+                        <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded border-2 border-black px-1 text-base font-black tabular-nums">
+                          {s.tom}
+                        </span>
+                      )}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+
+            {showCues && cuesBySlot.get(0) && <CueBlock list={cuesBySlot.get(0)!} />}
+            {songs.map((s, idx) => (
+              <section
+                key={s.n}
+                id={`m-${s.n}`}
+                className="scroll-mt-24 break-inside-avoid print:break-before-page"
+              >
+                <div className="mb-3 border-b-2 border-gray-300 pb-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-xl font-black text-gray-400">
+                      {s.n}.
+                    </span>
+                    <h2 className="text-2xl font-black leading-tight">{s.titulo}</h2>
+                    <span className="text-sm text-gray-500">{s.artista}</span>
+                    {/* Tom GRANDE + Drop — logo após o título */}
+                    <span className="ml-auto flex items-center gap-2">
+                      {s.dropada && (
+                        <span className="rounded-md border-2 border-black px-2 py-0.5 text-xs font-black uppercase">
+                          Drop
+                        </span>
+                      )}
+                      {s.tom && (
+                        <span className="flex h-12 min-w-12 items-center justify-center rounded-lg border-[3px] border-black px-2 text-3xl font-black tabular-nums">
                           {s.tom}
                         </span>
                       )}
                     </span>
                   </div>
-                  {(s.emenda || parseVozPedal(s.vozPedal)?.nome) && (
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-xs text-gray-600">
-                      {s.emenda && (
-                        <span className="font-bold uppercase tracking-wide">
-                          ↳ emenda na próxima
-                        </span>
-                      )}
-                      {parseVozPedal(s.vozPedal)?.nome && (
-                        <span>
-                          Pedal de voz:{" "}
-                          <strong>{parseVozPedal(s.vozPedal)!.nome}</strong>
-                        </span>
-                      )}
+                  {/* EMENDA — banner que salta aos olhos */}
+                  {s.emenda && (
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-md bg-black px-3 py-1 text-base font-black uppercase tracking-wider text-white">
+                      ⟿ Emenda na próxima música
                     </div>
+                  )}
+                  {parseVozPedal(s.vozPedal)?.nome && (
+                    <p className="mt-1.5 text-sm text-gray-600">
+                      Pedal de voz:{" "}
+                      <strong>{parseVozPedal(s.vozPedal)!.nome}</strong>
+                    </p>
                   )}
                 </div>
                 {s.lyrics ? (
@@ -309,6 +351,15 @@ export function LyricsBooklet({
                 {showCues && cuesBySlot.get(idx + 1) && (
                   <CueBlock list={cuesBySlot.get(idx + 1)!} />
                 )}
+                {/* Voltar ao índice (some na impressão) */}
+                <div className="mt-4 print:hidden">
+                  <a
+                    href="#indice"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                  >
+                    ↑ Voltar ao índice
+                  </a>
+                </div>
               </section>
             ))}
           </div>
@@ -340,8 +391,10 @@ export function LyricsBooklet({
       </AlertDialog>
 
       <style>{`
+        html { scroll-behavior: smooth; }
         @media print {
           @page { margin: 1.5cm; }
+          html { scroll-behavior: auto; }
         }
       `}</style>
     </div>

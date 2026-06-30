@@ -89,10 +89,15 @@ export function SetlistPrintSheet({
                       </span>
                     )}
                   </div>
-                  {/* Emenda: segue direto na próxima música */}
+                  {/* Emenda: segue direto na próxima música — salta aos olhos */}
                   {it.emenda && next && (
-                    <div className="py-1 pl-12 text-sm font-bold uppercase tracking-wide text-gray-600">
-                      ↳ emenda na #{next.n} — {next.titulo}
+                    <div className="flex items-center gap-2 border-l-4 border-black py-1.5 pl-3">
+                      <span className="inline-flex items-center rounded bg-black px-2 py-0.5 text-base font-black uppercase tracking-wider text-white">
+                        ⟿ Emenda
+                      </span>
+                      <span className="text-base font-bold">
+                        direto na #{next.n} — {next.titulo}
+                      </span>
                     </div>
                   )}
                 </li>
