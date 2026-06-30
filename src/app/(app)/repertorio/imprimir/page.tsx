@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { songs, type Song } from "@/db/schema";
 import { formatDuracao } from "@/lib/formatters";
 import { PrintTrigger } from "./print-trigger";
-import { VozPedalBadge } from "@/components/shared/voz-pedal-badge";
 
 // Ordem e rótulos dos status na folha impressa.
 const GRUPOS: { status: Song["status"]; label: string }[] = [
@@ -13,13 +12,6 @@ const GRUPOS: { status: Song["status"]; label: string }[] = [
   { status: "ideia_futura", label: "Ideias futuras" },
   { status: "aposentada", label: "Aposentadas" },
 ];
-
-/** Duração compacta mm:ss pra cada linha (formatDuracao é verboso pro total). */
-function mmss(seg: number): string {
-  const m = Math.floor(seg / 60);
-  const s = seg % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
 
 export default async function ImprimirRepertorioPage({
   searchParams,
@@ -79,43 +71,26 @@ export default async function ImprimirRepertorioPage({
                 ({grupo.musicas.length})
               </span>
             </h2>
-            <ol className="space-y-0.5">
+            <ol className="space-y-0">
               {grupo.musicas.map((song, idx) => (
                 <li
                   key={song.id}
-                  className="flex items-baseline gap-2 py-0.5 text-base"
+                  className="flex items-center gap-3 border-b border-gray-200 py-1.5"
                 >
-                  <span className="w-6 text-right font-mono text-sm text-gray-500">
+                  <span className="w-7 shrink-0 text-right font-mono text-lg font-black text-gray-400">
                     {idx + 1}
                   </span>
-                  <span className="font-bold">
-                    {song.favorita && (
-                      <span className="text-gray-500 mr-1">★</span>
-                    )}
+                  <span className="min-w-0 flex-1 text-xl font-bold leading-tight">
                     {song.titulo}
                   </span>
-                  <span className="text-sm text-gray-600 flex-1">
-                    {song.artista}
-                  </span>
-                  <VozPedalBadge raw={song.vozPedal} tone="light" />
                   {song.dropada && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 border border-gray-600 rounded bg-gray-200">
-                      DROP
+                    <span className="shrink-0 rounded-md border-2 border-black px-2 py-0.5 text-[11px] font-black uppercase">
+                      Drop
                     </span>
                   )}
                   {song.tom && (
-                    <span className="font-mono text-xs tabular-nums px-1.5 py-0.5 border border-gray-400 rounded">
+                    <span className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border-[3px] border-black px-2 text-3xl font-black tabular-nums">
                       {song.tom}
-                    </span>
-                  )}
-                  {song.bpm != null && (
-                    <span className="font-mono text-xs tabular-nums text-gray-500 w-10 text-right">
-                      {song.bpm}
-                    </span>
-                  )}
-                  {song.duracaoSeg != null && (
-                    <span className="font-mono text-xs tabular-nums text-gray-500 w-10 text-right">
-                      {mmss(song.duracaoSeg)}
                     </span>
                   )}
                 </li>
@@ -131,8 +106,7 @@ export default async function ImprimirRepertorioPage({
         )}
 
         <p className="mt-8 pt-3 border-t border-gray-300 text-xs text-gray-400">
-          ★ favorita · DROP = afinação dropada · 🎚 = pedal de voz · números à
-          direita = BPM e duração
+          Número = ordem · caixa grande = tom · DROP = afinação dropada
         </p>
       </div>
 

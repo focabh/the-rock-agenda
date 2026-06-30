@@ -1,14 +1,11 @@
 import { formatDuracao } from "@/lib/formatters";
-import { VozPedalBadge } from "@/components/shared/voz-pedal-badge";
 import { PrintTrigger } from "@/app/(app)/shows/[id]/imprimir-setlist/print-trigger";
 
 export type PrintItem = {
   n: number;
   titulo: string;
-  artista: string;
   tom: string | null;
   dropada: boolean;
-  vozPedal: string | null;
   emenda: boolean;
 };
 
@@ -63,7 +60,7 @@ export function SetlistPrintSheet({
           </p>
         </header>
 
-        {/* Lista */}
+        {/* Lista — título + TOM grande + DROP + emenda. Nada mais. */}
         {items.length === 0 ? (
           <p className="py-12 text-center text-gray-500">Setlist vazia.</p>
         ) : (
@@ -72,33 +69,28 @@ export function SetlistPrintSheet({
               const next = items[idx + 1];
               return (
                 <li key={idx} className="break-inside-avoid">
-                  <div className="flex items-baseline gap-3 border-b border-gray-200 py-2">
-                    <span className="w-7 shrink-0 text-right font-mono text-lg font-bold text-gray-400">
+                  <div className="flex items-center gap-3 border-b-2 border-gray-200 py-2.5">
+                    <span className="w-9 shrink-0 text-right font-mono text-2xl font-black text-gray-400">
                       {it.n}
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-lg font-bold leading-tight">{it.titulo}</p>
-                      <p className="text-xs text-gray-500">{it.artista}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <VozPedalBadge raw={it.vozPedal} tone="light" />
-                      {it.dropada && (
-                        <span className="rounded border border-gray-700 bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold">
-                          DROP
-                        </span>
-                      )}
-                      {it.tom && (
-                        <span className="min-w-[2.2rem] rounded border border-gray-500 px-1.5 py-0.5 text-center font-mono text-sm font-bold tabular-nums">
-                          {it.tom}
-                        </span>
-                      )}
-                    </div>
+                    <p className="min-w-0 flex-1 text-2xl font-bold leading-tight">
+                      {it.titulo}
+                    </p>
+                    {it.dropada && (
+                      <span className="shrink-0 rounded-md border-2 border-black px-2 py-1 text-xs font-black uppercase">
+                        Drop
+                      </span>
+                    )}
+                    {it.tom && (
+                      <span className="flex h-14 min-w-14 shrink-0 items-center justify-center rounded-xl border-[3px] border-black px-3 text-4xl font-black tabular-nums">
+                        {it.tom}
+                      </span>
+                    )}
                   </div>
-                  {/* Conector de emenda (medley) — segue direto na próxima */}
+                  {/* Emenda: segue direto na próxima música */}
                   {it.emenda && next && (
-                    <div className="flex items-center gap-2 py-0.5 pl-7 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                      <span className="text-base leading-none">⌐</span>
-                      emenda direto na próxima
+                    <div className="py-1 pl-12 text-sm font-bold uppercase tracking-wide text-gray-600">
+                      ↳ emenda na #{next.n} — {next.titulo}
                     </div>
                   )}
                 </li>
