@@ -36,6 +36,8 @@ import {
   deleteReembolsoAction,
   getReembolsoComprovanteAction,
 } from "@/app/(app)/pagamentos/actions";
+import { marcarShowRecebidoAction } from "@/app/(app)/shows/[id]/actions-payment";
+import { fileToDataUrl } from "@/lib/upload-helpers";
 import {
   Dialog,
   DialogContent,
@@ -191,34 +193,10 @@ export function PagamentosHub({
         <Section
           title="A receber do contratante"
           tone="amber"
-          subtitle="Shows concluídos onde a banda ainda não recebeu (ou recebeu parcialmente). Abra o show pra ajustar o status."
+          subtitle="Shows concluídos onde a banda ainda não recebeu. Marque “Recebido” (anexe o comprovante se quiser) ou abra o show."
         >
           {contratanteItems.map((c) => (
-            <li
-              key={c.showId}
-              className="flex items-center gap-3 px-5 py-3"
-            >
-              <div className="flex size-10 items-center justify-center rounded-md bg-amber-500/10 ring-1 ring-amber-500/30 shrink-0">
-                <Coins className="size-4 text-amber-300" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{c.showLabel}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDataBR(new Date(c.showData))} · status{" "}
-                  <span className="text-amber-300">{c.pagamentoStatus}</span>
-                </p>
-              </div>
-              <span className="font-mono text-sm shrink-0">
-                {formatBRL(c.valorCentavos)}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                render={<Link href={`/shows/${c.showId}`} />}
-              >
-                Abrir
-              </Button>
-            </li>
+            <ContratanteRow key={c.showId} item={c} />
           ))}
         </Section>
       )}
@@ -696,6 +674,114 @@ function ReembolsoRow({
         />
       )}
     </li>
+  );
+}
+
+/** Linha do contratante (banda a receber) + ação "Recebido" (comprovante opcional). */
+function ContratanteRow({ item }: { item: ContratanteItem }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li className="flex items-center gap-3 px-5 py-3">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-amber-500/10 ring-1 ring-amber-500/30">
+        <Coins className="size-4 text-amber-300" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{item.showLabel}</p>
+        <p className="text-xs text-muted-foreground">
+          {formatDataBR(new Date(item.showData))} · status{" "}
+          <span className="text-amber-300">{item.pagamentoStatus}</span>
+        </p>
+      </div>
+      <span className="shrink-0 font-mono text-sm">{formatBRL(item.valorCentavos)}</span>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        <Check className="size-3.5" /> Recebido
+      </Button>
+      <Button size="sm" variant="ghost" render={<Link href={`/shows/${item.showId}`} />}>
+        Abrir
+      </Button>
+      {open && (
+        <ContratanteRecebidoDialog item={item} open={open} onOpenChange={setOpen} />
+      )}
+    </li>
+  );
+}
+
+function ContratanteRecebidoDialog({
+  item,
+  open,
+  onOpenChange,
+}: {
+  item: ContratanteItem;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      setDataUrl(await fileToDataUrl(file));
+      setFileName(file.name);
+    } catch {
+      toast.error("Não consegui ler o arquivo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  function submit() {
+    startTransition(async () => {
+      const r = await marcarShowRecebidoAction(item.showId, dataUrl);
+      if (r?.error) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("Cachê marcado como recebido. 🤘");
+      onOpenChange(false);
+    });
+  }
+  const isPdf = dataUrl?.startsWith("data:application/pdf");
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Recebido — {item.showLabel}</DialogTitle>
+          <DialogDescription>
+            Marca o cachê de {formatBRL(item.valorCentavos)} como recebido do
+            contratante. Anexar comprovante é <strong>opcional</strong>.
+          </DialogDescription>
+        </DialogHeader>
+
+        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground hover:bg-muted/40">
+          <Paperclip className="size-4" />
+          {busy ? "Processando..." : dataUrl ? "Trocar comprovante" : "Anexar comprovante (opcional)"}
+          <input type="file" accept="image/*,application/pdf" className="hidden" onChange={onPick} />
+        </label>
+        {dataUrl &&
+          (isPdf ? (
+            <p className="flex items-center gap-1.5 text-sm text-emerald-300">
+              <Check className="size-4" /> {fileName || "PDF anexado"}
+            </p>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={dataUrl} alt="Comprovante" className="max-h-48 w-full rounded-md border border-border object-contain" />
+          ))}
+
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={pending || busy}>
+            {pending ? "Salvando..." : "Marcar recebido"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

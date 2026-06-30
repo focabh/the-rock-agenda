@@ -158,6 +158,60 @@ export async function unmarkMemberPaidAction(showId: string, memberId: string) {
   return { ok: true };
 }
 
+// ---------------- RECEBIMENTO DO CONTRATANTE (contratante → banda) ----------------
+
+/** Marca o cachê do show como RECEBIDO. Comprovante OPCIONAL (às vezes é
+ *  dinheiro/transferência sem recibo). Admin. */
+export async function marcarShowRecebidoAction(
+  showId: string,
+  comprovante: string | null
+) {
+  await requireAdmin();
+  if (comprovante) {
+    if (!comprovante.startsWith("data:")) return { error: "Comprovante inválido." };
+    if (comprovante.length > MAX_COMPROVANTE)
+      return { error: "Comprovante muito grande. Use um arquivo menor." };
+  }
+  await db
+    .update(shows)
+    .set({
+      pagamentoStatus: "pago",
+      pagamentoComprovante: comprovante ?? null,
+      pagamentoEm: new Date(),
+    })
+    .where(eq(shows.id, showId));
+  revalidatePath("/pagamentos");
+  revalidatePath("/financeiro");
+  revalidatePath(`/shows/${showId}`);
+  return { ok: true };
+}
+
+/** Desfaz o recebimento (volta pra pendente). Admin. */
+export async function desmarcarShowRecebidoAction(showId: string) {
+  await requireAdmin();
+  await db
+    .update(shows)
+    .set({ pagamentoStatus: "pendente", pagamentoComprovante: null, pagamentoEm: null })
+    .where(eq(shows.id, showId));
+  revalidatePath("/pagamentos");
+  revalidatePath("/financeiro");
+  revalidatePath(`/shows/${showId}`);
+  return { ok: true };
+}
+
+/** Comprovante do recebimento do contratante (admin). */
+export async function getShowRecebidoComprovanteAction(
+  showId: string
+): Promise<{ url: string | null }> {
+  await requireAdmin();
+  const [s] = await db
+    .select({ c: shows.pagamentoComprovante })
+    .from(shows)
+    .where(eq(shows.id, showId))
+    .limit(1);
+  return { url: s?.c ?? null };
+}
+
 // Carrega o comprovante sob demanda (não vai junto na página). Só admin ou o próprio músico.
 export async function getComprovanteAction(
   showId: string,

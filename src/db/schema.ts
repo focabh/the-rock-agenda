@@ -383,6 +383,10 @@ export const shows = sqliteTable("shows", {
   })
     .notNull()
     .default("pendente"),
+  // Recebimento do contratante (contratante→banda): comprovante (dataURL, opcional)
+  // + quando foi marcado como recebido. Editado na central de Pagamentos.
+  pagamentoComprovante: text("pagamento_comprovante"),
+  pagamentoEm: integer("pagamento_em", { mode: "timestamp_ms" }),
   passagemSom: text("passagem_som"), // HH:mm
   publicoEsperado: integer("publico_esperado"),
   duracaoMin: integer("duracao_min"), // duração planejada do show (minutos)
