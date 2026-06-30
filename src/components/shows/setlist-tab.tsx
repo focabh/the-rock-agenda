@@ -86,8 +86,11 @@ import {
   updateSetlistAction,
   deleteSetlistAction,
   setSetlistOficialAction,
+  cloneSetlistToShowAction,
 } from "@/app/(app)/shows/[id]/actions-setlist";
+import { cloneSetlistToEnsaioAction } from "@/app/(app)/ensaios/[id]/actions-setlist";
 import { setSongTomAction } from "@/app/(app)/repertorio/actions";
+import { SetlistReuseDialog } from "@/components/shows/setlist-reuse-dialog";
 import {
   addSongToEnsaioSetlistAction,
   removeEnsaioSetlistItemAction,
@@ -275,6 +278,22 @@ export function SetlistTab({
       toast.success(`Setlist "${r.nome}" criado.`);
     });
   }
+  function handleClone(sourceId: string, nome: string) {
+    startMgr(async () => {
+      const r = isEnsaio
+        ? await cloneSetlistToEnsaioAction(rehearsalId!, sourceId, nome || undefined)
+        : await cloneSetlistToShowAction(showId!, sourceId, nome || undefined);
+      if ("error" in r && r.error) {
+        toast.error(r.error);
+        return;
+      }
+      if ("id" in r && r.id) {
+        setSelectedId(r.id);
+        setNewOpen(false);
+        toast.success(`Setlist "${r.nome}" criado a partir de um salvo.`);
+      }
+    });
+  }
   function handleEdit(nome: string) {
     if (!selected) return;
     startMgr(async () => {
@@ -355,7 +374,7 @@ export function SetlistTab({
             )
           }
         />
-        <NameDialog open={newOpen} onOpenChange={setNewOpen} title="Novo setlist" placeholder="Ex.: 1º set, Bis, Acústico…" pending={mgrPending} onSubmit={handleCreate} />
+        <SetlistReuseDialog open={newOpen} onOpenChange={setNewOpen} pending={mgrPending} onCreateEmpty={handleCreate} onClone={handleClone} />
       </>
     );
   }
@@ -603,7 +622,7 @@ export function SetlistTab({
         )}
       </div>
 
-      <NameDialog open={newOpen} onOpenChange={setNewOpen} title="Novo setlist" placeholder="Ex.: 1º set, Bis, Acústico…" pending={mgrPending} onSubmit={handleCreate} />
+      <SetlistReuseDialog open={newOpen} onOpenChange={setNewOpen} pending={mgrPending} onCreateEmpty={handleCreate} onClone={handleClone} />
       <NameDialog open={editOpen} onOpenChange={setEditOpen} title="Renomear setlist" placeholder="Ex.: 1º set, Bis, Acústico…" initial={selected?.nome ?? ""} pending={mgrPending} onSubmit={handleEdit} />
       <AlertDialog open={delOpen} onOpenChange={setDelOpen}>
         <AlertDialogContent>

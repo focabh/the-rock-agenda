@@ -23,6 +23,39 @@ export async function createEnsaioSetlistAction(rehearsalId: string, nome: strin
   return { id: created.id, nome: created.nome };
 }
 
+/** Cria um setlist pro ensaio COPIANDO os itens de um setlist salvo. */
+export async function cloneSetlistToEnsaioAction(
+  rehearsalId: string,
+  sourceId: string,
+  nome?: string
+) {
+  await requireSuperuser();
+  const src = await db.query.setlists.findFirst({
+    where: eq(setlists.id, sourceId),
+    with: { items: true },
+  });
+  if (!src) return { error: "Setlist de origem não encontrado." };
+  const [created] = await db
+    .insert(setlists)
+    .values({ rehearsalId, nome: nome?.trim() || src.nome || "Setlist" })
+    .returning();
+  const ordered = [...src.items].sort((a, b) => a.ordem - b.ordem);
+  if (ordered.length) {
+    await db.insert(setlistItems).values(
+      ordered.map((it, idx) => ({
+        setlistId: created.id,
+        songId: it.songId,
+        ordem: idx,
+        emenda: it.emenda,
+        nota: it.nota,
+        prioridade: it.prioridade,
+      }))
+    );
+  }
+  rev(rehearsalId);
+  return { id: created.id, nome: created.nome };
+}
+
 export async function renameEnsaioSetlistAction(rehearsalId: string, setlistId: string, nome: string) {
   await requireSuperuser();
   await db.update(setlists).set({ nome: nome.trim() || "Setlist" }).where(eq(setlists.id, setlistId));

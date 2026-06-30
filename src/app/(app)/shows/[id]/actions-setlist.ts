@@ -38,7 +38,7 @@ import {
   type SetlistCritique,
   type AISuggestSong,
 } from "@/lib/setlist-ai";
-import { formatHoraBR } from "@/lib/formatters";
+import { formatHoraBR, formatDataBR } from "@/lib/formatters";
 
 export type GenSetlistResult = {
   ok: boolean;
@@ -706,6 +706,64 @@ export async function createSetlistAction(showId: string, nome: string) {
     .insert(setlists)
     .values({ showId, nome: nome.trim() || "Setlist" })
     .returning();
+  revalidatePath(`/shows/${showId}`);
+  return { id: created.id, nome: created.nome };
+}
+
+export type ReusableSetlist = { id: string; label: string; count: number };
+
+/** Lista TODOS os setlists salvos (show e ensaio) com rótulo + nº de músicas,
+ *  pra reaproveitar (clonar) num novo. Qualquer músico logado pode listar. */
+export async function listSetlistsForReuseAction(): Promise<ReusableSetlist[]> {
+  await requireCurrentUser();
+  const all = await db.query.setlists.findMany({
+    with: {
+      items: { columns: { id: true } },
+      show: { columns: { data: true }, with: { casa: { columns: { nome: true } } } },
+      rehearsal: { columns: { data: true } },
+    },
+  });
+  return all
+    .filter((s) => s.items.length > 0)
+    .map((s) => {
+      const ctx = s.show
+        ? `${s.show.casa?.nome ?? "Show"} · ${formatDataBR(s.show.data)}`
+        : s.rehearsal
+          ? `Ensaio · ${formatDataBR(s.rehearsal.data)}`
+          : "Avulso";
+      return { id: s.id, label: `${ctx} — ${s.nome} (${s.items.length})`, count: s.items.length };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** Cria um setlist pro show COPIANDO os itens de um setlist salvo (reaproveitar). */
+export async function cloneSetlistToShowAction(
+  showId: string,
+  sourceId: string,
+  nome?: string
+) {
+  await requireAdmin();
+  const src = await db.query.setlists.findFirst({
+    where: eq(setlists.id, sourceId),
+    with: { items: true },
+  });
+  if (!src) return { error: "Setlist de origem não encontrado." };
+  const [created] = await db
+    .insert(setlists)
+    .values({ showId, nome: nome?.trim() || src.nome || "Setlist" })
+    .returning();
+  const ordered = [...src.items].sort((a, b) => a.ordem - b.ordem);
+  if (ordered.length) {
+    await db.insert(setlistItems).values(
+      ordered.map((it, idx) => ({
+        setlistId: created.id,
+        songId: it.songId,
+        ordem: idx,
+        emenda: it.emenda,
+        nota: it.nota,
+      }))
+    );
+  }
   revalidatePath(`/shows/${showId}`);
   return { id: created.id, nome: created.nome };
 }
