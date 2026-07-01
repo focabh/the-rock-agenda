@@ -79,7 +79,7 @@ export function SetlistPrintSheet({
                       {it.titulo}
                     </p>
                     {it.dropada && (
-                      <span className="shrink-0 rounded-md border-2 border-black px-2 py-1 text-xs font-black uppercase">
+                      <span className="flex h-14 shrink-0 items-center rounded-xl bg-black px-3 text-2xl font-black uppercase leading-none tracking-tight text-white">
                         Drop
                       </span>
                     )}

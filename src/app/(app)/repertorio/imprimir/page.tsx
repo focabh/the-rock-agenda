@@ -86,7 +86,7 @@ export default async function ImprimirRepertorioPage({
                     {song.titulo}
                   </span>
                   {song.dropada && (
-                    <span className="shrink-0 rounded-md border-2 border-black px-2 py-0.5 text-[11px] font-black uppercase">
+                    <span className="flex h-11 shrink-0 items-center rounded-lg bg-black px-2.5 text-lg font-black uppercase leading-none text-white">
                       Drop
                     </span>
                   )}
