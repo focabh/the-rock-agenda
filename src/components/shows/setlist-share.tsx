@@ -5,7 +5,7 @@ import { Share2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export type ShareLinha = { n: number; titulo: string; artista: string; tom: string; dropada?: boolean; dur: string };
+export type ShareLinha = { n: number; titulo: string; artista: string; tom: string; dropada?: boolean; emenda?: boolean; dur: string };
 
 /** Gera uma imagem bonita do setlist pra mandar no grupo (WhatsApp/Stories).
  *  Usa modern-screenshot (mesma lib do flyer). Sem custo. */
@@ -66,20 +66,33 @@ export function SetlistShare({ titulo, subtitulo, linhas }: { titulo: string; su
             {subtitulo && <p className="text-sm text-zinc-400">{subtitulo}</p>}
           </div>
           <ol className="space-y-2">
-            {linhas.map((l) => (
-              <li key={l.n} className="flex items-baseline gap-3">
-                <span className="w-6 shrink-0 text-right font-mono text-sm text-zinc-500">{l.n}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="font-semibold">{l.titulo}</span>
-                  {l.artista && <span className="text-zinc-500"> · {l.artista}</span>}
-                </span>
-                {l.dropada && (
-                  <span className="shrink-0 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-black uppercase leading-none tracking-wide text-zinc-950">
-                    Drop
+            {linhas.map((l, i) => (
+              <li key={l.n}>
+                <div className="flex items-baseline gap-3">
+                  <span className="w-6 shrink-0 text-right font-mono text-sm text-zinc-500">{l.n}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-semibold">{l.titulo}</span>
+                    {l.artista && <span className="text-zinc-500"> · {l.artista}</span>}
                   </span>
+                  {l.dropada && (
+                    <span className="shrink-0 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-black uppercase leading-none tracking-wide text-zinc-950">
+                      Drop
+                    </span>
+                  )}
+                  {l.tom && <span className="shrink-0 font-mono text-xs text-amber-300">{l.tom}</span>}
+                  {l.dur && <span className="shrink-0 font-mono text-xs text-zinc-500">{l.dur}</span>}
+                </div>
+                {/* Emenda: emenda direto na próxima — conector destacado */}
+                {l.emenda && i < linhas.length - 1 && (
+                  <div className="ml-9 mt-1.5 flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-zinc-950">
+                      ⟿ Emenda
+                    </span>
+                    <span className="text-xs font-semibold text-amber-300">
+                      direto na #{linhas[i + 1].n}
+                    </span>
+                  </div>
                 )}
-                {l.tom && <span className="shrink-0 font-mono text-xs text-amber-300">{l.tom}</span>}
-                {l.dur && <span className="shrink-0 font-mono text-xs text-zinc-500">{l.dur}</span>}
               </li>
             ))}
           </ol>

@@ -528,6 +528,7 @@ export function SetlistTab({
                     artista: it.song.artista,
                     tom: it.song.tom ?? "",
                     dropada: dropOf(it),
+                    emenda: emendaOf(it),
                     dur: fmtMMSS(it.song.duracaoSeg ?? 0),
                   }))}
                 />
