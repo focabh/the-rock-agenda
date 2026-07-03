@@ -4,11 +4,17 @@
 export type LrcLine = { t: number; text: string };
 
 const STAMP = /\[(\d+):(\d+)(?:[.:](\d+))?\]/g;
+// Tag de ajuste global do LRC: [offset:+/-ms]. Muitos arquivos trazem isso e,
+// sem aplicar, a letra fica sistematicamente adiantada/atrasada.
+const OFFSET_TAG = /\[offset:\s*([+-]?\d+)\s*\]/i;
 
 /** Converte LRC em linhas ordenadas por tempo (em segundos). Mantém linhas
- *  vazias (marcam respiros/instrumental entre versos). */
+ *  vazias (marcam respiros/instrumental entre versos). Aplica a tag [offset:]. */
 export function parseLrc(lrc: string | null | undefined): LrcLine[] {
   if (!lrc) return [];
+  // Convenção LRC: offset positivo = letra aparece MAIS CEDO → subtrai do tempo.
+  const offMatch = lrc.match(OFFSET_TAG);
+  const offsetSec = offMatch ? Number(offMatch[1]) / 1000 : 0;
   const out: LrcLine[] = [];
   for (const raw of lrc.split(/\r?\n/)) {
     STAMP.lastIndex = 0;
@@ -21,7 +27,7 @@ export function parseLrc(lrc: string | null | undefined): LrcLine[] {
       // frações: [mm:ss.xx] (centésimos) ou [mm:ss.xxx] (milésimos)
       let frac = 0;
       if (m[3]) frac = Number(`0.${m[3]}`);
-      out.push({ t: min * 60 + sec + frac, text });
+      out.push({ t: Math.max(0, min * 60 + sec + frac - offsetSec), text });
     }
   }
   return out.sort((a, b) => a.t - b.t);

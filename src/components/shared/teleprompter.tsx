@@ -18,6 +18,7 @@ import {
   Sparkles,
   RotateCcw,
   Mic,
+  Target,
 } from "lucide-react";
 import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [activeIdx, setActiveIdx] = useState(-1); // linha ativa (modo sincronizado)
   const [showCues, setShowCues] = useState(true); // Stage Master: mostrar Vocal Cues
   const [cueNow, setCueNow] = useState<string[]>([]); // cue da linha atual (notificação discreta)
+  const [calibStep, setCalibStep] = useState(0); // calibração por toque: 0 off, 1 aguarda 1º, 2 aguarda 2º
+  const calibAnchor = useRef<{ t: number; real: number } | null>(null);
   const [rateView, setRateView] = useState(1); // ritmo do sync (1 = igual à gravação)
   const [songSec, setSongSec] = useState(0); // cronômetro do tempo-música (modo sync)
   const rateRef = useRef(1); // fonte de verdade do ritmo pro relógio
@@ -632,6 +635,77 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     bumpControls();
   }
 
+  // Calibração por TOQUE (acerta início + ritmo de uma vez, sem depender de o
+  // usuário dar play no instante exato nem de a banda tocar no tempo do disco):
+  // toca na linha que está sendo cantada AGORA (marca 1) e, depois, em outra
+  // linha quando ela chegar (marca 2). Com os 2 pontos dá pra achar o ritmo real.
+  function startCalibration() {
+    if (calibStep > 0) {
+      // cancelar
+      calibAnchor.current = null;
+      setCalibStep(0);
+      bumpControls();
+      return;
+    }
+    calibAnchor.current = null;
+    setCalibStep(1);
+    bumpControls();
+  }
+
+  function alignClockTo(lineT: number, now: number) {
+    clock.current.base = Math.max(0, lineT);
+    if (clock.current.startedAt != null) clock.current.startedAt = now;
+    setActiveIdx(activeLineIndex(timelines[current], lineT));
+    setSongSec(Math.floor(Math.max(0, lineT)));
+  }
+
+  function calibrationTap(lineT: number) {
+    const now = performance.now();
+    if (calibStep === 1) {
+      calibAnchor.current = { t: lineT, real: now };
+      alignClockTo(lineT, now); // já cola a letra na linha certa (offset)
+      setCalibStep(2);
+      bumpControls();
+      return;
+    }
+    if (calibStep === 2 && calibAnchor.current) {
+      const a = calibAnchor.current;
+      const realDelta = (now - a.real) / 1000;
+      const songDelta = lineT - a.t;
+      // Intervalo curto/inválido (tocou cedo demais ou numa linha anterior) →
+      // ignora e continua esperando uma 2ª marca boa.
+      if (realDelta <= 0.6 || songDelta <= 0.6) {
+        bumpControls();
+        return;
+      }
+      const r = Math.min(RATE_MAX, Math.max(RATE_MIN, Math.round((songDelta / realDelta) * 100) / 100));
+      rateRef.current = r;
+      setRateView(r);
+      alignClockTo(lineT, now);
+      const k = songs[current] ? songKey(songs[current]) : null;
+      if (k) {
+        ratesMem.current[k] = r;
+        try {
+          localStorage.setItem(RATE_KEY, JSON.stringify(ratesMem.current));
+        } catch {
+          /* ignora */
+        }
+      }
+      calibAnchor.current = null;
+      setCalibStep(0);
+      bumpControls();
+    }
+  }
+
+  // Toque numa linha: em calibração vira "marca"; senão, seek normal.
+  function onLineTap(i: number, j: number, t: number) {
+    if (calibStep > 0) {
+      if (i === current) calibrationTap(t);
+      return;
+    }
+    if (showControls) seekToLine(i, j, t);
+  }
+
   async function enterFull() {
     setMode("full");
     try {
@@ -748,6 +822,17 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             </div>
           )}
 
+          {/* Calibração por toque: instrução clara enquanto ativa */}
+          {calibStep > 0 && (
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 flex -translate-y-1/2 justify-center px-6">
+              <span className="rounded-2xl bg-amber-400 px-5 py-3 text-center text-lg font-black text-black shadow-2xl">
+                {calibStep === 1
+                  ? "🎯 Toque na linha que está sendo cantada AGORA"
+                  : "🎯 Agora toque em OUTRA linha quando ela chegar"}
+              </span>
+            </div>
+          )}
+
           {/* Stage Master: Vocal Cue da linha atual — notificação discreta */}
           {showCues && cueNow.length > 0 && (
             <div className="pointer-events-none absolute inset-x-0 top-24 z-10 flex flex-wrap justify-center gap-1.5 px-4">
@@ -816,7 +901,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                             <p
                               key={j}
                               data-tl={`${i}-${j}`}
-                              onClick={() => showControls && seekToLine(i, j, ln.t)}
+                              onClick={() => onLineTap(i, j, ln.t)}
                               className="cursor-pointer"
                               title="Com os controles à vista, toque pra pular pra aqui"
                             >
@@ -834,7 +919,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                           <p
                             key={j}
                             data-tl={`${i}-${j}`}
-                            onClick={() => showControls && seekToLine(i, j, ln.t)}
+                            onClick={() => onLineTap(i, j, ln.t)}
                             title="Com os controles à vista, toque pra pular pra aqui"
                             className={
                               "cursor-pointer rounded-lg transition-all hover:bg-white/5 " +
@@ -931,7 +1016,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     <Plus className="size-5" />
                   </button>
                 </div>
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex flex-wrap items-center justify-center gap-2">
                   <button onClick={() => nudge(-1)} className={`h-8 rounded-full px-3 text-xs ${ctrlBtn}`} title="Atrasar 1s">
                     −1s
                   </button>
@@ -940,6 +1025,15 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                   </button>
                   <button onClick={() => nudge(1)} className={`h-8 rounded-full px-3 text-xs ${ctrlBtn}`} title="Adiantar 1s">
                     +1s
+                  </button>
+                  <button
+                    onClick={startCalibration}
+                    className={`inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-bold ring-1 transition-colors ${
+                      calibStep > 0 ? "bg-amber-400 text-black ring-amber-400" : `${ctrlBtn} ring-white/20`
+                    }`}
+                    title="Acertar o ritmo tocando: toque na linha cantada agora e depois em outra linha quando ela chegar"
+                  >
+                    <Target className="size-3.5" /> {calibStep > 0 ? "cancelar" : "acertar ritmo"}
                   </button>
                 </div>
                 {/* Modo de alertas: Show (discreto) é o padrão pro palco. */}
