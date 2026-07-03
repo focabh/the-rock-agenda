@@ -47,7 +47,7 @@ export function SetlistPrintSheet({
     ? "h-8 min-w-8 px-2 text-lg"
     : "h-14 min-w-14 px-3 text-3xl";
   const tomCls = compact ? "text-xl" : "text-4xl";
-  const dropCls = compact ? "h-8 px-2 text-sm" : "h-14 px-3 text-2xl";
+  const dropCls = compact ? "h-9 px-2.5 text-base" : "h-14 px-3 text-2xl";
   const emendaTxt = compact ? "text-xs" : "text-base";
   const gap = compact ? "gap-2" : "gap-3";
 
@@ -115,10 +115,7 @@ export function SetlistPrintSheet({
         {items.length === 0 ? (
           <p className="py-12 text-center text-gray-500">Setlist vazia.</p>
         ) : (
-          <ol
-            className="space-y-0"
-            style={cols === 2 ? { columnCount: 2, columnGap: "1.75rem" } : undefined}
-          >
+          <ol className={`space-y-0 ${cols === 2 ? "sheet-cols2" : ""}`}>
             {items.map((it, idx) => {
               const next = items[idx + 1];
               return (
@@ -172,9 +169,15 @@ export function SetlistPrintSheet({
       </div>
 
       <style>{`
+        /* 2 colunas só onde cabe: telas largas e impressão. No mobile fica 1
+           coluna (senão as linhas se sobrepõem). */
+        @media screen and (min-width: 640px) {
+          .sheet-cols2 { column-count: 2; column-gap: 1.75rem; }
+        }
         @media print {
           @page { margin: 1.4cm; }
           .print\\:p-0 { padding: 0 !important; }
+          .sheet-cols2 { column-count: 2; column-gap: 1.75rem; }
         }
       `}</style>
     </div>

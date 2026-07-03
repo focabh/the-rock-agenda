@@ -332,7 +332,7 @@ export function LyricsBooklet({
                         </span>
                       )}
                       {s.dropada && (
-                        <span className="rounded-md border-2 border-black px-2 py-0.5 text-xs font-black uppercase">
+                        <span className="flex h-12 items-center rounded-lg bg-black px-3 text-xl font-black uppercase leading-none tracking-tight text-white">
                           Drop
                         </span>
                       )}

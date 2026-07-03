@@ -86,10 +86,7 @@ export function RepertorioPrintList({
               {grupo.label}{" "}
               <span className="font-mono text-gray-500">({grupo.musicas.length})</span>
             </h2>
-            <ol
-              className="space-y-0"
-              style={cols === 2 ? { columnCount: 2, columnGap: "1.75rem" } : undefined}
-            >
+            <ol className={`space-y-0 ${cols === 2 ? "sheet-cols2" : ""}`}>
               {grupo.musicas.map((song, idx) => (
                 <li
                   key={idx}
@@ -107,7 +104,7 @@ export function RepertorioPrintList({
                     </span>
                   )}
                   {song.dropada && (
-                    <span className={`flex shrink-0 items-center rounded-lg bg-black font-black uppercase leading-none text-white ${compact ? "h-8 px-2 text-sm" : "h-11 px-2.5 text-lg"}`}>
+                    <span className={`flex shrink-0 items-center rounded-lg bg-black font-black uppercase leading-none tracking-tight text-white ${compact ? "h-8 px-2.5 text-base" : "h-11 px-3 text-xl"}`}>
                       Drop
                     </span>
                   )}
@@ -132,9 +129,15 @@ export function RepertorioPrintList({
       </div>
 
       <style>{`
+        /* 2 colunas só onde cabe: telas largas e impressão. No mobile fica 1
+           coluna (senão as linhas se sobrepõem). */
+        @media screen and (min-width: 640px) {
+          .sheet-cols2 { column-count: 2; column-gap: 1.75rem; }
+        }
         @media print {
           @page { margin: 1.5cm; }
           .print\\:p-0 { padding: 0 !important; }
+          .sheet-cols2 { column-count: 2; column-gap: 1.75rem; }
         }
       `}</style>
     </div>
