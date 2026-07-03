@@ -75,6 +75,7 @@ export default async function EditarSongPage({
 
         <LyricsPanel
           songId={id}
+          titulo={song.titulo}
           spotifyTrackId={song.spotifyTrackId}
           admin={admin}
         />

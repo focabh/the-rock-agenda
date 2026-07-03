@@ -85,3 +85,85 @@ export async function fetchLyricsFull(titulo: string, artista: string): Promise<
 export async function fetchLyrics(titulo: string, artista: string): Promise<string | null> {
   return (await fetchLyricsFull(titulo, artista)).plain;
 }
+
+export type LyricsCandidate = {
+  id: number;
+  trackName: string;
+  artistName: string;
+  albumName: string | null;
+  durationSec: number | null;
+  hasSynced: boolean;
+  hasPlain: boolean;
+  preview: string; // primeiras linhas, pra reconhecer a versão
+};
+
+type LrclibSearchRow = LrclibTrack & {
+  id?: number;
+  name?: string;
+  trackName?: string;
+  artistName?: string;
+  albumName?: string | null;
+};
+
+/**
+ * Lista VÁRIAS versões de letra pra uma música (LRCLIB search). Deixa o usuário
+ * escolher a que bate com a versão que a banda toca (ao vivo/estúdio/acústico).
+ * `query` opcional sobrescreve a busca (ex.: "titulo live"). Ordena pondo as com
+ * sincronizada na frente.
+ */
+export async function searchLyricsVersions(
+  titulo: string,
+  artista: string,
+  query?: string
+): Promise<LyricsCandidate[]> {
+  const q = (query ?? `${cleanTrackTitle(titulo)} ${artista}`).trim();
+  try {
+    const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`, {
+      headers: { "User-Agent": UA },
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const arr = (await res.json()) as LrclibSearchRow[];
+    const out = arr
+      .filter((x) => (x.plainLyrics && x.plainLyrics.trim()) || (x.syncedLyrics && x.syncedLyrics.trim()))
+      .slice(0, 12)
+      .map((x) => {
+        const plain = x.plainLyrics?.trim() || "";
+        const preview = plain
+          .split("\n")
+          .filter((l) => l.trim())
+          .slice(0, 3)
+          .join(" / ")
+          .slice(0, 140);
+        return {
+          id: Number(x.id),
+          trackName: String(x.trackName ?? x.name ?? titulo),
+          artistName: String(x.artistName ?? artista),
+          albumName: x.albumName ?? null,
+          durationSec: typeof x.duration === "number" && x.duration > 0 ? Math.round(x.duration) : null,
+          hasSynced: !!(x.syncedLyrics && x.syncedLyrics.trim()),
+          hasPlain: !!plain,
+          preview,
+        } satisfies LyricsCandidate;
+      })
+      .filter((x) => Number.isFinite(x.id));
+    // Com sincronizada primeiro (melhor pro teleprompter).
+    return out.sort((a, b) => Number(b.hasSynced) - Number(a.hasSynced));
+  } catch {
+    return [];
+  }
+}
+
+/** Pega uma versão específica de letra pelo id do LRCLIB. */
+export async function fetchLyricsById(id: number): Promise<LyricsHit> {
+  try {
+    const res = await fetch(`https://lrclib.net/api/get/${id}`, {
+      headers: { "User-Agent": UA },
+      cache: "no-store",
+    });
+    if (!res.ok) return EMPTY;
+    return pick((await res.json()) as LrclibTrack);
+  } catch {
+    return EMPTY;
+  }
+}

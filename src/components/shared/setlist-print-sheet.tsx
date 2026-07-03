@@ -1,5 +1,8 @@
+"use client";
+
+import { useState } from "react";
+import { Printer, Rows3, Columns2, Minimize2 } from "lucide-react";
 import { formatDuracao } from "@/lib/formatters";
-import { PrintTrigger } from "@/app/(app)/shows/[id]/imprimir-setlist/print-trigger";
 import { PrintBackButton } from "@/components/shared/print-back-button";
 
 export type PrintItem = {
@@ -13,8 +16,8 @@ export type PrintItem = {
 
 /**
  * Folha de setlist pra impressão/PDF (show e ensaio). Layout limpo, B&W-safe,
- * com tom, DROP, pedal de voz e conector de EMENDA entre músicas. Dispara o
- * print automaticamente (PrintTrigger).
+ * com tom, DROP, preset de voz e conector de EMENDA. Barra de opções (não sai na
+ * impressão): 1 ou 2 colunas + modo compacto (economiza folha).
  */
 export function SetlistPrintSheet({
   tipo,
@@ -33,10 +36,55 @@ export function SetlistPrintSheet({
   totalSeg: number;
   observacoes?: string | null;
 }) {
+  const [cols, setCols] = useState<1 | 2>(1);
+  const [compact, setCompact] = useState(false);
+
+  // Tamanhos por modo (compacto encolhe tudo pra caber mais por página).
+  const numCls = compact ? "w-6 text-base" : "w-9 text-2xl";
+  const tituloCls = compact ? "text-base" : "text-2xl";
+  const rowPad = compact ? "py-1" : "py-2.5";
+  const boxCls = compact
+    ? "h-8 min-w-8 px-2 text-lg"
+    : "h-14 min-w-14 px-3 text-3xl";
+  const tomCls = compact ? "text-xl" : "text-4xl";
+  const dropCls = compact ? "h-8 px-2 text-sm" : "h-14 px-3 text-2xl";
+  const emendaTxt = compact ? "text-xs" : "text-base";
+  const gap = compact ? "gap-2" : "gap-3";
+
+  const opt = (active: boolean) =>
+    `inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold ring-1 ring-inset transition-colors ${
+      active
+        ? "bg-black text-white ring-black"
+        : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-100"
+    }`;
+
   return (
     <div className="min-h-screen bg-white text-black p-8 print:p-0">
-      <PrintTrigger />
       <PrintBackButton />
+
+      {/* Barra de opções — some na impressão */}
+      <div className="mx-auto mb-5 flex max-w-2xl flex-wrap items-center gap-2 print:hidden">
+        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+          Layout
+        </span>
+        <button type="button" className={opt(cols === 1)} onClick={() => setCols(1)}>
+          <Rows3 className="size-4" /> 1 coluna
+        </button>
+        <button type="button" className={opt(cols === 2)} onClick={() => setCols(2)}>
+          <Columns2 className="size-4" /> 2 colunas
+        </button>
+        <button type="button" className={opt(compact)} onClick={() => setCompact((v) => !v)}>
+          <Minimize2 className="size-4" /> Compacto
+        </button>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-black px-4 py-1.5 text-sm font-bold text-white hover:bg-gray-800"
+        >
+          <Printer className="size-4" /> Imprimir / PDF
+        </button>
+      </div>
+
       <div className="mx-auto max-w-2xl">
         {/* Cabeçalho */}
         <header className="mb-6 border-b-4 border-black pb-3">
@@ -63,48 +111,47 @@ export function SetlistPrintSheet({
           </p>
         </header>
 
-        {/* Lista — título + TOM grande + DROP + emenda. Nada mais. */}
+        {/* Lista — título + preset + TOM grande + DROP + emenda. */}
         {items.length === 0 ? (
           <p className="py-12 text-center text-gray-500">Setlist vazia.</p>
         ) : (
-          <ol className="space-y-0">
+          <ol
+            className="space-y-0"
+            style={cols === 2 ? { columnCount: 2, columnGap: "1.75rem" } : undefined}
+          >
             {items.map((it, idx) => {
               const next = items[idx + 1];
               return (
                 <li key={idx} className="break-inside-avoid">
-                  <div className="flex items-center gap-3 border-b-2 border-gray-200 py-2.5">
-                    <span className="w-9 shrink-0 text-right font-mono text-2xl font-black text-gray-400">
+                  <div className={`flex items-center border-b-2 border-gray-200 ${gap} ${rowPad}`}>
+                    <span className={`shrink-0 text-right font-mono font-black text-gray-400 ${numCls}`}>
                       {it.n}
                     </span>
-                    <p className="min-w-0 flex-1 text-2xl font-bold leading-tight">
+                    <p className={`min-w-0 flex-1 font-bold leading-tight ${tituloCls}`}>
                       {it.titulo}
                     </p>
                     {it.preset != null && it.preset > 0 && (
-                      <span className="flex h-14 min-w-14 shrink-0 items-center justify-center rounded-xl border-[3px] border-black px-3 text-3xl font-black tabular-nums">
+                      <span className={`flex shrink-0 items-center justify-center rounded-xl border-[3px] border-black font-black tabular-nums ${boxCls}`}>
                         P{it.preset}
                       </span>
                     )}
                     {it.dropada && (
-                      <span className="flex h-14 shrink-0 items-center rounded-xl bg-black px-3 text-2xl font-black uppercase leading-none tracking-tight text-white">
+                      <span className={`flex shrink-0 items-center rounded-xl bg-black font-black uppercase leading-none tracking-tight text-white ${dropCls}`}>
                         Drop
                       </span>
                     )}
                     {it.tom && (
-                      <span className="flex h-14 min-w-14 shrink-0 items-center justify-center rounded-xl border-[3px] border-black px-3 text-4xl font-black tabular-nums">
+                      <span className={`flex shrink-0 items-center justify-center rounded-xl border-[3px] border-black font-black tabular-nums ${boxCls} ${tomCls}`}>
                         {it.tom}
                       </span>
                     )}
                   </div>
                   {/* Emenda: segue direto na próxima música — barra que salta aos olhos */}
                   {it.emenda && next && (
-                    <div className="my-1 flex items-center gap-2 rounded-md bg-black px-3 py-1.5 text-white">
-                      <span className="text-xl font-black leading-none">⟿</span>
-                      <span className="text-base font-black uppercase tracking-wider">
-                        Emenda
-                      </span>
-                      <span className="text-base font-bold">
-                        — direto na #{next.n} {next.titulo}
-                      </span>
+                    <div className={`my-1 flex items-center gap-2 rounded-md bg-black px-3 py-1 text-white ${emendaTxt}`}>
+                      <span className="font-black leading-none">⟿</span>
+                      <span className="font-black uppercase tracking-wider">Emenda</span>
+                      <span className="font-bold">— direto na #{next.n} {next.titulo}</span>
                     </div>
                   )}
                 </li>

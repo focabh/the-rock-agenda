@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/shared/app-shell";
 import { OfflineProvider } from "@/components/offline/offline-provider";
+import { KeepScreenAwake } from "@/components/shared/keep-screen-awake";
 import { getLogoUrl, getBrand, requireCurrentUser, userDisplayName } from "@/lib/auth";
 
 export default async function AppLayout({
@@ -19,6 +20,7 @@ export default async function AppLayout({
       surfaceOpacity={brand.surfaceOpacity}
     >
       <OfflineProvider />
+      <KeepScreenAwake />
       {children}
     </AppShell>
   );

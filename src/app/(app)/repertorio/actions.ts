@@ -32,7 +32,7 @@ import {
   DEFAULT_PEDAL_MODEL,
 } from "@/lib/voz-pedais";
 import { assignVozPresetsAI } from "@/lib/voz-presets-ai";
-import { fetchLyricsFull } from "@/lib/lyrics";
+import { fetchLyricsFull, searchLyricsVersions, fetchLyricsById, type LyricsCandidate } from "@/lib/lyrics";
 import { fetchBpm } from "@/lib/bpm";
 import { enrichSongsWithAI } from "@/lib/song-ai";
 import { NoApiKeyError } from "@/lib/venue-ai";
@@ -653,6 +653,48 @@ export async function refetchLyricsAction(songId: string): Promise<LyricsResult>
   revalidatePath("/repertorio");
   revalidatePath(`/repertorio/${songId}`);
   return { ok: true, lyrics: hit.plain ?? null, found: !!hit.plain, manual: false };
+}
+
+/** Lista versões de letra pra escolher (ao vivo/estúdio/acústico). `query`
+ *  opcional sobrescreve a busca (ex.: "titulo live"). */
+export async function searchLyricsVersionsAction(
+  songId: string,
+  query?: string
+): Promise<{ ok: boolean; candidates: LyricsCandidate[]; error?: string }> {
+  await requireCurrentUser();
+  const [song] = await db.select().from(songs).where(eq(songs.id, songId)).limit(1);
+  if (!song) return { ok: false, candidates: [], error: "Música não encontrada." };
+  const candidates = await searchLyricsVersions(song.titulo, song.artista, query?.trim() || undefined);
+  return { ok: true, candidates };
+}
+
+/** Aplica uma versão específica de letra (id do LRCLIB). Marca como manual pra
+ *  não ser sobrescrita pela busca automática — foi uma escolha deliberada. */
+export async function applyLyricsVersionAction(
+  songId: string,
+  lrclibId: number
+): Promise<LyricsResult> {
+  await requireAdmin();
+  const [song] = await db.select().from(songs).where(eq(songs.id, songId)).limit(1);
+  if (!song) return { ok: false, lyrics: null, found: false, error: "Música não encontrada." };
+  const hit = await fetchLyricsById(lrclibId);
+  if (!hit.plain && !hit.synced) {
+    return { ok: false, lyrics: song.lyrics, found: !!song.lyrics?.trim(), error: "Essa versão não trouxe letra." };
+  }
+  await db
+    .update(songs)
+    .set({
+      lyrics: hit.plain ?? null,
+      syncedLyrics: hit.synced ?? null,
+      lyricsManual: true, // escolha deliberada — protege da busca automática
+      ...(hit.durationSec && !song.duracaoSeg ? { duracaoSeg: hit.durationSec } : {}),
+    })
+    .where(eq(songs.id, songId));
+  revalidatePath("/repertorio");
+  revalidatePath(`/repertorio/${songId}`);
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { ok: true, lyrics: hit.plain ?? null, found: !!hit.plain, manual: true };
 }
 
 export async function setMemberReadinessAction(
