@@ -22,9 +22,9 @@ const PAGE_H = 1030; // ~272mm (com folga)
  * Folha de setlist pra impressão/PDF (show e ensaio). Layout limpo, B&W-safe,
  * com tom, DROP, preset de voz e conector de EMENDA.
  *
- * Modo "1 folha (auto)" (padrão): mede o conteúdo e reduz automaticamente
- * (escala + 2 colunas) até TUDO caber numa única página, independente do tamanho
- * do setlist. Também há o modo manual (1/2 colunas + compacto).
+ * Modo "1 folha (auto)" (padrão): mede o conteúdo e aplica `zoom` (que encolhe o
+ * LAYOUT de verdade — funciona no print do iOS, ao contrário de transform) +
+ * 2 colunas, até TUDO caber numa única página A4, independente do tamanho.
  */
 export function SetlistPrintSheet({
   tipo,
@@ -47,29 +47,24 @@ export function SetlistPrintSheet({
   const [cols, setCols] = useState<1 | 2>(1);
   const [compact, setCompact] = useState(false);
 
-  const frameRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  const [frameH, setFrameH] = useState(0);
+  // Elemento oculto (sempre tamanho natural) só pra medir a altura do conteúdo.
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
 
-  // Auto-fit: mede a altura natural do conteúdo (transform NÃO afeta scrollHeight)
-  // e calcula a escala pra caber na altura de uma página.
   useEffect(() => {
     if (!onePage) {
-      setScale(1);
+      setZoom(1);
       return;
     }
-    let raf = 0;
-    let t = 0;
     const measure = () => {
-      const el = frameRef.current;
+      const el = measureRef.current;
       if (!el) return;
-      const h = el.scrollHeight;
-      setFrameH(h);
-      setScale(h > PAGE_H ? Math.max(0.25, (PAGE_H / h) * 0.97) : 1);
+      const h = el.scrollHeight; // altura natural (nunca tem zoom aplicado)
+      setZoom(h > PAGE_H ? Math.max(0.3, (PAGE_H / h) * 0.97) : 1);
     };
     measure();
-    raf = requestAnimationFrame(measure);
-    t = window.setTimeout(measure, 350); // depois das fontes assentarem
+    const raf = requestAnimationFrame(measure);
+    const t = window.setTimeout(measure, 350); // depois das fontes assentarem
     window.addEventListener("resize", measure);
     return () => {
       cancelAnimationFrame(raf);
@@ -78,7 +73,7 @@ export function SetlistPrintSheet({
     };
   }, [onePage, items, cols]);
 
-  // Tamanhos. No modo 1-folha usa base (a escala encolhe uniformemente).
+  // Tamanhos. No modo 1-folha usa base (o zoom encolhe uniformemente).
   const compactSizes = onePage ? false : compact;
   const numCls = compactSizes ? "w-6 text-base" : "w-9 text-2xl";
   const tituloCls = compactSizes ? "text-base" : "text-2xl";
@@ -89,8 +84,8 @@ export function SetlistPrintSheet({
   const emendaTxt = compactSizes ? "text-xs" : "text-base";
   const gap = compactSizes ? "gap-2" : "gap-3";
 
-  // Colunas: no modo 1-folha, 2 colunas inline (independe da viewport, pra a
-  // medição bater com a impressão). No manual, classe responsiva.
+  // Colunas: no 1-folha, 2 colunas inline (independe da viewport, pra a medição
+  // bater com a impressão). No manual, classe responsiva.
   const olClass = onePage ? "space-y-0" : `space-y-0 ${cols === 2 ? "sheet-cols2" : ""}`;
   const olStyle = onePage ? { columnCount: 2, columnGap: "1.25rem" } : undefined;
 
@@ -211,7 +206,7 @@ export function SetlistPrintSheet({
 
         {onePage && (
           <span className="text-xs text-gray-500">
-            Cabe tudo numa folha só{scale < 1 ? ` · ${Math.round(scale * 100)}%` : ""}
+            Cabe tudo numa folha só{zoom < 1 ? ` · ${Math.round(zoom * 100)}%` : ""}
           </span>
         )}
 
@@ -224,21 +219,23 @@ export function SetlistPrintSheet({
         </button>
       </div>
 
-      {onePage ? (
-        // Caixa colapsada na altura JÁ escalada (transform não encolhe o box de
-        // layout — sem isso a impressão gera uma página em branco extra).
+      {/* Medidor oculto: mesmo conteúdo em tamanho natural (sem zoom), só pra
+          calcular a escala. Não aparece na tela nem na impressão. */}
+      {onePage && (
         <div
-          className="onepage-outer mx-auto max-w-full overflow-x-auto"
-          style={{
-            width: PAGE_W * scale,
-            height: frameH > 0 ? frameH * scale : undefined,
-          }}
+          aria-hidden
+          className="pointer-events-none fixed top-0 print:hidden"
+          style={{ width: PAGE_W, left: -99999 }}
         >
-          <div
-            ref={frameRef}
-            className="onepage-frame origin-top-left"
-            style={{ width: PAGE_W, transform: `scale(${scale})` }}
-          >
+          <div ref={measureRef} style={{ width: PAGE_W }}>
+            {body}
+          </div>
+        </div>
+      )}
+
+      {onePage ? (
+        <div className="mx-auto max-w-full overflow-x-auto">
+          <div className="onepage-frame" style={{ width: PAGE_W, zoom: String(zoom) }}>
             {body}
           </div>
         </div>
@@ -254,7 +251,6 @@ export function SetlistPrintSheet({
           @page { size: A4 portrait; margin: ${onePage ? "10mm" : "1.4cm"}; }
           .print\\:p-0 { padding: 0 !important; }
           .sheet-cols2 { column-count: 2; column-gap: 1.75rem; }
-          .onepage-outer { overflow: visible !important; }
           .onepage-frame { break-inside: avoid; page-break-inside: avoid; }
         }
       `}</style>
