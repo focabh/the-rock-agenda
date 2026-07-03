@@ -42,6 +42,7 @@ type BookletSong = {
   cues?: string | null;
   bpm?: number | null;
   vozPedal?: string | null;
+  vozPreset?: number | null;
   vozCueInicial?: string | null;
   vocalCues?: string | null;
   dropada?: boolean;
@@ -323,8 +324,13 @@ export function LyricsBooklet({
                     </span>
                     <h2 className="text-2xl font-black leading-tight">{s.titulo}</h2>
                     <span className="text-sm text-gray-500">{s.artista}</span>
-                    {/* Tom GRANDE + Drop — logo após o título */}
+                    {/* Preset + Tom GRANDE + Drop — logo após o título */}
                     <span className="ml-auto flex items-center gap-2">
+                      {s.vozPreset != null && s.vozPreset > 0 && (
+                        <span className="flex h-12 min-w-12 items-center justify-center rounded-lg border-[3px] border-black px-2 text-2xl font-black tabular-nums">
+                          P{s.vozPreset}
+                        </span>
+                      )}
                       {s.dropada && (
                         <span className="rounded-md border-2 border-black px-2 py-0.5 text-xs font-black uppercase">
                           Drop

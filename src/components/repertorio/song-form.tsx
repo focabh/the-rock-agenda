@@ -194,13 +194,36 @@ export function SongForm({
             <Input
               id="tom"
               name="tom"
+              type="number"
               inputMode="numeric"
+              step={1}
+              min={-12}
+              max={12}
               defaultValue={song?.tom ?? ""}
               placeholder="Ex.: 0, -1, -2, -3"
             />
             <p className="text-xs text-muted-foreground">
               Quanto a banda baixa/sobe em relação ao original (0 = original, -2 =
-              dois semitons abaixo). Aparece grandão na impressão.
+              dois semitons abaixo). Use as setinhas — não precisa digitar o sinal.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="vozPreset">Preset do pedal de voz</Label>
+            <Input
+              id="vozPreset"
+              name="vozPreset"
+              type="number"
+              inputMode="numeric"
+              step={1}
+              min={0}
+              max={9999}
+              defaultValue={song?.vozPreset ?? ""}
+              placeholder="Ex.: 3"
+            />
+            <p className="text-xs text-muted-foreground">
+              Número do preset no seu equipamento de voz. Aparece em destaque no
+              teleprompter, letras, repertório e setlist. Vazio = sem preset.
             </p>
           </div>
 

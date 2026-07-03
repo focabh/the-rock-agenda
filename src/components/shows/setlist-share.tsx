@@ -5,7 +5,7 @@ import { Share2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-export type ShareLinha = { n: number; titulo: string; artista: string; tom: string; dropada?: boolean; emenda?: boolean; dur: string };
+export type ShareLinha = { n: number; titulo: string; artista: string; tom: string; preset?: number | null; dropada?: boolean; emenda?: boolean; dur: string };
 
 /** Gera uma imagem bonita do setlist pra mandar no grupo (WhatsApp/Stories).
  *  Usa modern-screenshot (mesma lib do flyer). Sem custo. */
@@ -74,6 +74,11 @@ export function SetlistShare({ titulo, subtitulo, linhas }: { titulo: string; su
                     <span className="font-semibold">{l.titulo}</span>
                     {l.artista && <span className="text-zinc-500"> · {l.artista}</span>}
                   </span>
+                  {l.preset != null && l.preset > 0 && (
+                    <span className="shrink-0 rounded bg-violet-500 px-1.5 py-0.5 text-[10px] font-black uppercase leading-none tracking-wide text-white">
+                      P{l.preset}
+                    </span>
+                  )}
                   {l.dropada && (
                     <span className="shrink-0 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-black uppercase leading-none tracking-wide text-zinc-950">
                       Drop

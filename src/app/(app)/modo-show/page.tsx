@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { OfflineDownloadButton } from "@/components/shared/offline-download-button";
 import { Teleprompter } from "@/components/shared/teleprompter";
 import { LyricsText } from "@/components/shared/lyrics-text";
+import { PresetBadge } from "@/components/shared/preset-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { computeStageCues, CUE_EMOJI, CUE_LABEL } from "@/lib/stage-cues";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
@@ -87,6 +88,7 @@ export default async function ModoShowPage({
     cues: it.song.cues,
     bpm: it.song.bpm,
     vozPedal: it.song.vozPedal,
+    vozPreset: it.song.vozPreset,
     vozCueInicial: it.song.vozCueInicial,
     vocalCues: it.song.vocalCues,
   }));
@@ -185,6 +187,7 @@ export default async function ModoShowPage({
                       {it.song.dropada && (
                         <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">DROP</span>
                       )}
+                      <PresetBadge preset={it.song.vozPreset} className="text-[10px]" />
                       {it.song.vozCueInicial && (
                         <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">🎤 {it.song.vozCueInicial}</span>
                       )}
@@ -235,6 +238,7 @@ export default async function ModoShowPage({
                         <h4 className="font-bold">{it.song.titulo}</h4>
                         <span className="text-sm text-muted-foreground">{it.song.artista}</span>
                         <span className="ml-auto flex items-center gap-2">
+                          <PresetBadge preset={it.song.vozPreset} className="text-[10px]" />
                           {it.song.vozCueInicial && (
                             <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">🎤 {it.song.vozCueInicial}</span>
                           )}

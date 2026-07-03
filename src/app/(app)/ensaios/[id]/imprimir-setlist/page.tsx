@@ -30,6 +30,7 @@ export default async function ImprimirEnsaioSetlistPage({
     n: idx + 1,
     titulo: it.song.titulo,
     tom: it.song.tom,
+    preset: it.song.vozPreset,
     dropada: it.song.dropada,
     emenda: it.emenda,
   }));

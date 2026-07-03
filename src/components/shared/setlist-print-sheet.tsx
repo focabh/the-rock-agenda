@@ -6,6 +6,7 @@ export type PrintItem = {
   n: number;
   titulo: string;
   tom: string | null;
+  preset?: number | null;
   dropada: boolean;
   emenda: boolean;
 };
@@ -78,6 +79,11 @@ export function SetlistPrintSheet({
                     <p className="min-w-0 flex-1 text-2xl font-bold leading-tight">
                       {it.titulo}
                     </p>
+                    {it.preset != null && it.preset > 0 && (
+                      <span className="flex h-14 min-w-14 shrink-0 items-center justify-center rounded-xl border-[3px] border-black px-3 text-3xl font-black tabular-nums">
+                        P{it.preset}
+                      </span>
+                    )}
                     {it.dropada && (
                       <span className="flex h-14 shrink-0 items-center rounded-xl bg-black px-3 text-2xl font-black uppercase leading-none tracking-tight text-white">
                         Drop

@@ -299,6 +299,10 @@ export const songs = sqliteTable("songs", {
   tom: text("tom"), // tonalidade musical (ex.: "Em", "A") — muda por música
   // (OBSOLETO) config do pedal por música — substituído pelos Vocal Cues.
   vozPedal: text("voz_pedal"),
+  // Stage Master — Preset do pedal de voz (número). Só referência (o número que
+  // fica no equipamento do vocalista); mostrado em destaque em tudo. null = sem
+  // preset. Futuro: alvo do envio MIDI (Program Change).
+  vozPreset: integer("voz_preset"),
   // Stage Master — Vocal Cues (texto livre, nunca interpretado):
   // vozCueInicial = cue mostrado no card inicial do teleprompter (ex.: "ARENA").
   vozCueInicial: text("voz_cue_inicial"),

@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { Loader2, ArrowUpDown } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { NumberStepper } from "@/components/shared/number-stepper";
 import { toast } from "sonner";
 import { setSongTomAction } from "@/app/(app)/repertorio/actions";
 
-/** Tom (transposição) da música — QUALQUER músico pode ajustar. Auto-salva. */
+/** Tom (transposição) da música — QUALQUER músico ajusta. Stepper −/+ (sem
+ *  digitar sinal, acabou o bug do "--3"). 0 = original (sem badge). Auto-salva. */
 export function SongTomEditor({
   songId,
   initial,
@@ -15,14 +16,14 @@ export function SongTomEditor({
   songId: string;
   initial: string | null;
 }) {
-  const [tom, setTom] = useState(initial ?? "");
+  const [tom, setTom] = useState<number>(Number(initial ?? 0) || 0);
   const [saving, start] = useTransition();
 
-  function save() {
+  function save(n: number) {
+    setTom(n);
     start(async () => {
-      const r = await setSongTomAction(songId, tom.trim() || null);
-      if (r.ok) toast.success("Tom salvo.");
-      else toast.error("Erro ao salvar o tom.");
+      const r = await setSongTomAction(songId, n === 0 ? null : String(n));
+      if (!r.ok) toast.error("Erro ao salvar o tom.");
     });
   }
 
@@ -34,19 +35,13 @@ export function SongTomEditor({
       </h2>
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Input
-            value={tom}
-            inputMode="numeric"
-            onChange={(e) => setTom(e.target.value)}
-            onBlur={save}
-            placeholder="0, -1, -2, -3"
-            className="w-24 text-center text-lg font-bold"
-          />
+          <NumberStepper value={tom} onChange={save} min={-12} max={12} step={1} />
           {saving && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
           <p className="flex-1 text-xs text-muted-foreground">
-            Quanto a banda baixa/sobe vs o original (0 = original, -2 = dois
-            semitons abaixo). Qualquer músico ajusta — aparece grandão na
-            impressão, nas letras e no teleprompter.
+            Quanto a banda baixa/sobe vs o original (0 = original, −2 = dois
+            semitons abaixo). Use as setinhas — não precisa digitar o sinal.
+            Qualquer músico ajusta; aparece grandão na impressão, nas letras e no
+            teleprompter.
           </p>
         </div>
       </Card>

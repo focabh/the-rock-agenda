@@ -107,6 +107,10 @@ function extractSongMeta(fd: FormData) {
     exigeVocal: fd.get("exigeVocal") === "on",
     dropada: fd.get("dropada") === "on",
     tom: String(fd.get("tom") ?? "").trim() || null,
+    vozPreset: (() => {
+      const n = Number(String(fd.get("vozPreset") ?? "").trim());
+      return Number.isFinite(n) && n > 0 ? Math.min(9999, Math.round(n)) : null;
+    })(),
     estilo: String(fd.get("estilo") ?? "").trim() || null,
     ...(spId ? { spotifyTrackId: spId } : {}),
   };
@@ -860,6 +864,25 @@ export async function setSongTomAction(
   revalidatePath("/shows", "layout");
   revalidatePath("/ensaios", "layout");
   return { ok: true, tom: v };
+}
+
+/** Stage Master — preset do pedal de voz (número) da música. Colaborativo.
+ *  0/negativo/null = sem preset (não mostra badge). */
+export async function setSongPresetAction(
+  id: string,
+  preset: number | null
+): Promise<{ ok: boolean; preset: number | null }> {
+  await requireCurrentUser();
+  const v =
+    preset != null && Number.isFinite(preset) && preset > 0
+      ? Math.min(9999, Math.round(preset))
+      : null;
+  await db.update(songs).set({ vozPreset: v }).where(eq(songs.id, id));
+  revalidatePath("/repertorio");
+  revalidatePath(`/repertorio/${id}`);
+  revalidatePath("/shows", "layout");
+  revalidatePath("/ensaios", "layout");
+  return { ok: true, preset: v };
 }
 
 /** Stage Master — salva o Vocal Cue inicial + os cues por linha de uma música.

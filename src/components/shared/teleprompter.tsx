@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { LyricsText } from "@/components/shared/lyrics-text";
 import { parseLrc, parseCues, buildTimeline, activeLineIndex, decideEntryWarning, type AlertMode } from "@/lib/lrc";
 import { parseVocalCues, cuesByLineText, normalizeLine } from "@/lib/vocal-cues";
+import { PresetBadge } from "@/components/shared/preset-badge";
 import { prepareAudioContext } from "@/lib/audio-unlock";
 
 type Song = {
@@ -37,6 +38,7 @@ type Song = {
   cues?: string | null;
   bpm?: number | null;
   vozPedal?: string | null;
+  vozPreset?: number | null;
   vozCueInicial?: string | null;
   vocalCues?: string | null;
 };
@@ -693,6 +695,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                 {songs[current] ? `${songs[current].n}. ${songs[current].titulo}` : ""}
                 {songs[current]?.tom ? ` · ${songs[current].tom}` : ""}
               </span>
+              <PresetBadge preset={songs[current]?.vozPreset} variant="solid" />
               {showCues && songs[current]?.vozCueInicial && (
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-300 ring-1 ring-inset ring-amber-500/30">
                   <Mic className="size-3" />
@@ -784,6 +787,13 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     {s.n}. {s.titulo}
                     {s.tom ? ` · ${s.tom}` : ""}
                   </h2>
+                  {s.vozPreset != null && s.vozPreset > 0 && (
+                    <div className="mb-5 flex justify-center">
+                      <span className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-5 py-2 text-2xl font-black uppercase tracking-wide text-white shadow-lg">
+                        Preset {s.vozPreset}
+                      </span>
+                    </div>
+                  )}
                   {showCues && s.vozCueInicial?.trim() && (
                     <div className="mb-5 flex justify-center">
                       <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-4 py-1.5 text-base font-bold text-amber-300 ring-1 ring-inset ring-amber-500/40">

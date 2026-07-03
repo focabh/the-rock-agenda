@@ -55,6 +55,7 @@ import {
   setSongDropAction,
   setSongPrioridadeAction,
   setSongTomAction,
+  setSongPresetAction,
   verificarDropsAction,
 } from "@/app/(app)/repertorio/actions";
 
@@ -377,9 +378,31 @@ export function SongList({
             if (v !== (s.tom ?? "")) startTransition(() => { void setSongTomAction(s.id, v || null); });
           }}
           placeholder="tom"
+          type="number"
           inputMode="numeric"
+          step={1}
+          min={-12}
+          max={12}
           title="Tom (transposição: 0, -1, -2…). Qualquer músico edita — vale no repertório e nos setlists."
-          className="w-12 shrink-0 rounded-md border-2 border-amber-400/40 bg-amber-500/10 px-1 py-0.5 text-center text-sm font-black text-amber-200 placeholder:font-normal placeholder:text-muted-foreground/50"
+          className="w-14 shrink-0 rounded-md border-2 border-amber-400/40 bg-amber-500/10 px-1 py-0.5 text-center text-sm font-black text-amber-200 placeholder:font-normal placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+        />
+
+        <input
+          defaultValue={s.vozPreset ?? ""}
+          onBlur={(e) => {
+            const raw = e.target.value.trim();
+            const n = raw === "" ? null : Math.max(0, Math.round(Number(raw)));
+            const cur = s.vozPreset ?? null;
+            if (n !== cur) startTransition(() => { void setSongPresetAction(s.id, n && n > 0 ? n : null); });
+          }}
+          placeholder="P"
+          type="number"
+          inputMode="numeric"
+          step={1}
+          min={0}
+          max={9999}
+          title="Preset do pedal de voz. Qualquer músico edita — vale no repertório e nos setlists."
+          className="w-12 shrink-0 rounded-md border-2 border-violet-400/40 bg-violet-500/10 px-1 py-0.5 text-center text-sm font-black text-violet-200 placeholder:font-normal placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
         />
 
         {(admin || s.dropada) && (

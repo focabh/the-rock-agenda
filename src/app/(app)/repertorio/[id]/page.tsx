@@ -8,6 +8,7 @@ import { ReadinessSection } from "@/components/repertorio/readiness-section";
 import { LyricsPanel } from "@/components/repertorio/lyrics-panel";
 import { VocalCuesEditor } from "@/components/repertorio/vocal-cues-editor";
 import { SongTomEditor } from "@/components/repertorio/song-tom-editor";
+import { SongPresetEditor } from "@/components/repertorio/song-preset-editor";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { updateSongAction } from "../actions";
 
@@ -49,7 +50,10 @@ export default async function EditarSongPage({
             submitLabel="Salvar alterações"
           />
         )}
-        <SongTomEditor songId={id} initial={song.tom} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SongTomEditor songId={id} initial={song.tom} />
+          <SongPresetEditor songId={id} initial={song.vozPreset} />
+        </div>
 
         <ReadinessSection
           songId={id}

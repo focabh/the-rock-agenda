@@ -89,7 +89,8 @@ import {
   cloneSetlistToShowAction,
 } from "@/app/(app)/shows/[id]/actions-setlist";
 import { cloneSetlistToEnsaioAction } from "@/app/(app)/ensaios/[id]/actions-setlist";
-import { setSongTomAction } from "@/app/(app)/repertorio/actions";
+import { setSongTomAction, setSongPresetAction } from "@/app/(app)/repertorio/actions";
+import { PresetBadge } from "@/components/shared/preset-badge";
 import { SetlistReuseDialog } from "@/components/shows/setlist-reuse-dialog";
 import {
   addSongToEnsaioSetlistAction,
@@ -176,6 +177,8 @@ export function SetlistTab({
   // em todos os setlists (e vice-versa). Colaborativo (qualquer músico).
   const aTom = (songId: string, tom: string | null) =>
     setSongTomAction(songId, tom);
+  const aPreset = (songId: string, preset: number | null) =>
+    setSongPresetAction(songId, preset);
   const aPrioridade = (itemId: string, prioridade: boolean) =>
     runOrQueue(KIND.updateEnsaioSetlistItem, [rehearsalId!, itemId, { prioridade }]);
   // DROP é propriedade da MÚSICA (songs.dropada): marcar/desmarcar aqui reflete
@@ -527,6 +530,7 @@ export function SetlistTab({
                     titulo: it.song.titulo,
                     artista: it.song.artista,
                     tom: it.song.tom ?? "",
+                    preset: it.song.vozPreset,
                     dropada: dropOf(it),
                     emenda: emendaOf(it),
                     dur: fmtMMSS(it.song.duracaoSeg ?? 0),
@@ -576,6 +580,7 @@ export function SetlistTab({
                         play={play}
                         isEnsaio={isEnsaio}
                         onTom={(tom) => aTom(item.song.id, tom)}
+                        onPreset={(n) => aPreset(item.song.id, n)}
                         onRemove={() => aRemove(item.id)}
                         onPrioridade={(v) => aPrioridade(item.id, v)}
                         dropada={dropOverride[item.song.id] ?? item.song.dropada}
@@ -704,6 +709,7 @@ function SortableSetlistItem({
   play,
   isEnsaio,
   onTom,
+  onPreset,
   onRemove,
   onPrioridade,
   dropada,
@@ -720,6 +726,7 @@ function SortableSetlistItem({
   play: PlayMaterial | null;
   isEnsaio: boolean;
   onTom: (tom: string | null) => void;
+  onPreset: (n: number | null) => void;
   onRemove: () => void;
   onPrioridade: (v: boolean) => void;
   dropada: boolean;
@@ -795,6 +802,8 @@ function SortableSetlistItem({
           <span className="shrink-0">
             <SongStatusBadge status={item.song.status} />
           </span>
+
+          <PresetBadge preset={item.song.vozPreset} className="text-[11px]" />
 
           {item.song.vozCueInicial && (
             <span className="inline-flex shrink-0 items-center rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 ring-1 ring-inset ring-amber-500/30 dark:text-amber-300">
@@ -895,11 +904,31 @@ function SortableSetlistItem({
           <MetronomeButton bpm={item.song.bpm} titulo={item.song.titulo} songId={item.song.id} />
 
           <Input
+            defaultValue={item.song.vozPreset ?? ""}
+            placeholder="P"
+            type="number"
+            inputMode="numeric"
+            step={1}
+            min={0}
+            max={9999}
+            title="Preset do pedal de voz. Qualquer músico edita — reflete no repertório e em todos os setlists."
+            className="h-8 w-14 shrink-0 rounded-md border-2 border-violet-400/40 bg-violet-500/10 px-1 text-center text-base font-black text-violet-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+            onBlur={(e) => {
+              const raw = e.target.value.trim();
+              const n = raw === "" ? null : Math.max(0, Math.round(Number(raw)));
+              startTransition(() => onPreset(n && n > 0 ? n : null));
+            }}
+          />
+          <Input
             defaultValue={item.song.tom ?? ""}
             placeholder="tom"
+            type="number"
             inputMode="numeric"
+            step={1}
+            min={-12}
+            max={12}
             title="Tom (transposição: 0, -1, -2…). Qualquer músico edita — reflete no repertório e em todos os setlists."
-            className="h-8 w-14 shrink-0 rounded-md border-2 border-amber-400/40 bg-amber-500/10 px-1 text-center text-base font-black text-amber-300"
+            className="h-8 w-14 shrink-0 rounded-md border-2 border-amber-400/40 bg-amber-500/10 px-1 text-center text-base font-black text-amber-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
             onBlur={(e) => startTransition(() => onTom(e.target.value.trim() || null))}
           />
           {canEdit && (

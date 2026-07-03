@@ -39,6 +39,7 @@ export default async function LetrasPage({
     cues: it.song.cues,
     bpm: it.song.bpm,
     vozPedal: it.song.vozPedal,
+    vozPreset: it.song.vozPreset,
     vozCueInicial: it.song.vozCueInicial,
     vocalCues: it.song.vocalCues,
     dropada: it.song.dropada,

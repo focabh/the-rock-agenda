@@ -85,6 +85,11 @@ export default async function ImprimirRepertorioPage({
                   <span className="min-w-0 flex-1 text-xl font-bold leading-tight">
                     {song.titulo}
                   </span>
+                  {song.vozPreset != null && song.vozPreset > 0 && (
+                    <span className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border-[3px] border-black px-2 text-2xl font-black tabular-nums">
+                      P{song.vozPreset}
+                    </span>
+                  )}
                   {song.dropada && (
                     <span className="flex h-11 shrink-0 items-center rounded-lg bg-black px-2.5 text-lg font-black uppercase leading-none text-white">
                       Drop
@@ -108,7 +113,7 @@ export default async function ImprimirRepertorioPage({
         )}
 
         <p className="mt-8 pt-3 border-t border-gray-300 text-xs text-gray-400">
-          Número = ordem · caixa grande = tom · DROP = afinação dropada
+          Número = ordem · caixa grande = tom · P = preset do pedal de voz · DROP = afinação dropada
         </p>
       </div>
 
