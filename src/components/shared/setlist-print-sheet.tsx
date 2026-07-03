@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Printer, Rows3, Columns2, Minimize2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Printer, Rows3, Columns2, Minimize2, FileText } from "lucide-react";
 import { formatDuracao } from "@/lib/formatters";
 import { PrintBackButton } from "@/components/shared/print-back-button";
 
@@ -14,10 +14,17 @@ export type PrintItem = {
   emenda: boolean;
 };
 
+// Área útil de uma página A4 retrato com margem de 10mm, em px @96dpi.
+const PAGE_W = 720; // ~190mm
+const PAGE_H = 1030; // ~272mm (com folga)
+
 /**
  * Folha de setlist pra impressão/PDF (show e ensaio). Layout limpo, B&W-safe,
- * com tom, DROP, preset de voz e conector de EMENDA. Barra de opções (não sai na
- * impressão): 1 ou 2 colunas + modo compacto (economiza folha).
+ * com tom, DROP, preset de voz e conector de EMENDA.
+ *
+ * Modo "1 folha (auto)" (padrão): mede o conteúdo e reduz automaticamente
+ * (escala + 2 colunas) até TUDO caber numa única página, independente do tamanho
+ * do setlist. Também há o modo manual (1/2 colunas + compacto).
  */
 export function SetlistPrintSheet({
   tipo,
@@ -36,27 +43,143 @@ export function SetlistPrintSheet({
   totalSeg: number;
   observacoes?: string | null;
 }) {
+  const [onePage, setOnePage] = useState(true);
   const [cols, setCols] = useState<1 | 2>(1);
   const [compact, setCompact] = useState(false);
 
-  // Tamanhos por modo (compacto encolhe tudo pra caber mais por página).
-  const numCls = compact ? "w-6 text-base" : "w-9 text-2xl";
-  const tituloCls = compact ? "text-base" : "text-2xl";
-  const rowPad = compact ? "py-1" : "py-2.5";
-  const boxCls = compact
-    ? "h-8 min-w-8 px-2 text-lg"
-    : "h-14 min-w-14 px-3 text-3xl";
-  const tomCls = compact ? "text-xl" : "text-4xl";
-  const dropCls = compact ? "h-9 px-2.5 text-base" : "h-14 px-3 text-2xl";
-  const emendaTxt = compact ? "text-xs" : "text-base";
-  const gap = compact ? "gap-2" : "gap-3";
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [frameH, setFrameH] = useState(0);
+
+  // Auto-fit: mede a altura natural do conteúdo (transform NÃO afeta scrollHeight)
+  // e calcula a escala pra caber na altura de uma página.
+  useEffect(() => {
+    if (!onePage) {
+      setScale(1);
+      return;
+    }
+    let raf = 0;
+    let t = 0;
+    const measure = () => {
+      const el = frameRef.current;
+      if (!el) return;
+      const h = el.scrollHeight;
+      setFrameH(h);
+      setScale(h > PAGE_H ? Math.max(0.25, (PAGE_H / h) * 0.97) : 1);
+    };
+    measure();
+    raf = requestAnimationFrame(measure);
+    t = window.setTimeout(measure, 350); // depois das fontes assentarem
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+      window.removeEventListener("resize", measure);
+    };
+  }, [onePage, items, cols]);
+
+  // Tamanhos. No modo 1-folha usa base (a escala encolhe uniformemente).
+  const compactSizes = onePage ? false : compact;
+  const numCls = compactSizes ? "w-6 text-base" : "w-9 text-2xl";
+  const tituloCls = compactSizes ? "text-base" : "text-2xl";
+  const rowPad = compactSizes ? "py-1" : "py-2.5";
+  const boxCls = compactSizes ? "h-8 min-w-8 px-2 text-lg" : "h-14 min-w-14 px-3 text-3xl";
+  const tomCls = compactSizes ? "text-xl" : "text-4xl";
+  const dropCls = compactSizes ? "h-9 px-2.5 text-base" : "h-14 px-3 text-2xl";
+  const emendaTxt = compactSizes ? "text-xs" : "text-base";
+  const gap = compactSizes ? "gap-2" : "gap-3";
+
+  // Colunas: no modo 1-folha, 2 colunas inline (independe da viewport, pra a
+  // medição bater com a impressão). No manual, classe responsiva.
+  const olClass = onePage ? "space-y-0" : `space-y-0 ${cols === 2 ? "sheet-cols2" : ""}`;
+  const olStyle = onePage ? { columnCount: 2, columnGap: "1.25rem" } : undefined;
 
   const opt = (active: boolean) =>
     `inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold ring-1 ring-inset transition-colors ${
-      active
-        ? "bg-black text-white ring-black"
-        : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-100"
+      active ? "bg-black text-white ring-black" : "bg-white text-gray-700 ring-gray-300 hover:bg-gray-100"
     }`;
+
+  const body = (
+    <>
+      <header className="mb-6 border-b-4 border-black pb-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-gray-500">
+              {tipo} · Setlist
+            </p>
+            <h1 className="text-4xl font-black uppercase leading-none tracking-tight">
+              The Rock
+            </h1>
+          </div>
+          <div className="text-right text-sm leading-tight">
+            <p className="font-bold">
+              {items.length} {items.length === 1 ? "música" : "músicas"}
+            </p>
+            {totalSeg > 0 && <p className="text-gray-600">~ {formatDuracao(totalSeg)}</p>}
+          </div>
+        </div>
+        <p className="mt-1 text-sm text-gray-700">
+          {local}
+          {dataLabel ? ` — ${dataLabel}` : ""}
+          {setlistNome ? ` · ${setlistNome}` : ""}
+        </p>
+      </header>
+
+      {items.length === 0 ? (
+        <p className="py-12 text-center text-gray-500">Setlist vazia.</p>
+      ) : (
+        <ol className={olClass} style={olStyle}>
+          {items.map((it, idx) => {
+            const next = items[idx + 1];
+            return (
+              <li key={idx} className="break-inside-avoid">
+                <div className={`flex items-center border-b-2 border-gray-200 ${gap} ${rowPad}`}>
+                  <span className={`shrink-0 text-right font-mono font-black text-gray-400 ${numCls}`}>
+                    {it.n}
+                  </span>
+                  <p className={`min-w-0 flex-1 font-bold leading-tight ${tituloCls}`}>
+                    {it.titulo}
+                  </p>
+                  {it.preset != null && it.preset > 0 && (
+                    <span className={`flex shrink-0 items-center justify-center rounded-xl border-[3px] border-black font-black tabular-nums ${boxCls}`}>
+                      P{it.preset}
+                    </span>
+                  )}
+                  {it.dropada && (
+                    <span className={`flex shrink-0 items-center rounded-xl bg-black font-black uppercase leading-none tracking-tight text-white ${dropCls}`}>
+                      Drop
+                    </span>
+                  )}
+                  {it.tom && (
+                    <span className={`flex shrink-0 items-center justify-center rounded-xl border-[3px] border-black font-black tabular-nums ${boxCls} ${tomCls}`}>
+                      {it.tom}
+                    </span>
+                  )}
+                </div>
+                {it.emenda && next && (
+                  <div className={`my-1 flex items-center gap-2 rounded-md bg-black px-3 py-1 text-white ${emendaTxt}`}>
+                    <span className="font-black leading-none">⟿</span>
+                    <span className="font-black uppercase tracking-wider">Emenda</span>
+                    <span className="font-bold">— direto na #{next.n} {next.titulo}</span>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {observacoes && (
+        <div className="mt-6 border-t border-gray-300 pt-3">
+          <p className="whitespace-pre-wrap text-sm text-gray-700">{observacoes}</p>
+        </div>
+      )}
+
+      <p className="mt-8 text-[10px] uppercase tracking-widest text-gray-400">
+        The Rock · gerado pelo StageBoss
+      </p>
+    </>
+  );
 
   return (
     <div className="min-h-screen bg-white text-black p-8 print:p-0">
@@ -64,18 +187,34 @@ export function SetlistPrintSheet({
 
       {/* Barra de opções — some na impressão */}
       <div className="mx-auto mb-5 flex max-w-2xl flex-wrap items-center gap-2 print:hidden">
-        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-          Layout
-        </span>
-        <button type="button" className={opt(cols === 1)} onClick={() => setCols(1)}>
-          <Rows3 className="size-4" /> 1 coluna
+        <button type="button" className={opt(onePage)} onClick={() => setOnePage(true)}>
+          <FileText className="size-4" /> 1 folha (auto)
         </button>
-        <button type="button" className={opt(cols === 2)} onClick={() => setCols(2)}>
-          <Columns2 className="size-4" /> 2 colunas
+        <button type="button" className={opt(!onePage)} onClick={() => setOnePage(false)}>
+          Manual
         </button>
-        <button type="button" className={opt(compact)} onClick={() => setCompact((v) => !v)}>
-          <Minimize2 className="size-4" /> Compacto
-        </button>
+
+        {!onePage && (
+          <>
+            <span className="ml-1 text-xs font-bold uppercase tracking-wider text-gray-400">Colunas</span>
+            <button type="button" className={opt(cols === 1)} onClick={() => setCols(1)}>
+              <Rows3 className="size-4" /> 1
+            </button>
+            <button type="button" className={opt(cols === 2)} onClick={() => setCols(2)}>
+              <Columns2 className="size-4" /> 2
+            </button>
+            <button type="button" className={opt(compact)} onClick={() => setCompact((v) => !v)}>
+              <Minimize2 className="size-4" /> Compacto
+            </button>
+          </>
+        )}
+
+        {onePage && (
+          <span className="text-xs text-gray-500">
+            Cabe tudo numa folha só{scale < 1 ? ` · ${Math.round(scale * 100)}%` : ""}
+          </span>
+        )}
+
         <button
           type="button"
           onClick={() => window.print()}
@@ -85,99 +224,38 @@ export function SetlistPrintSheet({
         </button>
       </div>
 
-      <div className="mx-auto max-w-2xl">
-        {/* Cabeçalho */}
-        <header className="mb-6 border-b-4 border-black pb-3">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-gray-500">
-                {tipo} · Setlist
-              </p>
-              <h1 className="text-4xl font-black uppercase leading-none tracking-tight">
-                The Rock
-              </h1>
-            </div>
-            <div className="text-right text-sm leading-tight">
-              <p className="font-bold">
-                {items.length} {items.length === 1 ? "música" : "músicas"}
-              </p>
-              {totalSeg > 0 && <p className="text-gray-600">~ {formatDuracao(totalSeg)}</p>}
-            </div>
+      {onePage ? (
+        // Caixa colapsada na altura JÁ escalada (transform não encolhe o box de
+        // layout — sem isso a impressão gera uma página em branco extra).
+        <div
+          className="onepage-outer mx-auto max-w-full overflow-x-auto"
+          style={{
+            width: PAGE_W * scale,
+            height: frameH > 0 ? frameH * scale : undefined,
+          }}
+        >
+          <div
+            ref={frameRef}
+            className="onepage-frame origin-top-left"
+            style={{ width: PAGE_W, transform: `scale(${scale})` }}
+          >
+            {body}
           </div>
-          <p className="mt-1 text-sm text-gray-700">
-            {local}
-            {dataLabel ? ` — ${dataLabel}` : ""}
-            {setlistNome ? ` · ${setlistNome}` : ""}
-          </p>
-        </header>
-
-        {/* Lista — título + preset + TOM grande + DROP + emenda. */}
-        {items.length === 0 ? (
-          <p className="py-12 text-center text-gray-500">Setlist vazia.</p>
-        ) : (
-          <ol className={`space-y-0 ${cols === 2 ? "sheet-cols2" : ""}`}>
-            {items.map((it, idx) => {
-              const next = items[idx + 1];
-              return (
-                <li key={idx} className="break-inside-avoid">
-                  <div className={`flex items-center border-b-2 border-gray-200 ${gap} ${rowPad}`}>
-                    <span className={`shrink-0 text-right font-mono font-black text-gray-400 ${numCls}`}>
-                      {it.n}
-                    </span>
-                    <p className={`min-w-0 flex-1 font-bold leading-tight ${tituloCls}`}>
-                      {it.titulo}
-                    </p>
-                    {it.preset != null && it.preset > 0 && (
-                      <span className={`flex shrink-0 items-center justify-center rounded-xl border-[3px] border-black font-black tabular-nums ${boxCls}`}>
-                        P{it.preset}
-                      </span>
-                    )}
-                    {it.dropada && (
-                      <span className={`flex shrink-0 items-center rounded-xl bg-black font-black uppercase leading-none tracking-tight text-white ${dropCls}`}>
-                        Drop
-                      </span>
-                    )}
-                    {it.tom && (
-                      <span className={`flex shrink-0 items-center justify-center rounded-xl border-[3px] border-black font-black tabular-nums ${boxCls} ${tomCls}`}>
-                        {it.tom}
-                      </span>
-                    )}
-                  </div>
-                  {/* Emenda: segue direto na próxima música — barra que salta aos olhos */}
-                  {it.emenda && next && (
-                    <div className={`my-1 flex items-center gap-2 rounded-md bg-black px-3 py-1 text-white ${emendaTxt}`}>
-                      <span className="font-black leading-none">⟿</span>
-                      <span className="font-black uppercase tracking-wider">Emenda</span>
-                      <span className="font-bold">— direto na #{next.n} {next.titulo}</span>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        )}
-
-        {observacoes && (
-          <div className="mt-6 border-t border-gray-300 pt-3">
-            <p className="whitespace-pre-wrap text-sm text-gray-700">{observacoes}</p>
-          </div>
-        )}
-
-        <p className="mt-8 text-[10px] uppercase tracking-widest text-gray-400">
-          The Rock · gerado pelo StageBoss
-        </p>
-      </div>
+        </div>
+      ) : (
+        <div className="mx-auto max-w-2xl">{body}</div>
+      )}
 
       <style>{`
-        /* 2 colunas só onde cabe: telas largas e impressão. No mobile fica 1
-           coluna (senão as linhas se sobrepõem). */
         @media screen and (min-width: 640px) {
           .sheet-cols2 { column-count: 2; column-gap: 1.75rem; }
         }
         @media print {
-          @page { margin: 1.4cm; }
+          @page { size: A4 portrait; margin: ${onePage ? "10mm" : "1.4cm"}; }
           .print\\:p-0 { padding: 0 !important; }
           .sheet-cols2 { column-count: 2; column-gap: 1.75rem; }
+          .onepage-outer { overflow: visible !important; }
+          .onepage-frame { break-inside: avoid; page-break-inside: avoid; }
         }
       `}</style>
     </div>
