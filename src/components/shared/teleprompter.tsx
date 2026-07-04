@@ -19,6 +19,8 @@ import {
   RotateCcw,
   Mic,
   Target,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import { Button } from "@/components/ui/button";
@@ -697,13 +699,15 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     }
   }
 
-  // Toque numa linha: em calibração vira "marca"; senão, seek normal.
+  // Toque numa linha: em calibração vira "marca"; senão, RE-SINCRONIZA na hora
+  // (1 toque, sem precisar abrir os controles) — "toque na linha que você está
+  // cantando e a letra pula pra lá". É o jeito à prova de falha no palco.
   function onLineTap(i: number, j: number, t: number) {
     if (calibStep > 0) {
       if (i === current) calibrationTap(t);
       return;
     }
-    if (showControls) seekToLine(i, j, t);
+    seekToLine(i, j, t);
   }
 
   async function enterFull() {
@@ -987,6 +991,30 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Ajuste rápido SEMPRE à mão (modo sync): botões grandes nas laterais
+              que NÃO somem — 1 toque corrige o tempo sem parar no tablet.
+              ▲ = a letra volta (estava adiantada) · ▼ = a letra avança (atrasada). */}
+          {syncedCurrent && !showList && calibStep === 0 && (
+            <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-10 flex items-center justify-between">
+              <button
+                onClick={() => nudge(-1)}
+                className="pointer-events-auto ml-1 flex h-32 w-14 flex-col items-center justify-center gap-1 rounded-2xl bg-white/10 text-white/60 backdrop-blur-sm transition-colors active:bg-white/30 active:text-white"
+                title="A letra está ADIANTADA? Toque pra ela voltar/esperar (−1s)"
+              >
+                <ChevronUp className="size-7" />
+                <span className="text-[11px] font-bold">−1s</span>
+              </button>
+              <button
+                onClick={() => nudge(1)}
+                className="pointer-events-auto mr-1 flex h-32 w-14 flex-col items-center justify-center gap-1 rounded-2xl bg-white/10 text-white/60 backdrop-blur-sm transition-colors active:bg-white/30 active:text-white"
+                title="A letra está ATRASADA? Toque pra adiantar (+1s)"
+              >
+                <ChevronDown className="size-7" />
+                <span className="text-[11px] font-bold">+1s</span>
+              </button>
             </div>
           )}
 
