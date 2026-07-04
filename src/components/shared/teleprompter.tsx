@@ -440,6 +440,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       setPlaying(false);
       setCurrent(0);
       setMode("full");
+      setAuto(true); // Sync sempre: abre no Inteliprompter (cai pra Rolar só se a música não tiver letra sincronizada)
       bumpControls();
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
       // Calibra a 1ª música assim que as seções renderizam.
