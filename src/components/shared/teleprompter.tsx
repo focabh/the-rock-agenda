@@ -143,8 +143,18 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   // Quando a troca de música veio de uma ROLAGEM (scrub p/ outra faixa), o efeito
   // de troca NÃO zera o relógio — a posição já foi setada pelo onScroll.
   const scrubbedCurrent = useRef(false);
+  // Espelhos em ref: os loops de rAF/listeners leem o valor ATUAL (evita closure
+  // capturar valor velho de estado).
+  const curRef = useRef(0);
+  const actRef = useRef(-1);
+  const calibRef = useRef(0);
+  const pointingRef = useRef(false);
 
   playingRef.current = playing;
+  curRef.current = current;
+  actRef.current = activeIdx;
+  calibRef.current = calibStep;
+  pointingRef.current = pointing;
 
   // Carrega memória de velocidade por música + preferência do Inteliprompter.
   useEffect(() => {
@@ -312,6 +322,11 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   // EXCETO quando a troca veio de uma rolagem (scrub) — aí a posição já foi
   // setada pelo onScroll e NÃO pode ser zerada (senão "volta pro início").
   useEffect(() => {
+    // Trocou de música: qualquer modo de ajuste em andamento perde o sentido
+    // (aponta pra música antiga) — cancela.
+    if (calibStep !== 0) setCalibStep(0);
+    if (pointing) setPointing(false);
+    calibAnchor.current = null;
     if (scrubbedCurrent.current) {
       scrubbedCurrent.current = false;
       return;
@@ -333,10 +348,13 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   useEffect(() => {
     if (!open || !playing || !syncedCurrent) return;
     const lines = timelines[current];
-    // Fim da música: usa a duração cadastrada; sem ela, a última linha + cauda.
     const lastLineT = lines.length ? lines[lines.length - 1].t : 0;
-    const dur = songs[current]?.durationSeg;
-    const endAt = dur && dur > 0 ? dur : lastLineT + ADVANCE_TAIL;
+    // Fim da música: confia na duração cadastrada só se for PLAUSÍVEL (termina
+    // depois da última linha, com outro de até 90s). Duração errada/enorme ou
+    // curta demais → cai pra última linha + cauda. Evita travar no fim ou cortar
+    // o outro/solo final.
+    const dur = songs[current]?.durationSeg ?? 0;
+    const endAt = dur > lastLineT && dur < lastLineT + 90 ? dur : lastLineT + ADVANCE_TAIL;
     let id = 0;
     let active = true;
     let advanced = false; // trava p/ avançar só uma vez por música
@@ -345,8 +363,16 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     const tick = () => {
       if (!active) return;
       const e = elapsed();
-      // Auto-avanço: chegou ao fim e há próxima faixa → pula sozinho (mantém play).
-      if (!advanced && autoAdvance && current < songs.length - 1 && e >= endAt) {
+      // Auto-avanço: chegou ao fim e há próxima faixa → pula sozinho (mantém
+      // play). NÃO avança durante calibração / "Estou aqui" (evita pulo no meio).
+      if (
+        !advanced &&
+        autoAdvance &&
+        calibRef.current === 0 &&
+        !pointingRef.current &&
+        current < songs.length - 1 &&
+        e >= endAt
+      ) {
         advanced = true;
         active = false;
         jumpTo(current + 1);
@@ -411,7 +437,17 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       return;
     }
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
+    // AudioContext pode faltar (browser antigo) ou estourar o limite de contextos
+    // (abrir/fechar muito). Falhou → segue sem metrônomo, sem derrubar a tela.
+    let created: AudioContext | null = null;
+    try {
+      created = new Ctx();
+    } catch {
+      setMetroBeat(-1);
+      setMetroPulse({ on: false, acc: false });
+      return;
+    }
+    const ctx = created;
     let beat = 0;
     let next = 0;
     let timer = 0;
@@ -527,6 +563,36 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       if (playingRef.current && !showList) setShowControls(false);
     }, 3500);
   }, [showList]);
+
+  // Re-centraliza a linha ativa (lê refs → sempre atual). Usado ao mudar a fonte
+  // e ao girar a tela / trocar de monitor. No modo Rolar não há [data-tl] →
+  // querySelector nulo → no-op seguro.
+  const recenterActive = useCallback(() => {
+    if (!open) return;
+    const q = actRef.current >= 0 ? actRef.current : 0;
+    const elx = scrollRef.current?.querySelector(
+      `[data-tl="${curRef.current}-${q}"]`
+    ) as HTMLElement | null;
+    elx?.scrollIntoView({ block: "center", behavior: "auto" });
+  }, [open]);
+
+  // Mudou o tamanho da fonte → re-centraliza (senão a linha ativa sai do lugar).
+  useEffect(() => {
+    const r = requestAnimationFrame(recenterActive);
+    return () => cancelAnimationFrame(r);
+  }, [fontIdx, recenterActive]);
+
+  // Girar a tela / redimensionar (monitor externo) → re-centraliza.
+  useEffect(() => {
+    if (!open) return;
+    const onResize = () => requestAnimationFrame(recenterActive);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, [open, recenterActive]);
 
   // Marca que a rolagem é do USUÁRIO (wheel/touch) — só esses eventos disparam,
   // a rolagem programática (scrollIntoView) não. Abre a janela de "seek".
@@ -678,6 +744,7 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     const sec = sectionRefs.current[idx];
     if (el && sec) el.scrollTop = sec.offsetTop - el.clientHeight * 0.25;
     setCurrent(idx);
+    applyForIndex(idx); // re-calibra a velocidade do Rolar da faixa destino
     setShowList(false);
     bumpControls();
   }
