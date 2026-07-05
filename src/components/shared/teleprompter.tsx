@@ -21,6 +21,8 @@ import {
   Target,
   ChevronUp,
   ChevronDown,
+  Lock,
+  LockOpen,
 } from "lucide-react";
 import { MetronomeIcon } from "@/components/shared/metronome-icon";
 import { Button } from "@/components/ui/button";
@@ -60,6 +62,9 @@ const RATE_KEY = "teleprompter-rates-v1"; // ritmo do sync por música (1 = igua
 const AUTO_KEY = "teleprompter-auto-v1";
 const ALERT_KEY = "teleprompter-alert-mode-v1"; // ensaio | show | limpo
 const CUES_KEY = "teleprompter-vocal-cues-v1"; // mostrar Vocal Cues (Stage Master)
+const ADV_KEY = "teleprompter-autoadvance-v1"; // avançar sozinho pra próxima música (sync)
+const LOCK_KEY = "teleprompter-lock-v1"; // Stage Lock: trava toque acidental na letra
+const ADVANCE_TAIL = 8; // seg após a última linha p/ avançar quando não há duração
 const RATE_MIN = 0.5;
 const RATE_MAX = 1.8;
 const RATE_STEP = 0.05;
@@ -86,6 +91,9 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   const [showControls, setShowControls] = useState(true);
   const [showList, setShowList] = useState(false);
   const [auto, setAuto] = useState(true); // Inteliprompter: calibra por música
+  const [autoAdvance, setAutoAdvance] = useState(true); // avança sozinho no fim da música (sync)
+  const [locked, setLocked] = useState(false); // Stage Lock: letra vira só-leitura (anti-toque acidental)
+  const [pointing, setPointing] = useState(false); // "ESTOU AQUI": aguardando 1 toque p/ re-ancorar
   const [alertMode, setAlertMode] = useState<AlertMode>("show"); // avisos: padrão discreto (Show)
   const [metroOn, setMetroOn] = useState(true); // metrônomo automático (BPM da música)
   const [metroBeat, setMetroBeat] = useState(-1);
@@ -168,7 +176,46 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
     } catch {
       /* ignora */
     }
+    try {
+      const adv = localStorage.getItem(ADV_KEY);
+      if (adv !== null) setAutoAdvance(adv === "1");
+    } catch {
+      /* ignora */
+    }
+    try {
+      const lk = localStorage.getItem(LOCK_KEY);
+      if (lk !== null) setLocked(lk === "1");
+    } catch {
+      /* ignora */
+    }
   }, []);
+
+  function toggleAutoAdvance() {
+    setAutoAdvance((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(ADV_KEY, next ? "1" : "0");
+      } catch {
+        /* ignora */
+      }
+      return next;
+    });
+    bumpControls();
+  }
+
+  function toggleLock() {
+    setLocked((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(LOCK_KEY, next ? "1" : "0");
+      } catch {
+        /* ignora */
+      }
+      return next;
+    });
+    setPointing(false);
+    bumpControls();
+  }
 
   function toggleCues() {
     setShowCues((v) => {
@@ -286,13 +333,25 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
   useEffect(() => {
     if (!open || !playing || !syncedCurrent) return;
     const lines = timelines[current];
+    // Fim da música: usa a duração cadastrada; sem ela, a última linha + cauda.
+    const lastLineT = lines.length ? lines[lines.length - 1].t : 0;
+    const dur = songs[current]?.durationSeg;
+    const endAt = dur && dur > 0 ? dur : lastLineT + ADVANCE_TAIL;
     let id = 0;
     let active = true;
+    let advanced = false; // trava p/ avançar só uma vez por música
     let lastIdx = -2;
     let lastSec = -1;
     const tick = () => {
       if (!active) return;
       const e = elapsed();
+      // Auto-avanço: chegou ao fim e há próxima faixa → pula sozinho (mantém play).
+      if (!advanced && autoAdvance && current < songs.length - 1 && e >= endAt) {
+        advanced = true;
+        active = false;
+        jumpTo(current + 1);
+        return;
+      }
       const sec = Math.floor(e);
       if (sec !== lastSec) {
         lastSec = sec;
@@ -317,7 +376,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       active = false;
       cancelAnimationFrame(id);
     };
-  }, [open, playing, syncedCurrent, current, timelines]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, playing, syncedCurrent, current, timelines, autoAdvance]);
 
   // Stage Master: quando a linha ativa tiver Vocal Cue, mostra a notificação
   // discreta por alguns segundos e some (não interpreta nada — só exibe o texto).
@@ -518,8 +578,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       if (idx !== current) {
         const syncedTarget = auto && (timelines[idx]?.length ?? 0) > 0;
         // Scrub do usuário pra OUTRA música sincronizada → continua DAQUELE ponto
-        // (não reinicia a música nova do zero).
-        if (userScrolling && syncedTarget) {
+        // (não reinicia a música nova do zero). Travado: só navega, não re-baseia.
+        if (userScrolling && syncedTarget && !locked) {
           const j = nearestLine(idx);
           const ln = j >= 0 ? timelines[idx][j] : null;
           scrubbedCurrent.current = true;
@@ -540,7 +600,8 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
 
       // 3) Seek DENTRO da música atual (sync + rolagem do usuário): re-baseia o
       //    relógio na linha mais próxima do centro → "continua de onde rolou".
-      if (syncedCurrent && userScrolling && timelines[current]?.length) {
+      //    Travado (Stage Lock): não re-baseia (só-leitura).
+      if (syncedCurrent && userScrolling && !locked && timelines[current]?.length) {
         const j = nearestLine(current);
         const ln = j >= 0 ? timelines[current][j] : null;
         if (ln) {
@@ -708,6 +769,14 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
       if (i === current) calibrationTap(t);
       return;
     }
+    // "Estou aqui": um toque re-ancora, mesmo travado.
+    if (pointing) {
+      seekToLine(i, j, t);
+      setPointing(false);
+      return;
+    }
+    // Stage Lock: letra é só-leitura (não pula por toque acidental).
+    if (locked) return;
     seekToLine(i, j, t);
   }
 
@@ -838,6 +907,15 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             </div>
           )}
 
+          {/* "Estou aqui": aguardando o toque na linha certa pra re-ancorar */}
+          {pointing && (
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 flex -translate-y-1/2 justify-center px-6">
+              <span className="rounded-2xl bg-emerald-400 px-5 py-3 text-center text-lg font-black text-black shadow-2xl">
+                👉 Toque na linha que você está cantando
+              </span>
+            </div>
+          )}
+
           {/* Stage Master: Vocal Cue da linha atual — notificação discreta */}
           {showCues && cueNow.length > 0 && (
             <div className="pointer-events-none absolute inset-x-0 top-24 z-10 flex flex-wrap justify-center gap-1.5 px-4">
@@ -927,8 +1005,12 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                             onClick={() => onLineTap(i, j, ln.t)}
                             title="Com os controles à vista, toque pra pular pra aqui"
                             className={
-                              "cursor-pointer rounded-lg transition-all hover:bg-white/5 " +
-                              (active ? "text-white" : upcoming ? "text-white/80" : "text-white/45")
+                              "cursor-pointer rounded-xl px-2 transition-all hover:bg-white/5 " +
+                              (active
+                                ? "bg-white/15 text-white ring-1 ring-inset ring-white/20"
+                                : upcoming
+                                  ? "text-white/80"
+                                  : "text-white/50")
                             }
                           >
                             {ln.text}
@@ -1019,6 +1101,37 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             </div>
           )}
 
+          {/* "Estou aqui": recuperação de 1 toque no modo travado (a letra não
+              responde a toque, então este botão re-ancora sem risco de erro). */}
+          {locked && syncedCurrent && !showControls && !showList && calibStep === 0 && !pointing && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-12 z-10 flex justify-center px-16">
+              <button
+                onClick={() => {
+                  setPointing(true);
+                  bumpControls();
+                }}
+                className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-emerald-500/90 px-6 py-3 text-base font-bold text-black shadow-xl active:bg-emerald-400"
+                title="Perdeu o lugar? Toque aqui e depois na linha que está cantando"
+              >
+                <Target className="size-5" /> Estou aqui
+              </button>
+            </div>
+          )}
+
+          {/* "A seguir": próxima música sempre à vista no estado limpo (sem
+              controles) — antecipação sem custo de interação. */}
+          {songs[current + 1] && !showControls && !showList && calibStep === 0 && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-16">
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
+                <SkipForward className="size-3.5 shrink-0" />
+                <span className="truncate">
+                  A seguir: {songs[current + 1].n}. {songs[current + 1].titulo}
+                  {songs[current + 1].tom ? ` · ${songs[current + 1].tom}` : ""}
+                </span>
+              </span>
+            </div>
+          )}
+
           {/* Controles (auto-some) */}
           <div
             className={`absolute inset-x-0 bottom-0 z-10 space-y-2 border-t border-white/10 bg-linear-to-t from-black via-black/90 to-transparent px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 transition-opacity ${
@@ -1063,6 +1176,15 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                     title="Acertar o ritmo tocando: toque na linha cantada agora e depois em outra linha quando ela chegar"
                   >
                     <Target className="size-3.5" /> {calibStep > 0 ? "cancelar" : "acertar ritmo"}
+                  </button>
+                  <button
+                    onClick={toggleAutoAdvance}
+                    className={`inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-bold ring-1 transition-colors ${
+                      autoAdvance ? "bg-amber-400 text-black ring-amber-400" : `${ctrlBtn} ring-white/20`
+                    }`}
+                    title="Avançar sozinho pra próxima música no fim da faixa (sem tocar na tela)"
+                  >
+                    <SkipForward className="size-3.5" /> auto
                   </button>
                 </div>
                 {/* Modo de alertas: Show (discreto) é o padrão pro palco. */}
@@ -1174,6 +1296,22 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                 title={`Vocal Cues (Stage Master): ${showCues ? "tocando — toque pra esconder" : "escondidos — toque pra mostrar"}`}
               >
                 <Mic className="size-4" /> Cues
+              </button>
+              <button
+                onClick={toggleLock}
+                className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-bold ring-1 transition-colors ${
+                  locked
+                    ? "bg-emerald-400 text-black ring-emerald-400"
+                    : "text-white/70 ring-white/25 hover:text-white"
+                }`}
+                title={
+                  locked
+                    ? "Travado (palco): a letra não pula por toque acidental. Toque pra destravar."
+                    : "Travar a letra (palco): evita pulos por toque acidental. Recupera com “Estou aqui”."
+                }
+              >
+                {locked ? <Lock className="size-4" /> : <LockOpen className="size-4" />}
+                {locked ? "Travado" : "Travar"}
               </button>
               <button onClick={() => setShowList(true)} className={`size-11 ${ctrlBtn}`} title="Lista de músicas">
                 <ListMusic className="size-5" />

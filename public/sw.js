@@ -14,7 +14,7 @@
 // deploy apagava tudo (forçando re-download). Páginas são network-first (online
 // sempre pega fresco) e assets são hash-named (imutáveis), então não há risco
 // de servir build velha. O activate abaixo limpa os caches versionados antigos.
-const VERSION = "v20-sync-default";
+const VERSION = "v21-stage-mode";
 const STATIC_CACHE = "rock-static";
 const RUNTIME_CACHE = "rock-runtime";
 
