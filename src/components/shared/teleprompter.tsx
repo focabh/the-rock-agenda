@@ -34,6 +34,7 @@ import { tomBadgeClass } from "@/lib/tom";
 import { prepareAudioContext } from "@/lib/audio-unlock";
 
 type Song = {
+  id?: string; // id da música (necessário só pro controle colaborativo ao vivo)
   n: number;
   titulo: string;
   artista: string;
@@ -86,10 +87,18 @@ export function Teleprompter({
   songs,
   label = "Teleprompter",
   defaultTom = null,
+  pollCurrentSongId,
+  onSongChange,
 }: {
   songs: Song[];
   label?: string;
   defaultTom?: string | null;
+  /** Controle colaborativo (§10–17): lê a "música atual" compartilhada. Se
+   *  fornecido, o teleprompter SEGUE essa música (polling enquanto aberto). */
+  pollCurrentSongId?: () => Promise<string | null>;
+  /** Chamado quando a música muda por ação do vocalista → vira a "música atual"
+   *  compartilhada (comanda os outros dispositivos). */
+  onSongChange?: (songId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -158,6 +167,8 @@ export function Teleprompter({
   const actRef = useRef(-1);
   const calibRef = useRef(0);
   const pointingRef = useRef(false);
+  const onSongChangeRef = useRef(onSongChange);
+  onSongChangeRef.current = onSongChange;
 
   playingRef.current = playing;
   curRef.current = current;
@@ -603,6 +614,34 @@ export function Teleprompter({
     };
   }, [open, recenterActive]);
 
+  // Controle colaborativo (§10–17): SEGUE a "música atual" compartilhada. Faz
+  // polling enquanto aberto (+ ao voltar o foco); pula silenciosamente (sem
+  // re-emitir → sem loop). Só ativo quando `pollCurrentSongId` é fornecido.
+  useEffect(() => {
+    if (!open || !pollCurrentSongId) return;
+    let alive = true;
+    const applyLive = async () => {
+      try {
+        const sid = await pollCurrentSongId();
+        if (!alive || !sid) return;
+        const idx = songs.findIndex((s) => s.id === sid);
+        if (idx >= 0 && idx !== curRef.current) jumpTo(idx, true);
+      } catch {
+        /* offline — mantém o estado atual */
+      }
+    };
+    const id = window.setInterval(applyLive, 2500);
+    const onVis = () => document.visibilityState === "visible" && applyLive();
+    document.addEventListener("visibilitychange", onVis);
+    applyLive();
+    return () => {
+      alive = false;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pollCurrentSongId, songs]);
+
   // Marca que a rolagem é do USUÁRIO (wheel/touch) — só esses eventos disparam,
   // a rolagem programática (scrollIntoView) não. Abre a janela de "seek".
   function markUserScroll() {
@@ -747,7 +786,7 @@ export function Teleprompter({
     bumpControls();
   }
 
-  function jumpTo(i: number) {
+  function jumpTo(i: number, silent = false) {
     const idx = Math.min(songs.length - 1, Math.max(0, i));
     const el = scrollRef.current;
     const sec = sectionRefs.current[idx];
@@ -756,6 +795,9 @@ export function Teleprompter({
     applyForIndex(idx); // re-calibra a velocidade do Rolar da faixa destino
     setShowList(false);
     bumpControls();
+    // Ação do vocalista → vira a "música atual" compartilhada (comanda a banda).
+    // silent = mudança veio do live (seguindo outro) → não re-emite (sem loop).
+    if (!silent && songs[idx]?.id) onSongChangeRef.current?.(songs[idx].id as string);
   }
 
   // Toque numa linha (modo Sync): pula o relógio pro tempo daquela linha.

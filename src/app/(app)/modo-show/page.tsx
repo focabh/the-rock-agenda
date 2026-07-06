@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { OfflineDownloadButton } from "@/components/shared/offline-download-button";
-import { Teleprompter } from "@/components/shared/teleprompter";
+import { LiveTeleprompter } from "@/components/shows/live-teleprompter";
 import { LyricsText } from "@/components/shared/lyrics-text";
 import { PresetBadge } from "@/components/shared/preset-badge";
 import { tomBadgeClass } from "@/lib/tom";
@@ -82,6 +82,7 @@ export default async function ModoShowPage({
 
   // Faixas pro teleprompter.
   const teleSongs = items.map((it, i) => ({
+    id: it.song.id,
     n: i + 1,
     titulo: it.song.titulo,
     artista: it.song.artista,
@@ -112,7 +113,9 @@ export default async function ModoShowPage({
             <Button render={<Link href="/" />} variant="outline" size="sm">
               <ArrowLeft className="size-4" /> Voltar
             </Button>
-            {teleSongs.length > 0 && <Teleprompter songs={teleSongs} defaultTom={brand?.tomPadrao ?? null} />}
+            {teleSongs.length > 0 && (
+              <LiveTeleprompter showId={show.id} songs={teleSongs} defaultTom={brand?.tomPadrao ?? null} />
+            )}
             <OfflineDownloadButton extraUrls={["/"]} />
           </div>
         }
