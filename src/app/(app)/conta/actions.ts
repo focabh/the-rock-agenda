@@ -202,17 +202,20 @@ export async function removeLogoAction() {
 export async function setBrandAction(
   bandName: string,
   whatsappGrupo = "",
-  whatsappGrupoMusicos = ""
+  whatsappGrupoMusicos = "",
+  tomPadrao = ""
 ): Promise<{ ok: boolean }> {
   await requireSuperuser();
   const name = bandName.trim().slice(0, 80) || null;
   const grupo = whatsappGrupo.trim().slice(0, 300) || null;
   const grupoMusicos = whatsappGrupoMusicos.trim().slice(0, 300) || null;
+  const tp = tomPadrao.trim().slice(0, 12) || null; // "-1", "0"/"Original", "+2"…
+  const patch = { bandName: name, whatsappGrupo: grupo, whatsappGrupoMusicos: grupoMusicos, tomPadrao: tp };
   const [row] = await db.select().from(appSettings).limit(1);
   if (row) {
-    await db.update(appSettings).set({ bandName: name, whatsappGrupo: grupo, whatsappGrupoMusicos: grupoMusicos }).where(eq(appSettings.id, row.id));
+    await db.update(appSettings).set(patch).where(eq(appSettings.id, row.id));
   } else {
-    await db.insert(appSettings).values({ bandName: name, whatsappGrupo: grupo, whatsappGrupoMusicos: grupoMusicos });
+    await db.insert(appSettings).values(patch);
   }
   revalidatePath("/", "layout");
   return { ok: true };

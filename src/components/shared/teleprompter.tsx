@@ -30,6 +30,7 @@ import { LyricsText } from "@/components/shared/lyrics-text";
 import { parseLrc, parseCues, buildTimeline, activeLineIndex, decideEntryWarning, type AlertMode } from "@/lib/lrc";
 import { parseVocalCues, cuesByLineText, normalizeLine } from "@/lib/vocal-cues";
 import { PresetBadge } from "@/components/shared/preset-badge";
+import { tomBadgeClass } from "@/lib/tom";
 import { prepareAudioContext } from "@/lib/audio-unlock";
 
 type Song = {
@@ -81,7 +82,15 @@ const songKey = (s: Song) => `${s.titulo}__${s.artista}`.toLowerCase();
 /** Teleprompter do vocalista: letras GRANDES rolando sozinhas, em tela cheia.
  *  Controles estilo player (auto-some), pular faixa, velocidade fina, e memória
  *  de velocidade por música. Destaque de grito (^...^) vindo da própria letra. */
-export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[]; label?: string }) {
+export function Teleprompter({
+  songs,
+  label = "Teleprompter",
+  defaultTom = null,
+}: {
+  songs: Song[];
+  label?: string;
+  defaultTom?: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(DEFAULT_SPEED);
@@ -908,8 +917,14 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
             <span className="pointer-events-auto flex min-w-0 items-center gap-2">
               <span className="truncate text-sm font-semibold text-amber-400">
                 {songs[current] ? `${songs[current].n}. ${songs[current].titulo}` : ""}
-                {songs[current]?.tom ? ` · ${songs[current].tom}` : ""}
               </span>
+              {songs[current]?.tom && (
+                <span
+                  className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-xs font-black tabular-nums ring-1 ring-inset ${tomBadgeClass(songs[current]?.tom, defaultTom, "dark")}`}
+                >
+                  {songs[current]?.tom}
+                </span>
+              )}
               <PresetBadge preset={songs[current]?.vozPreset} variant="solid" />
               {showCues && songs[current]?.vozCueInicial && (
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-300 ring-1 ring-inset ring-amber-500/30">
@@ -1018,10 +1033,18 @@ export function Teleprompter({ songs, label = "Teleprompter" }: { songs: Song[];
                   }}
                   className="mb-20"
                 >
-                  <h2 className="mb-5 text-base font-bold uppercase tracking-[0.2em] text-amber-400/90">
+                  <h2 className="mb-3 text-base font-bold uppercase tracking-[0.2em] text-amber-400/90">
                     {s.n}. {s.titulo}
-                    {s.tom ? ` · ${s.tom}` : ""}
                   </h2>
+                  {s.tom && (
+                    <div className="mb-4 flex justify-center">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-lg px-3 py-1 text-2xl font-black uppercase tabular-nums ring-2 ring-inset ${tomBadgeClass(s.tom, defaultTom, "dark")}`}
+                      >
+                        Tom {s.tom}
+                      </span>
+                    </div>
+                  )}
                   {s.vozPreset != null && s.vozPreset > 0 && (
                     <div className="mb-5 flex justify-center">
                       <span className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-5 py-2 text-2xl font-black uppercase tracking-wide text-white shadow-lg">

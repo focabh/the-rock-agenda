@@ -13,14 +13,17 @@ export function BrandSettings({
   initialName,
   initialGrupo,
   initialGrupoMusicos,
+  initialTomPadrao = "",
 }: {
   initialName: string;
   initialGrupo: string;
   initialGrupoMusicos: string;
+  initialTomPadrao?: string;
 }) {
   const [name, setName] = useState(initialName);
   const [grupo, setGrupo] = useState(initialGrupo);
   const [grupoMusicos, setGrupoMusicos] = useState(initialGrupoMusicos);
+  const [tomPadrao, setTomPadrao] = useState(initialTomPadrao);
   const [pending, start] = useTransition();
 
   return (
@@ -52,12 +55,32 @@ export function BrandSettings({
             (sem a manager). Vazio → tudo cai no grupo da banda.
           </p>
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="tomPadrao">Tom padrão da banda (transposição)</Label>
+          <Input
+            id="tomPadrao"
+            type="number"
+            inputMode="numeric"
+            step={1}
+            min={-12}
+            max={12}
+            value={tomPadrao}
+            onChange={(e) => setTomPadrao(e.target.value)}
+            placeholder="Ex.: -1 (vazio = sem padrão)"
+            className="w-40"
+          />
+          <p className="text-xs text-muted-foreground">
+            Como a banda costuma tocar (ex.: −1). No teleprompter, o tom de cada
+            música é colorido pela distância deste padrão: igual = âmbar, mais
+            dropado = laranja/vermelho, original (0) = cinza.
+          </p>
+        </div>
         <div className="flex justify-end">
           <Button
             disabled={pending}
             onClick={() =>
               start(async () => {
-                const r = await setBrandAction(name, grupo, grupoMusicos);
+                const r = await setBrandAction(name, grupo, grupoMusicos, tomPadrao);
                 if (r.ok) toast.success("Salvo.");
                 else toast.error("Não foi possível salvar.");
               })

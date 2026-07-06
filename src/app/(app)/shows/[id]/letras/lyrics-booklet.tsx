@@ -61,6 +61,7 @@ export function LyricsBooklet({
   setlistId,
   canRefine = false,
   equipamentoVocal,
+  defaultTom = null,
 }: {
   backHref: string;
   docxHref: string;
@@ -69,6 +70,8 @@ export function LyricsBooklet({
   songs: BookletSong[];
   /** Equipamento vocal do show (referência pro vocalista). */
   equipamentoVocal?: string | null;
+  /** Tom padrão da banda (Transpose Assistant — colore o tom por desvio). */
+  defaultTom?: string | null;
   /** Roteiro de palco (momentos de fala) — heurística grátis, calculado no server. */
   cues?: StageCue[];
   /** Necessário pro "Refinar com IA". */
@@ -146,7 +149,7 @@ export function LyricsBooklet({
           Voltar ao app
         </Button>
 
-        <Teleprompter songs={songs} />
+        <Teleprompter songs={songs} defaultTom={defaultTom} />
 
         {cueList.length > 0 && (
           <Button

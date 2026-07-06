@@ -65,6 +65,7 @@ export default async function LetrasPage({
       setlistId={setlist?.id}
       canRefine={isAdmin(user)}
       equipamentoVocal={show.equipamentoVocal}
+      defaultTom={brand.tomPadrao}
     />
   );
 }

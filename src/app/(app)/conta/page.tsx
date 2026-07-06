@@ -70,6 +70,7 @@ export default async function ContaPage() {
             initialName={brand.bandName ?? ""}
             initialGrupo={brand.whatsappGrupo ?? ""}
             initialGrupoMusicos={brand.whatsappGrupoMusicos ?? ""}
+            initialTomPadrao={brand.tomPadrao ?? ""}
           />
         )}
         {superuser && (

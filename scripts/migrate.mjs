@@ -36,6 +36,7 @@ await addCol("songs", "voz_cue_inicial", "TEXT");
 await addCol("songs", "vocal_cues", "TEXT");
 await addCol("shows", "equipamento_vocal", "TEXT");
 await addCol("songs", "voz_preset", "INTEGER");
+await addCol("app_settings", "tom_padrao", "TEXT");
 await addCol("songs", "cues", "TEXT");
 await addCol("app_settings", "app_background_url", "TEXT");
 await addCol("app_settings", "whatsapp_grupo_musicos", "TEXT");

@@ -91,6 +91,10 @@ export const appSettings = sqliteTable("app_settings", {
   // Pedal de voz ativo do vocalista (id do PEDAL_MODELS, ex.: "boss-ve-22").
   // Define os presets usados nas sugestões/exibição.
   vozPedalModelo: text("voz_pedal_modelo"),
+  // Tom PADRÃO da banda (transposição, ex.: "-1"). Referência p/ o Transpose
+  // Assistant: o tom de cada música é colorido pela distância deste padrão
+  // (igual = padrão, mais dropado = laranja/vermelho, original = cinza).
+  tomPadrao: text("tom_padrao"),
   // Opacidade dos blocos/cards (60–100). <100 = efeito vidro deixando o fundo
   // vazar. Só tem efeito visível quando há fundo do app.
   surfaceOpacity: integer("surface_opacity").notNull().default(100),

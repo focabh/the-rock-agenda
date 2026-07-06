@@ -11,6 +11,7 @@ import { OfflineDownloadButton } from "@/components/shared/offline-download-butt
 import { Teleprompter } from "@/components/shared/teleprompter";
 import { LyricsText } from "@/components/shared/lyrics-text";
 import { PresetBadge } from "@/components/shared/preset-badge";
+import { tomBadgeClass } from "@/lib/tom";
 import { EmptyState } from "@/components/shared/empty-state";
 import { computeStageCues, CUE_EMOJI, CUE_LABEL } from "@/lib/stage-cues";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
@@ -108,7 +109,7 @@ export default async function ModoShowPage({
             <Button render={<Link href="/" />} variant="outline" size="sm">
               <ArrowLeft className="size-4" /> Voltar
             </Button>
-            {teleSongs.length > 0 && <Teleprompter songs={teleSongs} />}
+            {teleSongs.length > 0 && <Teleprompter songs={teleSongs} defaultTom={brand?.tomPadrao ?? null} />}
             <OfflineDownloadButton extraUrls={["/"]} />
           </div>
         }
@@ -192,7 +193,7 @@ export default async function ModoShowPage({
                         <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">🎤 {it.song.vozCueInicial}</span>
                       )}
                       {(it.song.tom) && (
-                        <span className="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.song.tom}</span>
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-xs font-bold ring-1 ring-inset ${tomBadgeClass(it.song.tom, brand?.tomPadrao, "app")}`}>{it.song.tom}</span>
                       )}
                     </li>
                   ))}
@@ -242,7 +243,7 @@ export default async function ModoShowPage({
                           {it.song.vozCueInicial && (
                             <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">🎤 {it.song.vozCueInicial}</span>
                           )}
-                          {(it.song.tom) && <span className="rounded border border-border px-1.5 py-0.5 font-mono text-xs">{it.song.tom}</span>}
+                          {(it.song.tom) && <span className={`rounded px-1.5 py-0.5 font-mono text-xs font-bold ring-1 ring-inset ${tomBadgeClass(it.song.tom, brand?.tomPadrao, "app")}`}>{it.song.tom}</span>}
                         </span>
                       </div>
                       {it.song.lyrics?.trim() ? (
