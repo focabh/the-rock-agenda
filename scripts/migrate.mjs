@@ -96,6 +96,17 @@ await c.execute(`CREATE TABLE IF NOT EXISTS show_song_feedback (
 await c.execute(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_show_song_feedback ON show_song_feedback (show_id, song_id)`);
 console.log("= show_song_feedback (ok)");
 
+await c.execute(`CREATE TABLE IF NOT EXISTS show_live (
+  show_id TEXT PRIMARY KEY REFERENCES shows(id) ON DELETE CASCADE,
+  current_song_id TEXT REFERENCES songs(id) ON DELETE SET NULL,
+  control_mode TEXT NOT NULL DEFAULT 'host_members',
+  maestro_member_id TEXT REFERENCES members(id) ON DELETE SET NULL,
+  updated_by_member_id TEXT REFERENCES members(id) ON DELETE SET NULL,
+  version INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+)`);
+console.log("= show_live (ok)");
+
 await c.execute(`CREATE TABLE IF NOT EXISTS show_substitute (
   id TEXT PRIMARY KEY,
   show_id TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,

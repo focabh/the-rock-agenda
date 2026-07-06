@@ -1051,6 +1051,40 @@ export const promoItems = sqliteTable("promo_items", {
   createdAt: createdAt(),
 });
 
+// ---------------- CONTROLE COLABORATIVO DO SHOW (tempo real via polling) ----
+// Estado ÚNICO e compartilhado do show ao vivo. Todos os dispositivos leem/
+// escrevem este registro; o polling (~2s) mantém tudo sincronizado, sem
+// serviço externo. `version` incrementa a cada mudança (detecção barata no
+// polling). Maestro = quem comandou por último; assume por failover.
+export const showLive = sqliteTable("show_live", {
+  showId: text("show_id")
+    .primaryKey()
+    .references(() => shows.id, { onDelete: "cascade" }),
+  // Música atual (§14) — o que o teleprompter/modo palco seguem.
+  currentSongId: text("current_song_id").references(() => songs.id, {
+    onDelete: "set null",
+  }),
+  // Quem pode controlar (§11).
+  controlMode: text("control_mode", {
+    enum: ["host", "host_members", "all"],
+  })
+    .notNull()
+    .default("host_members"),
+  // Maestro atual (§12) e quem fez a última alteração (§13).
+  maestroMemberId: text("maestro_member_id").references(() => members.id, {
+    onDelete: "set null",
+  }),
+  updatedByMemberId: text("updated_by_member_id").references(() => members.id, {
+    onDelete: "set null",
+  }),
+  // Incrementa a cada mudança → polling detecta sem diffar tudo.
+  version: integer("version").notNull().default(0),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdateFn(() => new Date()),
+});
+
 // ---------------- ANÚNCIOS (MURAL DA BANDA) ----------------
 
 // Avisos internos da banda, mostrados em destaque no painel pra todos.

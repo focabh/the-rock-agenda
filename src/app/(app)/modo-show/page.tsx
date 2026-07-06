@@ -15,7 +15,9 @@ import { tomBadgeClass } from "@/lib/tom";
 import { EmptyState } from "@/components/shared/empty-state";
 import { computeStageCues, CUE_EMOJI, CUE_LABEL } from "@/lib/stage-cues";
 import { formatDataExtensa, formatDataBR } from "@/lib/formatters";
-import { requireCurrentUser, getBrand } from "@/lib/auth";
+import { requireCurrentUser, getBrand, isAdmin } from "@/lib/auth";
+import { LiveSetlist } from "@/components/shows/live-setlist";
+import { getShowLiveAction } from "@/app/(app)/modo-show/live-actions";
 
 export const metadata = { title: "Modo Show — The Rock" };
 
@@ -24,7 +26,7 @@ export default async function ModoShowPage({
 }: {
   searchParams: Promise<{ id?: string }>;
 }) {
-  await requireCurrentUser();
+  const user = await requireCurrentUser();
   const { id } = await searchParams;
 
   // Lista enxuta (só pro seletor e pra achar o show) — não carrega músicas.
@@ -61,6 +63,7 @@ export default async function ModoShowPage({
   if (!show) notFound();
 
   const brand = await getBrand();
+  const initialLive = await getShowLiveAction(show.id); // estado ao vivo compartilhado (§10–17)
 
   // Usa o setlist OFICIAL do show (1 por show). Sem oficial marcado, cai no
   // de mais músicas. Nunca junta vários (era o que duplicava as músicas).
@@ -171,33 +174,28 @@ export default async function ModoShowPage({
           <EmptyState icon={Music2} title="Show sem setlist" description="Monte o setlist do show pra ele aparecer aqui." />
         ) : (
           <>
-            {/* Setlist resumida */}
+            {/* Setlist AO VIVO (controle colaborativo — §10–17 Bloco A) */}
             <Card>
               <CardContent className="py-5">
-                <h3 className="mb-3 flex items-center gap-2 font-semibold">
-                  <Music2 className="size-4 text-primary" /> Setlist ({items.length})
-                </h3>
-                <ol className="space-y-1.5">
-                  {items.map((it, i) => (
-                    <li key={it.id} className="flex items-center gap-2 text-sm">
-                      <span className="w-6 shrink-0 text-right font-mono text-muted-foreground">{i + 1}.</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="line-clamp-2 wrap-break-word font-medium leading-snug">{it.song.titulo}</span>
-                        <span className="block truncate text-xs text-muted-foreground">{it.song.artista}</span>
-                      </span>
-                      {it.song.dropada && (
-                        <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">DROP</span>
-                      )}
-                      <PresetBadge preset={it.song.vozPreset} className="text-[10px]" />
-                      {it.song.vozCueInicial && (
-                        <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/30">🎤 {it.song.vozCueInicial}</span>
-                      )}
-                      {(it.song.tom) && (
-                        <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-xs font-bold ring-1 ring-inset ${tomBadgeClass(it.song.tom, brand?.tomPadrao, "app")}`}>{it.song.tom}</span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
+                <LiveSetlist
+                  showId={show.id}
+                  initial={initialLive}
+                  isHost={isAdmin(user)}
+                  memberId={user.member?.id ?? null}
+                  memberName={user.member?.nome ?? null}
+                  defaultTom={brand?.tomPadrao ?? null}
+                  items={items.map((it, i) => ({
+                    id: it.id,
+                    songId: it.song.id,
+                    n: i + 1,
+                    titulo: it.song.titulo,
+                    artista: it.song.artista,
+                    tom: it.song.tom ?? null,
+                    dropada: it.song.dropada,
+                    vozPreset: it.song.vozPreset,
+                    vozCueInicial: it.song.vozCueInicial,
+                  }))}
+                />
               </CardContent>
             </Card>
 
