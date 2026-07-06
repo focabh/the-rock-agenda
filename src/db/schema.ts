@@ -1085,6 +1085,39 @@ export const showLive = sqliteTable("show_live", {
     .$onUpdateFn(() => new Date()),
 });
 
+// Presença ao vivo (§12): heartbeat de cada integrante no show. Online = visto
+// nos últimos ~20s. id = `${showId}:${memberId}` (upsert simples).
+export const showPresence = sqliteTable("show_presence", {
+  id: text("id").primaryKey(),
+  showId: text("show_id")
+    .notNull()
+    .references(() => shows.id, { onDelete: "cascade" }),
+  memberId: text("member_id")
+    .notNull()
+    .references(() => members.id, { onDelete: "cascade" }),
+  nome: text("nome").notNull(),
+  lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+// Sugestão de próxima música (§16): integrante sugere; o Maestro aceita/ignora.
+export const showSuggestion = sqliteTable("show_suggestion", {
+  id: id(),
+  showId: text("show_id")
+    .notNull()
+    .references(() => shows.id, { onDelete: "cascade" }),
+  memberId: text("member_id").references(() => members.id, { onDelete: "set null" }),
+  byName: text("by_name").notNull(),
+  songId: text("song_id")
+    .notNull()
+    .references(() => songs.id, { onDelete: "cascade" }),
+  status: text("status", { enum: ["pending", "accepted", "ignored"] })
+    .notNull()
+    .default("pending"),
+  createdAt: createdAt(),
+});
+
 // ---------------- ANÚNCIOS (MURAL DA BANDA) ----------------
 
 // Avisos internos da banda, mostrados em destaque no painel pra todos.

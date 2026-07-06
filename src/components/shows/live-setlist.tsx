@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Music2, Radio, CheckCircle2 } from "lucide-react";
+import { Music2, Radio, CheckCircle2, Lightbulb, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { PresetBadge } from "@/components/shared/preset-badge";
 import { tomBadgeClass } from "@/lib/tom";
@@ -9,6 +9,8 @@ import {
   getShowLiveAction,
   setCurrentSongLiveAction,
   setShowControlModeAction,
+  suggestSongAction,
+  respondSuggestionAction,
 } from "@/app/(app)/modo-show/live-actions";
 import type { ShowLiveState } from "@/lib/show-live";
 
@@ -93,24 +95,37 @@ export function LiveSetlist({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showId]);
 
-  function selectSong(songId: string) {
+  // Clique na música: quem controla → define como atual; quem não controla →
+  // SUGERE pro Maestro (§16).
+  function onItemClick(songId: string) {
     if (!canControl) {
-      toast.error("Você não tem permissão pra controlar o show.");
+      startTransition(async () => {
+        const r = await suggestSongAction(showId, songId);
+        if (r.ok) toast.success("Sugestão enviada ao Maestro. 🎶");
+        else toast.error(r.error ?? "Não consegui enviar a sugestão.");
+      });
       return;
     }
     justActed.current = true;
-    // Otimista: reflete já; o servidor confirma no próximo estado.
-    setLive((l) => ({ ...l, currentSongId: songId }));
+    setLive((l) => ({ ...l, currentSongId: songId })); // otimista
     startTransition(async () => {
       const r = await setCurrentSongLiveAction(showId, songId);
       if (!r.ok || !r.state) {
         justActed.current = false;
         toast.error(r.error ?? "Não foi possível trocar a música.");
-        // recarrega o estado real
         getShowLiveAction(showId).then((s) => setLive(s)).catch(() => {});
         return;
       }
       apply(r.state);
+    });
+  }
+
+  function respondSuggestion(id: string, accept: boolean) {
+    justActed.current = true;
+    startTransition(async () => {
+      const r = await respondSuggestionAction(showId, id, accept);
+      if (r.ok && r.state) apply(r.state);
+      else toast.error(r.error ?? "Não consegui responder.");
     });
   }
 
@@ -141,6 +156,56 @@ export function LiveSetlist({
         </span>
       </div>
 
+      {/* Presença ao vivo (§12): quem está conectado agora. */}
+      {live.presence.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {live.presence.map((p) => (
+            <span
+              key={p.memberId}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${
+                p.online
+                  ? "bg-emerald-500/10 text-emerald-600 ring-emerald-500/30 dark:text-emerald-300"
+                  : "text-muted-foreground ring-border"
+              }`}
+              title={p.online ? "Online agora" : "Offline"}
+            >
+              <span className={`size-1.5 rounded-full ${p.online ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+              {p.isMaestro && "🎤 "}
+              {p.nome}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Sugestões (§16): só o Maestro/controlador vê e responde. */}
+      {canControl && live.suggestions.length > 0 && (
+        <div className="space-y-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5">
+          {live.suggestions.map((s) => (
+            <div key={s.id} className="flex items-center gap-2 text-sm">
+              <Lightbulb className="size-4 shrink-0 text-amber-500" />
+              <span className="min-w-0 flex-1 truncate">
+                <strong>{s.byName}</strong> sugeriu: {s.songTitulo}
+              </span>
+              <button
+                type="button"
+                onClick={() => respondSuggestion(s.id, true)}
+                className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+              >
+                <Check className="size-3.5" /> Tocar
+              </button>
+              <button
+                type="button"
+                onClick={() => respondSuggestion(s.id, false)}
+                className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+                title="Ignorar"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {isHost && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-muted-foreground">Quem controla:</span>
@@ -163,7 +228,8 @@ export function LiveSetlist({
 
       {!canControl && (
         <p className="text-xs text-muted-foreground">
-          Modo <strong>{MODE_LABEL[live.controlMode]}</strong> — você acompanha o show em tempo real.
+          Modo <strong>{MODE_LABEL[live.controlMode]}</strong> — você acompanha em tempo real. Toque numa
+          música pra <strong>sugerir</strong> ao Maestro.
         </p>
       )}
 
@@ -174,14 +240,10 @@ export function LiveSetlist({
             <li key={it.id}>
               <button
                 type="button"
-                onClick={() => selectSong(it.songId)}
-                disabled={!canControl}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
-                  isCurrent
-                    ? "bg-primary/15 ring-1 ring-inset ring-primary/40"
-                    : canControl
-                      ? "hover:bg-accent"
-                      : "cursor-default"
+                onClick={() => onItemClick(it.songId)}
+                title={canControl ? "Definir como música atual" : "Sugerir esta música ao Maestro"}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent ${
+                  isCurrent ? "bg-primary/15 ring-1 ring-inset ring-primary/40" : ""
                 }`}
               >
                 <span className="w-6 shrink-0 text-right font-mono text-muted-foreground">{it.n}.</span>

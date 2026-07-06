@@ -107,6 +107,26 @@ await c.execute(`CREATE TABLE IF NOT EXISTS show_live (
 )`);
 console.log("= show_live (ok)");
 
+await c.execute(`CREATE TABLE IF NOT EXISTS show_presence (
+  id TEXT PRIMARY KEY,
+  show_id TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
+  member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  nome TEXT NOT NULL,
+  last_seen_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+)`);
+console.log("= show_presence (ok)");
+
+await c.execute(`CREATE TABLE IF NOT EXISTS show_suggestion (
+  id TEXT PRIMARY KEY,
+  show_id TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
+  member_id TEXT REFERENCES members(id) ON DELETE SET NULL,
+  by_name TEXT NOT NULL,
+  song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+)`);
+console.log("= show_suggestion (ok)");
+
 await c.execute(`CREATE TABLE IF NOT EXISTS show_substitute (
   id TEXT PRIMARY KEY,
   show_id TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
