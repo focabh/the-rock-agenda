@@ -353,6 +353,72 @@ export async function addSongFromSpotifyAction(
   };
 }
 
+/** "Adicionar por nome": busca candidatos no LRCLIB (grátis, já integrado) —
+ *  título, artista, duração e se tem letra sincronizada. Substitui a busca do
+ *  Spotify (bloqueada em dev mode). */
+export async function searchAddCandidatesAction(query: string): Promise<LyricsCandidate[]> {
+  await requireCurrentUser();
+  const q = query.trim();
+  if (q.length < 2) return [];
+  return searchLyricsVersions("", "", q);
+}
+
+/** Cria uma música no repertório a partir de um resultado de busca (LRCLIB):
+ *  já traz letra + letra sincronizada + duração, e busca o BPM. Devolve o id
+ *  (pra, ex., adicionar direto ao setlist). Dedupe por título+artista. */
+export async function addSongByNameAction(input: {
+  titulo: string;
+  artista: string;
+  lrclibId?: number;
+  durationSec?: number | null;
+}): Promise<AddSongFromSpotifyResult> {
+  await requireAdmin();
+  const titulo = input.titulo.trim().slice(0, 200);
+  const artista = (input.artista || "").trim().slice(0, 120);
+  if (!titulo) return { ok: false, error: "Informe o nome da música." };
+
+  const all = await db.select().from(songs);
+  const key = `${titulo.toLowerCase()}|${artista.toLowerCase()}`;
+  const found = all.find(
+    (s) => `${s.titulo.toLowerCase()}|${s.artista.toLowerCase()}` === key
+  );
+  if (found) {
+    return { ok: true, id: found.id, titulo: found.titulo, artista: found.artista, already: true };
+  }
+
+  // Letra (simples + sincronizada) + duração — da versão escolhida, se houver id.
+  let hit: Awaited<ReturnType<typeof fetchLyricsFull>> | null = null;
+  try {
+    hit = input.lrclibId ? await fetchLyricsById(input.lrclibId) : await fetchLyricsFull(titulo, artista);
+  } catch {
+    hit = null;
+  }
+  const dur = input.durationSec || hit?.durationSec || null;
+
+  const [created] = await db
+    .insert(songs)
+    .values({
+      titulo,
+      artista,
+      status: "aprendendo",
+      duracaoSeg: dur,
+      lyrics: hit?.plain ?? null,
+      syncedLyrics: hit?.synced ?? null,
+    })
+    .returning();
+
+  // BPM best-effort (não bloqueia).
+  try {
+    const bpm = await fetchBpm(titulo, artista, null);
+    if (bpm) await db.update(songs).set({ bpm }).where(eq(songs.id, created.id));
+  } catch {
+    /* best-effort */
+  }
+
+  revalidatePath("/repertorio");
+  return { ok: true, id: created.id, titulo: created.titulo, artista: created.artista, already: false };
+}
+
 export async function importPastedToRepertorioAction(
   text: string
 ): Promise<SpotifyImportResult> {

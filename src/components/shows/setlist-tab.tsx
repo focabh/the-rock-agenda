@@ -24,6 +24,7 @@ import {
   Play,
   ExternalLink,
   CornerRightDown,
+  Search,
 } from "lucide-react";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SpotifyExportButton } from "@/components/repertorio/spotify-export-button";
@@ -34,6 +35,7 @@ import { SetlistSuggestDialog } from "@/components/shows/setlist-suggest-dialog"
 import { EnsaioGenerateDialog } from "@/components/ensaios/ensaio-generate-dialog";
 import { LyricsDialog } from "@/components/repertorio/lyrics-dialog";
 import { CuesDialog } from "@/components/repertorio/cues-dialog";
+import { AddByNameDialog } from "@/components/repertorio/add-by-name-dialog";
 import { MetronomeButton } from "@/components/shared/metronome-button";
 import { SongStatusBadge } from "@/components/shared/status-badge";
 import { parseCues } from "@/lib/lrc";
@@ -159,6 +161,7 @@ export function SetlistTab({
   const [delOpen, setDelOpen] = useState(false);
   const [dropOverride, setDropOverride] = useState<Record<string, boolean>>({});
   const [emendaOverride, setEmendaOverride] = useState<Record<string, boolean>>({});
+  const [addNameOpen, setAddNameOpen] = useState(false);
 
   // ---- ações (mesmo componente p/ show e ensaio) ----
   const aAddSong = (slId: string, songId: string) =>
@@ -601,7 +604,12 @@ export function SetlistTab({
         {/* Coluna 2 — adicionar do repertório */}
         {canEdit && selected && (
           <div className="min-w-0 space-y-3">
-            <h3 className="font-semibold">Adicionar do repertório</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold">Adicionar do repertório</h3>
+              <Button variant="outline" size="sm" onClick={() => setAddNameOpen(true)}>
+                <Search className="size-4" /> Por nome
+              </Button>
+            </div>
             <Input placeholder="Buscar música ou artista..." value={q} onChange={(e) => setQ(e.target.value)} />
             <Card className="max-h-[70vh] overflow-y-auto p-0">
               {available.length === 0 ? (
@@ -628,6 +636,14 @@ export function SetlistTab({
         )}
       </div>
 
+      {selected && (
+        <AddByNameDialog
+          open={addNameOpen}
+          onOpenChange={setAddNameOpen}
+          title="Adicionar por nome ao setlist"
+          onAdded={(songId) => startTransition(() => aAddSong(selected.id, songId))}
+        />
+      )}
       <SetlistReuseDialog open={newOpen} onOpenChange={setNewOpen} pending={mgrPending} onCreateEmpty={handleCreate} onClone={handleClone} />
       <NameDialog open={editOpen} onOpenChange={setEditOpen} title="Renomear setlist" placeholder="Ex.: 1º set, Bis, Acústico…" initial={selected?.nome ?? ""} pending={mgrPending} onSubmit={handleEdit} />
       <AlertDialog open={delOpen} onOpenChange={setDelOpen}>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ListMusic, Music, Pencil, Plus } from "lucide-react";
+import { ChevronDown, ListMusic, Music, Pencil, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,10 +13,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SpotifyImportDialog } from "@/components/shared/spotify-import-dialog";
 import { SpotifySongDialog } from "@/components/repertorio/spotify-song-dialog";
+import { AddByNameDialog } from "@/components/repertorio/add-by-name-dialog";
 
 export function AddSongMenu({ defaultUrl }: { defaultUrl?: string | null }) {
   const [songOpen, setSongOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [nameOpen, setNameOpen] = useState(false);
 
   function Linha({
     icon,
@@ -51,6 +53,13 @@ export function AddSongMenu({ defaultUrl }: { defaultUrl?: string | null }) {
           }
         />
         <DropdownMenuContent align="end" className="min-w-60">
+          <DropdownMenuItem onClick={() => setNameOpen(true)}>
+            <Linha
+              icon={<Search className="size-4" />}
+              title="Por nome (buscar)"
+              sub="Digita, escolhe, já vem com letra + sincronizada"
+            />
+          </DropdownMenuItem>
           <DropdownMenuItem render={<Link href="/repertorio/novo" />}>
             <Linha
               icon={<Pencil className="size-4" />}
@@ -76,6 +85,7 @@ export function AddSongMenu({ defaultUrl }: { defaultUrl?: string | null }) {
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <AddByNameDialog open={nameOpen} onOpenChange={setNameOpen} />
       <SpotifySongDialog open={songOpen} onOpenChange={setSongOpen} />
       <SpotifyImportDialog
         mode="repertorio"
