@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Loader2, Search, Plus, Check } from "lucide-react";
+import { Loader2, Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,8 +15,9 @@ import { toast } from "sonner";
 import {
   searchAddCandidatesAction,
   addSongByNameAction,
+  enrichSongAfterAddAction,
 } from "@/app/(app)/repertorio/actions";
-import type { LyricsCandidate } from "@/lib/lyrics";
+import type { TrackHit } from "@/lib/song-search";
 
 /**
  * "Adicionar por nome": digita a música, busca no LRCLIB (grátis) e cria já com
@@ -36,13 +37,14 @@ export function AddByNameDialog({
   title?: string;
 }) {
   const [query, setQuery] = useState("");
-  const [candidates, setCandidates] = useState<LyricsCandidate[]>([]);
+  const [candidates, setCandidates] = useState<TrackHit[]>([]);
   const [searching, startSearch] = useTransition();
-  const [addingId, setAddingId] = useState<number | null>(null);
+  const [addingIdx, setAddingIdx] = useState<number | null>(null);
   const [adding, startAdd] = useTransition();
   const seq = useRef(0);
 
-  // Busca conforme digita (debounce 450ms). Ignora respostas fora de ordem.
+  // Busca conforme digita (debounce 300ms, metadados leves). Ignora respostas
+  // fora de ordem.
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
@@ -55,7 +57,7 @@ export function AddByNameDialog({
         const r = await searchAddCandidatesAction(q);
         if (mine === seq.current) setCandidates(r);
       });
-    }, 450);
+    }, 300);
     return () => clearTimeout(t);
   }, [query]);
 
@@ -64,26 +66,27 @@ export function AddByNameDialog({
     if (!open) {
       setQuery("");
       setCandidates([]);
-      setAddingId(null);
+      setAddingIdx(null);
     }
   }, [open]);
 
-  function add(c: LyricsCandidate) {
-    setAddingId(c.id);
+  function add(c: TrackHit, idx: number) {
+    setAddingIdx(idx);
     startAdd(async () => {
       const r = await addSongByNameAction({
-        titulo: c.trackName,
-        artista: c.artistName,
-        lrclibId: c.id,
+        titulo: c.titulo,
+        artista: c.artista,
         durationSec: c.durationSec,
       });
-      setAddingId(null);
+      setAddingIdx(null);
       if (!r.ok) {
         toast.error(r.error);
         return;
       }
+      // Letra + BPM em SEGUNDO PLANO (não trava a UI).
+      if (!r.already) void enrichSongAfterAddAction(r.id).catch(() => {});
       toast.success(
-        r.already ? `Já estava no repertório: ${r.titulo}` : `Adicionada: ${r.titulo} — ${r.artista}`
+        r.already ? `Já estava no repertório: ${r.titulo}` : `Adicionada: ${r.titulo} — letra e BPM chegando…`
       );
       onAdded?.(r.id, r.titulo);
       onOpenChange(false);
@@ -96,8 +99,8 @@ export function AddByNameDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Digite o nome (e artista) da música. Eu busco e já trago{" "}
-            <strong>letra, letra sincronizada e duração</strong> — e busco o BPM.
+            Digite o nome (e artista) da música. Adiciona na hora; a{" "}
+            <strong>letra sincronizada e o BPM</strong> chegam em segundo plano.
           </DialogDescription>
         </DialogHeader>
 
@@ -126,29 +129,21 @@ export function AddByNameDialog({
               Nada encontrado. Tente incluir o artista.
             </p>
           ) : (
-            candidates.map((c) => (
-              <div key={c.id} className="flex items-center gap-2 rounded-md border border-border p-2">
+            candidates.map((c, idx) => (
+              <div key={`${c.titulo}|${c.artista}|${idx}`} className="flex items-center gap-2 rounded-md border border-border p-2">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
-                    {c.trackName}
-                    <span className="text-muted-foreground"> · {c.artistName}</span>
+                    {c.titulo}
+                    <span className="text-muted-foreground"> · {c.artista}</span>
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {c.albumName ? `${c.albumName} · ` : ""}
-                    {c.durationSec != null
-                      ? `${Math.floor(c.durationSec / 60)}:${String(c.durationSec % 60).padStart(2, "0")} · `
-                      : ""}
-                    {c.hasSynced ? "🕑 sincronizada" : "texto"}
-                  </p>
-                </div>
-                <Button size="sm" variant="outline" disabled={adding} onClick={() => add(c)} className="shrink-0">
-                  {adding && addingId === c.id ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : c.hasSynced ? (
-                    <Check className="size-4" />
-                  ) : (
-                    <Plus className="size-4" />
+                  {c.durationSec != null && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {Math.floor(c.durationSec / 60)}:{String(c.durationSec % 60).padStart(2, "0")}
+                    </p>
                   )}
+                </div>
+                <Button size="sm" variant="outline" disabled={adding} onClick={() => add(c, idx)} className="shrink-0">
+                  {adding && addingIdx === idx ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
                   Adicionar
                 </Button>
               </div>

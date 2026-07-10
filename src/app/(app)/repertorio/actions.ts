@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { songs, songMemberReadiness, members, appSettings } from "@/db/schema";
@@ -34,6 +34,7 @@ import {
 import { assignVozPresetsAI } from "@/lib/voz-presets-ai";
 import { fetchLyricsFull, searchLyricsVersions, fetchLyricsById, type LyricsCandidate } from "@/lib/lyrics";
 import { fetchBpm } from "@/lib/bpm";
+import { searchTracks, type TrackHit } from "@/lib/song-search";
 import { enrichSongsWithAI } from "@/lib/song-ai";
 import { NoApiKeyError } from "@/lib/venue-ai";
 import { isNull } from "drizzle-orm";
@@ -353,23 +354,20 @@ export async function addSongFromSpotifyAction(
   };
 }
 
-/** "Adicionar por nome": busca candidatos no LRCLIB (grátis, já integrado) —
- *  título, artista, duração e se tem letra sincronizada. Substitui a busca do
- *  Spotify (bloqueada em dev mode). */
-export async function searchAddCandidatesAction(query: string): Promise<LyricsCandidate[]> {
+/** "Adicionar por nome": busca RÁPIDA de metadados (iTunes) — título, artista,
+ *  duração. Leve e veloz (não baixa letra). A letra/BPM entram depois, em
+ *  segundo plano (ver enrichSongAfterAddAction). */
+export async function searchAddCandidatesAction(query: string): Promise<TrackHit[]> {
   await requireCurrentUser();
-  const q = query.trim();
-  if (q.length < 2) return [];
-  return searchLyricsVersions("", "", q);
+  return searchTracks(query);
 }
 
-/** Cria uma música no repertório a partir de um resultado de busca (LRCLIB):
- *  já traz letra + letra sincronizada + duração, e busca o BPM. Devolve o id
- *  (pra, ex., adicionar direto ao setlist). Dedupe por título+artista. */
+/** Cria uma música no repertório NA HORA (só grava título/artista/duração —
+ *  instantâneo). Dedupe por título+artista. Letra + BPM ficam pro
+ *  enrichSongAfterAddAction (segundo plano). Devolve o id. */
 export async function addSongByNameAction(input: {
   titulo: string;
   artista: string;
-  lrclibId?: number;
   durationSec?: number | null;
 }): Promise<AddSongFromSpotifyResult> {
   await requireAdmin();
@@ -377,23 +375,15 @@ export async function addSongByNameAction(input: {
   const artista = (input.artista || "").trim().slice(0, 120);
   if (!titulo) return { ok: false, error: "Informe o nome da música." };
 
-  const all = await db.select().from(songs);
-  const key = `${titulo.toLowerCase()}|${artista.toLowerCase()}`;
-  const found = all.find(
-    (s) => `${s.titulo.toLowerCase()}|${s.artista.toLowerCase()}` === key
-  );
-  if (found) {
-    return { ok: true, id: found.id, titulo: found.titulo, artista: found.artista, already: true };
+  // Dedupe por título+artista (case-insensitive) direto no banco.
+  const dup = await db
+    .select({ id: songs.id, titulo: songs.titulo, artista: songs.artista })
+    .from(songs)
+    .where(and(sql`lower(${songs.titulo}) = ${titulo.toLowerCase()}`, sql`lower(${songs.artista}) = ${artista.toLowerCase()}`))
+    .limit(1);
+  if (dup[0]) {
+    return { ok: true, id: dup[0].id, titulo: dup[0].titulo, artista: dup[0].artista, already: true };
   }
-
-  // Letra (simples + sincronizada) + duração — da versão escolhida, se houver id.
-  let hit: Awaited<ReturnType<typeof fetchLyricsFull>> | null = null;
-  try {
-    hit = input.lrclibId ? await fetchLyricsById(input.lrclibId) : await fetchLyricsFull(titulo, artista);
-  } catch {
-    hit = null;
-  }
-  const dur = input.durationSec || hit?.durationSec || null;
 
   const [created] = await db
     .insert(songs)
@@ -401,22 +391,46 @@ export async function addSongByNameAction(input: {
       titulo,
       artista,
       status: "aprendendo",
-      duracaoSeg: dur,
-      lyrics: hit?.plain ?? null,
-      syncedLyrics: hit?.synced ?? null,
+      duracaoSeg: input.durationSec ?? null,
     })
     .returning();
 
-  // BPM best-effort (não bloqueia).
+  revalidatePath("/repertorio");
+  return { ok: true, id: created.id, titulo: created.titulo, artista: created.artista, already: false };
+}
+
+/** Enriquecimento em SEGUNDO PLANO após adicionar: busca letra (simples +
+ *  sincronizada) e BPM. Chamado pelo cliente sem bloquear a UI. */
+export async function enrichSongAfterAddAction(songId: string): Promise<{ ok: boolean }> {
+  await requireCurrentUser();
+  const [song] = await db.select().from(songs).where(eq(songs.id, songId)).limit(1);
+  if (!song) return { ok: false };
+  const patch: Record<string, string | number> = {};
   try {
-    const bpm = await fetchBpm(titulo, artista, null);
-    if (bpm) await db.update(songs).set({ bpm }).where(eq(songs.id, created.id));
+    if (!song.lyrics?.trim() || !song.syncedLyrics?.trim()) {
+      const hit = await fetchLyricsFull(song.titulo, song.artista);
+      if (hit.plain && !song.lyrics?.trim()) patch.lyrics = hit.plain;
+      if (hit.synced && !song.syncedLyrics?.trim()) patch.syncedLyrics = hit.synced;
+      if (hit.durationSec && !song.duracaoSeg) patch.duracaoSeg = hit.durationSec;
+    }
   } catch {
     /* best-effort */
   }
-
-  revalidatePath("/repertorio");
-  return { ok: true, id: created.id, titulo: created.titulo, artista: created.artista, already: false };
+  try {
+    if (!song.bpm) {
+      const bpm = await fetchBpm(song.titulo, song.artista, song.spotifyTrackId);
+      if (bpm) patch.bpm = bpm;
+    }
+  } catch {
+    /* best-effort */
+  }
+  if (Object.keys(patch).length) {
+    await db.update(songs).set(patch).where(eq(songs.id, songId));
+    revalidatePath("/repertorio");
+    revalidatePath("/shows", "layout");
+    revalidatePath("/ensaios", "layout");
+  }
+  return { ok: true };
 }
 
 export async function importPastedToRepertorioAction(
