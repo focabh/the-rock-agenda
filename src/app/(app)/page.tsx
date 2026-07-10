@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, gte, eq, and, ne, gt, inArray } from "drizzle-orm";
+import { asc, gte, eq, and, ne, gt, lt, inArray } from "drizzle-orm";
 import {
   CalendarDays,
   CalendarClock,
@@ -31,6 +31,7 @@ import {
   type AnnouncementView,
 } from "@/components/announcements/announcements-section";
 import { VenueRemindersSection } from "@/components/casas/venue-reminders";
+import { ConfirmShowsCard, type ConfirmShow } from "@/components/shows/confirm-shows-card";
 import { EnableNotifBanner } from "@/components/shared/enable-notif-banner";
 import { ReminderPinger } from "@/components/shared/reminder-pinger";
 import {
@@ -104,6 +105,26 @@ export default async function DashboardPage() {
     (s, r) => s + (r.cacheCentavos ?? 0),
     0
   );
+
+  // Shows PASSADOS (a partir de ontem) ainda não resolvidos → confirmar.
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const pendentesConfirmar = admin
+    ? await db.query.shows.findMany({
+        where: and(
+          lt(shows.data, startOfToday),
+          inArray(shows.status, ["planejado", "confirmado"])
+        ),
+        with: { casa: true },
+        orderBy: (s, { desc }) => [desc(s.data)],
+      })
+    : [];
+  const confirmShows: ConfirmShow[] = pendentesConfirmar.map((s) => ({
+    id: s.id,
+    casaNome: s.casa.nome,
+    dataLabel: formatDataBR(s.data, true),
+    cacheLabel: s.cacheCentavos ? `Cachê ${formatBRL(s.cacheCentavos)}` : null,
+  }));
 
   // Cachê da banda → músicos: agregado por show (count + total a pagar).
   // Mostrado só pro admin (gestão do repasse).
@@ -237,6 +258,9 @@ export default async function DashboardPage() {
 
         {/* Anúncios — mural da banda, em destaque no topo */}
         <AnnouncementsSection announcements={anuncios} admin={admin} />
+
+        {/* Confirmar shows passados (admin) — aconteceu? cachê? poucos toques */}
+        {admin && <ConfirmShowsCard shows={confirmShows} />}
 
         {/* Lembretes das casas (admin) — agradecer, follow-up, marcar data… */}
         {admin && <VenueRemindersSection reminders={venueReminders} />}

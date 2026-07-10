@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { asc } from "drizzle-orm";
-import { Plus, CalendarClock, Pencil, MapPin } from "lucide-react";
+import { Plus, CalendarClock, Pencil, MapPin, ChevronRight } from "lucide-react";
 import { db } from "@/db";
 import { rehearsals } from "@/db/schema";
 import { PageHeader } from "@/components/shared/page-header";
@@ -140,18 +140,21 @@ export default async function EnsaiosPage() {
             </div>
 
             {passados.length > 0 && (
-              <div>
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Anteriores
-                </h2>
-                <Card className="overflow-hidden p-0">
+              // Anteriores ficam RECOLHIDOS (somem da vista), mas continuam a 1
+              // toque — os setlists deles seguem salvos e reutilizáveis.
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground marker:content-none">
+                  <ChevronRight className="size-4 transition-transform group-open:rotate-90" />
+                  Anteriores ({passados.length})
+                </summary>
+                <Card className="mt-2 overflow-hidden p-0">
                   <ul className="divide-y divide-border">
                     {passados.map((r) => (
                       <Row key={r.id} r={r} admin={admin} />
                     ))}
                   </ul>
                 </Card>
-              </div>
+              </details>
             )}
           </>
         )}
