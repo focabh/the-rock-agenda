@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Music2, Radio, CheckCircle2, Lightbulb, Check, X } from "lucide-react";
+import { Music2, Radio, CheckCircle2, Lightbulb, Check, X, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { PresetBadge } from "@/components/shared/preset-badge";
 import { tomBadgeClass } from "@/lib/tom";
@@ -11,6 +11,8 @@ import {
   setShowControlModeAction,
   suggestSongAction,
   respondSuggestionAction,
+  getSetlistOrderAction,
+  moveLiveItemAction,
 } from "@/app/(app)/modo-show/live-actions";
 import type { ShowLiveState } from "@/lib/show-live";
 
@@ -35,6 +37,7 @@ const POLL_MS = 2500;
  */
 export function LiveSetlist({
   showId,
+  setlistId,
   items,
   initial,
   isHost,
@@ -43,6 +46,7 @@ export function LiveSetlist({
   defaultTom,
 }: {
   showId: string;
+  setlistId: string | null;
   items: LiveItem[];
   initial: ShowLiveState;
   isHost: boolean;
@@ -51,9 +55,16 @@ export function LiveSetlist({
   defaultTom: string | null;
 }) {
   const [live, setLive] = useState<ShowLiveState>(initial);
+  const [orderIds, setOrderIds] = useState<string[]>(items.map((i) => i.id));
   const [, startTransition] = useTransition();
   const lastVersion = useRef(initial.version);
   const justActed = useRef(false);
+
+  // Ordena os itens pela ordem ao vivo (fallback: ordem recebida do servidor).
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const ordered = orderIds.map((id) => byId.get(id)).filter((x): x is LiveItem => !!x);
+  const orderedItems = ordered.length === items.length ? ordered : items;
+  const canReorder = (isHost || live.controlMode === "all" || (live.controlMode === "host_members" && !!memberId)) && !!setlistId;
 
   const canControl =
     isHost || live.controlMode === "all" || (live.controlMode === "host_members" && !!memberId);
@@ -66,9 +77,35 @@ export function LiveSetlist({
         toast(`Música alterada por ${next.updatedByName}`, { icon: "🎶" });
       }
       justActed.current = false;
+      // Algo mudou no show → re-sincroniza a ordem do setlist (§15).
+      if (setlistId) getSetlistOrderAction(setlistId).then(setOrderIds).catch(() => {});
     }
     lastVersion.current = next.version;
     setLive(next);
+  }
+
+  function move(itemId: string, dir: -1 | 1) {
+    if (!setlistId) return;
+    justActed.current = true;
+    // Otimista: troca localmente já.
+    setOrderIds((ids) => {
+      const i = ids.indexOf(itemId);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= ids.length) return ids;
+      const next = [...ids];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+    startTransition(async () => {
+      const r = await moveLiveItemAction(showId, setlistId, itemId, dir);
+      if (!r.ok) {
+        justActed.current = false;
+        toast.error(r.error ?? "Não consegui reordenar.");
+        getSetlistOrderAction(setlistId).then(setOrderIds).catch(() => {});
+      } else if (r.order) {
+        setOrderIds(r.order);
+      }
+    });
   }
 
   // Polling: mantém todos os dispositivos sincronizados. Também repolla ao voltar
@@ -234,19 +271,19 @@ export function LiveSetlist({
       )}
 
       <ol className="space-y-1.5">
-        {items.map((it) => {
+        {orderedItems.map((it, pos) => {
           const isCurrent = live.currentSongId === it.songId;
           return (
-            <li key={it.id}>
+            <li key={it.id} className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => onItemClick(it.songId)}
                 title={canControl ? "Definir como música atual" : "Sugerir esta música ao Maestro"}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent ${
+                className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent ${
                   isCurrent ? "bg-primary/15 ring-1 ring-inset ring-primary/40" : ""
                 }`}
               >
-                <span className="w-6 shrink-0 text-right font-mono text-muted-foreground">{it.n}.</span>
+                <span className="w-6 shrink-0 text-right font-mono text-muted-foreground">{pos + 1}.</span>
                 <span className="min-w-0 flex-1">
                   <span className="line-clamp-2 wrap-break-word font-medium leading-snug">
                     {it.titulo}
@@ -272,6 +309,28 @@ export function LiveSetlist({
                   </span>
                 )}
               </button>
+              {canReorder && (
+                <span className="flex shrink-0 flex-col">
+                  <button
+                    type="button"
+                    onClick={() => move(it.id, -1)}
+                    disabled={pos === 0}
+                    className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent disabled:opacity-30"
+                    title="Subir"
+                  >
+                    <ChevronUp className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(it.id, 1)}
+                    disabled={pos === orderedItems.length - 1}
+                    className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent disabled:opacity-30"
+                    title="Descer"
+                  >
+                    <ChevronDown className="size-4" />
+                  </button>
+                </span>
+              )}
             </li>
           );
         })}

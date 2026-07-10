@@ -182,6 +182,7 @@ export default async function ModoShowPage({
               <CardContent className="py-5">
                 <LiveSetlist
                   showId={show.id}
+                  setlistId={oficial?.id ?? null}
                   initial={initialLive}
                   isHost={isAdmin(user)}
                   memberId={user.member?.id ?? null}

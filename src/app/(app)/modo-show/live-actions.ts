@@ -1,8 +1,8 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { showLive, showPresence, showSuggestion, songs, members } from "@/db/schema";
+import { showLive, showPresence, showSuggestion, songs, members, setlistItems } from "@/db/schema";
 import { getCurrentUser, isAdmin, type CurrentUser } from "@/lib/auth";
 import type { ShowLiveState } from "@/lib/show-live";
 
@@ -158,6 +158,52 @@ export async function suggestSongAction(
     await bumpVersion(showId); // pollers dos controladores atualizam logo
   }
   return { ok: true };
+}
+
+/** Ordem atual dos itens do setlist (ids, na ordem). Usado no polling do live. */
+export async function getSetlistOrderAction(setlistId: string): Promise<string[]> {
+  await getCurrentUser();
+  const rows = await db
+    .select({ id: setlistItems.id })
+    .from(setlistItems)
+    .where(eq(setlistItems.setlistId, setlistId))
+    .orderBy(asc(setlistItems.ordem));
+  return rows.map((r) => r.id);
+}
+
+/** Move um item pra cima/baixo no setlist AO VIVO (§15). Sincroniza (bump da
+ *  version) e persiste em setlist_items.ordem. Requer permissão de controle. */
+export async function moveLiveItemAction(
+  showId: string,
+  setlistId: string,
+  itemId: string,
+  dir: -1 | 1
+): Promise<{ ok: boolean; order?: string[]; error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Não autenticado." };
+  const cur = await readState(showId);
+  if (!canControl(cur.controlMode, user)) {
+    return { ok: false, error: "Você não tem permissão pra reordenar." };
+  }
+  const rows = await db
+    .select({ id: setlistItems.id, ordem: setlistItems.ordem })
+    .from(setlistItems)
+    .where(eq(setlistItems.setlistId, setlistId))
+    .orderBy(asc(setlistItems.ordem));
+  const idx = rows.findIndex((r) => r.id === itemId);
+  const j = idx + dir;
+  if (idx < 0 || j < 0 || j >= rows.length) {
+    return { ok: true, order: rows.map((r) => r.id) }; // no-op (ponta)
+  }
+  const a = rows[idx];
+  const b = rows[j];
+  // Troca os valores de ordem entre os dois vizinhos.
+  await db.update(setlistItems).set({ ordem: b.ordem }).where(eq(setlistItems.id, a.id));
+  await db.update(setlistItems).set({ ordem: a.ordem }).where(eq(setlistItems.id, b.id));
+  await bumpVersion(showId);
+  const order = [...rows.map((r) => r.id)];
+  [order[idx], order[j]] = [order[j], order[idx]];
+  return { ok: true, order };
 }
 
 /** Maestro responde a uma sugestão (§16): aceitar (vira música atual) ou ignorar. */
