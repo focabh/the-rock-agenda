@@ -78,9 +78,12 @@ export function AddByNameDialog({
     return () => clearTimeout(t);
   }, [query]);
 
-  // Limpa ao fechar.
+  // Limpa ao fechar. Incrementa `seq` pra INVALIDAR qualquer fase 2 em voo — a
+  // resposta tardia (mine !== seq.current) não aplica mais estado com o diálogo
+  // fechado (sem atualização indevida / warning).
   useEffect(() => {
     if (!open) {
+      seq.current++;
       setQuery("");
       setCandidates([]);
       setAddingIdx(null);

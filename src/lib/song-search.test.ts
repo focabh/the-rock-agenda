@@ -20,6 +20,8 @@ const t = (trackName: string, artistName: string, collectionName?: string) => ({
 // ---------------------------------------------------------------------------
 describe("rankTracks", () => {
   it("creep radiohead → estúdio do Radiohead no topo (não o acústico/cover/karaokê)", () => {
+    // O estúdio original só existe no CATÁLOGO (o /search do iTunes o esconde);
+    // ele ganha o bônus de catálogo oficial e vence as variantes da busca.
     const r = rankTracks("creep radiohead", {
       song: [
         t("Creep (Acoustic)", "Radiohead", "Creep - EP"),
@@ -31,6 +33,10 @@ describe("rankTracks", () => {
       artistNames: ["Radiohead"],
     });
     expect(r[0].titulo).toBe("Creep");
+    expect(r[0].artista).toBe("Radiohead");
+    // Nenhum marcador de versão não-original no topo.
+    expect(r[0].titulo).not.toMatch(/acoustic|ac[úu]stic|live|ao vivo|remix|karaoke|cover|tribute|tributo|instrumental/i);
+    // O topo é a faixa do catálogo oficial (venceu as da busca).
     expect(r[0].artista).toBe("Radiohead");
   });
 
