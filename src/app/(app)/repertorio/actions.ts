@@ -34,7 +34,7 @@ import {
 import { assignVozPresetsAI } from "@/lib/voz-presets-ai";
 import { fetchLyricsFull, searchLyricsVersions, fetchLyricsById, type LyricsCandidate } from "@/lib/lyrics";
 import { fetchBpm } from "@/lib/bpm";
-import { searchTracks, type TrackHit } from "@/lib/song-search";
+import { searchTracks, searchTracksFast, type TrackHit } from "@/lib/song-search";
 import { enrichSongsWithAI } from "@/lib/song-ai";
 import { NoApiKeyError } from "@/lib/venue-ai";
 import { isNull } from "drizzle-orm";
@@ -357,7 +357,16 @@ export async function addSongFromSpotifyAction(
 /** "Adicionar por nome": busca RÁPIDA de metadados (iTunes) — título, artista,
  *  duração. Leve e veloz (não baixa letra). A letra/BPM entram depois, em
  *  segundo plano (ver enrichSongAfterAddAction). */
+/** FASE 1: resultados normais, rápidos — o que aparece na hora ao digitar. */
 export async function searchAddCandidatesAction(query: string): Promise<TrackHit[]> {
+  await requireCurrentUser();
+  return searchTracksFast(query);
+}
+
+/** FASE 2: refino — busca normal + catálogo oficial do artista (traz o estúdio
+ *  original que o /search esconde). Pode demorar mais; o cliente chama por cima
+ *  da fase 1 e só troca a lista se a query ainda for a mesma. */
+export async function refineAddCandidatesAction(query: string): Promise<TrackHit[]> {
   await requireCurrentUser();
   return searchTracks(query);
 }

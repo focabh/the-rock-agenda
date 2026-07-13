@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   searchAddCandidatesAction,
+  refineAddCandidatesAction,
   addSongByNameAction,
   enrichSongAfterAddAction,
 } from "@/app/(app)/repertorio/actions";
@@ -39,24 +40,40 @@ export function AddByNameDialog({
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<TrackHit[]>([]);
   const [searching, startSearch] = useTransition();
+  const [refining, setRefining] = useState(false);
   const [addingIdx, setAddingIdx] = useState<number | null>(null);
   const [adding, startAdd] = useTransition();
   const seq = useRef(0);
 
-  // Busca conforme digita (debounce 300ms, metadados leves). Ignora respostas
-  // fora de ordem.
+  // Busca conforme digita (debounce 300ms). DUAS FASES: a fase 1 (busca normal,
+  // rápida) aparece na hora; a fase 2 (refino com o catálogo oficial do artista
+  // — traz o estúdio original) chega depois e SÓ troca a lista se a query ainda
+  // for a mesma. Assim a expansão nunca bloqueia a primeira exibição. Ignora
+  // respostas fora de ordem via `seq`.
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
       setCandidates([]);
+      setRefining(false);
       return;
     }
     const mine = ++seq.current;
     const t = setTimeout(() => {
       startSearch(async () => {
-        const r = await searchAddCandidatesAction(q);
-        if (mine === seq.current) setCandidates(r);
+        const fast = await searchAddCandidatesAction(q);
+        if (mine !== seq.current) return;
+        setCandidates(fast);
       });
+      // Refino em paralelo (não bloqueia a fase 1).
+      setRefining(true);
+      refineAddCandidatesAction(q)
+        .then((full) => {
+          if (mine === seq.current) setCandidates(full);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (mine === seq.current) setRefining(false);
+        });
     }, 300);
     return () => clearTimeout(t);
   }, [query]);
@@ -67,6 +84,7 @@ export function AddByNameDialog({
       setQuery("");
       setCandidates([]);
       setAddingIdx(null);
+      setRefining(false);
     }
   }, [open]);
 
@@ -114,6 +132,12 @@ export function AddByNameDialog({
             className="pl-8"
           />
         </div>
+
+        {refining && candidates.length > 0 && (
+          <p className="flex items-center gap-1.5 px-0.5 text-xs text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" /> Buscando a versão original…
+          </p>
+        )}
 
         <div className="max-h-[55vh] min-h-24 space-y-1.5 overflow-y-auto">
           {searching && candidates.length === 0 ? (

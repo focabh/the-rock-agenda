@@ -1,11 +1,29 @@
 "use client";
 
 import { useEffect } from "react";
+import { toast } from "sonner";
+
+const JUST_UPDATED_KEY = "rock:justUpdated";
 
 /** Registra o service worker (PWA + Web Push + offline) E mantém o app
  *  atualizado: quando sai uma versão nova, o SW novo assume e a página recarrega
- *  sozinha (uma vez) — acaba o problema de "app velho preso em cache". */
+ *  sozinha (uma vez) — acaba o problema de "app velho preso em cache". Depois do
+ *  reload, mostra uma confirmação VISÍVEL ("App atualizado") pra o usuário não
+ *  ter que adivinhar que já está na versão nova. */
 export function ServiceWorkerRegister() {
+  // Confirma a atualização DEPOIS do reload (a flag foi gravada antes de
+  // recarregar). Fica no topo pra rodar assim que a página volta.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(JUST_UPDATED_KEY)) {
+        sessionStorage.removeItem(JUST_UPDATED_KEY);
+        toast.success("App atualizado para a versão mais recente ✓");
+      }
+    } catch {
+      /* sessionStorage indisponível — ignora */
+    }
+  }, []);
+
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
@@ -17,6 +35,11 @@ export function ServiceWorkerRegister() {
       // não a primeira instalação) — evita reload desnecessário no 1º acesso.
       if (refreshing || !hadController) return;
       refreshing = true;
+      try {
+        sessionStorage.setItem(JUST_UPDATED_KEY, "1"); // confirma após o reload
+      } catch {
+        /* ignora */
+      }
       window.location.reload();
     };
 
